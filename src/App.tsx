@@ -1,6 +1,6 @@
 // src/App.tsx
 import React, { useEffect, useState } from "react";
-import GidoApp from "./screens/GidoApp";
+import ShopListScreen from "./screens/ShopListScreen";
 import VersionInfoScreen from "./screens/VersionInfoScreen";
 import UnifiedSettingsScreen from "./screens/UnifiedSettingsScreen";
 import {
@@ -205,7 +205,7 @@ const App: React.FC = () => {
 
   return (
     <>
-      <GidoApp locationIconSettings={locationSettings} imageSettings={imageSettings} />
+      <ShopListScreen />
       <UnifiedSettingsScreen
         floor={floor}
         onSaveFloor={handleSaveFloor}
