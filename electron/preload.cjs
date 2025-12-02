@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('appInfo', {
 });
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  getBridgeBaseUrl() {
+    return ipcRenderer.invoke('get-bridge-base-url');
+  },
   getFloor() {
     return ipcRenderer.invoke('settings:get-floor');
   },

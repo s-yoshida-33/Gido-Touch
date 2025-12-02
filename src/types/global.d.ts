@@ -28,6 +28,7 @@ type FloorLayoutPerFloor = {
 type FloorLayout = Record<string, FloorLayoutPerFloor>;
 
 interface ElectronAPI {
+  getBridgeBaseUrl: () => Promise<string>;
   getFloor: () => Promise<string>;
   setFloor: (floor: string) => void;
   onFloorChanged: (cb: (floor: string) => void) => void;
