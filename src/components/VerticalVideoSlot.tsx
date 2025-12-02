@@ -8,11 +8,24 @@ const VerticalVideoSlot: React.FC = () => {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
   const prevAssetIdRef = React.useRef<string | null>(null);
+  const [objectFit, setObjectFit] = React.useState<'cover' | 'contain'>('cover');
+
+  // CMSエリアのアスペクト比: 1080px × 844px
+  const containerAspectRatio = 1080 / 844;
+
+  // アスペクト比に基づいてobject-fitを決定
+  const calculateObjectFit = (mediaWidth: number, mediaHeight: number) => {
+    const mediaAspectRatio = mediaWidth / mediaHeight;
+    // 横長のコンテンツ（メディアのアスペクト比 > コンテナのアスペクト比）: contain（横幅マックス、上下余白）
+    // 縦長のコンテンツ（メディアのアスペクト比 <= コンテナのアスペクト比）: cover（エリアいっぱい）
+    return mediaAspectRatio > containerAspectRatio ? 'contain' : 'cover';
+  };
 
   // Reset media element when asset changes
   React.useEffect(() => {
     if (asset && asset.id !== prevAssetIdRef.current) {
-      // Asset changed - reset media elements
+      // Asset changed - reset media elements and object-fit
+      setObjectFit('cover'); // デフォルトにリセット
       if (videoRef.current) {
         videoRef.current.load(); // Force reload
       }
@@ -66,12 +79,18 @@ const VerticalVideoSlot: React.FC = () => {
           width: '100%',
           height: '100%',
           display: 'block',
-          objectFit: 'cover',
+          objectFit: objectFit,
         }}
-        onLoad={() => {
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          const fit = calculateObjectFit(img.naturalWidth, img.naturalHeight);
+          setObjectFit(fit);
           logInfo('image', 'Image loaded in VerticalVideoSlot', {
             assetId: asset.id,
             src: asset.src,
+            naturalWidth: img.naturalWidth,
+            naturalHeight: img.naturalHeight,
+            objectFit: fit,
           });
         }}
         onError={() => {
@@ -97,12 +116,18 @@ const VerticalVideoSlot: React.FC = () => {
         width: '100%',
         height: '100%',
         display: 'block',
-        objectFit: 'cover',
+        objectFit: objectFit,
       }}
-      onLoadedData={() => {
+      onLoadedData={(e) => {
+        const video = e.currentTarget;
+        const fit = calculateObjectFit(video.videoWidth, video.videoHeight);
+        setObjectFit(fit);
         logInfo('video', 'Video loaded in VerticalVideoSlot', {
           assetId: asset.id,
           src: asset.src,
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          objectFit: fit,
         });
       }}
       onPlay={() => {
