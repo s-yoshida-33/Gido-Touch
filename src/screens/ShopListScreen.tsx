@@ -1,5 +1,5 @@
 // src/screens/ShopListScreen.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
 import button1F from "../assets/button-1F.svg";
@@ -82,6 +82,55 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
   
   return photo;
 }
+
+/**
+ * Shop name display component that scales text to fit width
+ */
+const ShopNameDisplay: React.FC<{ name: string }> = ({ name }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (containerRef.current && textRef.current) {
+      const containerWidth = containerRef.current.clientWidth;
+      const textWidth = textRef.current.scrollWidth;
+      
+      if (textWidth > containerWidth) {
+        const scale = containerWidth / textWidth;
+        textRef.current.style.transform = `scaleX(${Math.max(scale, 0.5)})`;
+      } else {
+        textRef.current.style.transform = "scaleX(1)";
+      }
+    }
+  }, [name]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        fontSize: "24px",
+        fontWeight: 700,
+        lineHeight: "1.4",
+        width: "100%",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        transformOrigin: "left center",
+      }}
+    >
+      <div
+        ref={textRef}
+        style={{
+          display: "inline-block",
+          transform: "scaleX(1)",
+          whiteSpace: "nowrap",
+          transformOrigin: "left center",
+        }}
+      >
+        {name}
+      </div>
+    </div>
+  );
+};
 
 /**
  * Convert a local file path to a file:// URL for Electron
@@ -332,8 +381,12 @@ const ShopListScreen: React.FC = () => {
                   {columnShops.map((shop) => {
                     // Get first floor for display
                     const floor = shop.floors && shop.floors.length > 0 ? shop.floors[0] : "";
+                    // Get first genre memo only (if multiple, take the first one)
+                    const genreMemo = shop.genreMemo 
+                      ? shop.genreMemo.split(/[,、，\s]+/)[0].trim() 
+                      : "";
                     // Format first line: "フロア [区画番号] ジャンルメモ"
-                    const firstLine = `${floor} [${shop.number}] ${shop.genreMemo || ""}`;
+                    const firstLine = `${floor} [${shop.number}] ${genreMemo}`;
 
                     return (
                       <div
@@ -393,10 +446,14 @@ const ShopListScreen: React.FC = () => {
                               <img
                                 src={imageUrl}
                                 alt={shop.name}
+                                draggable={false}
+                                onDragStart={(e) => e.preventDefault()}
                                 style={{
                                   width: "100%",
                                   height: "100%",
                                   objectFit: "contain", // Always use contain to prevent cropping
+                                  userSelect: "none",
+                                  pointerEvents: "auto",
                                 }}
                                 onError={(e) => {
                                   // Fallback to placeholder if image fails to load
@@ -441,15 +498,7 @@ const ShopListScreen: React.FC = () => {
                             {firstLine}
                           </div>
                           {/* Second line: Shop name (24px) */}
-                          <div
-                            style={{
-                              fontSize: "24px",
-                              fontWeight: 700,
-                              lineHeight: "1.4",
-                            }}
-                          >
-                            {shop.name}
-                          </div>
+                          <ShopNameDisplay name={shop.name} />
                         </div>
                       </div>
                     );
