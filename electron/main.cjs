@@ -116,8 +116,8 @@ function loadSettings() {
     },
     portRanges: {
       bridge: {
-        min: 8080,
-        max: 8089,
+        min: 8090,
+        max: 8099,
       },
       cms: {
         min: 8080,
