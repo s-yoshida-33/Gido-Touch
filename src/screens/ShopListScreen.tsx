@@ -1,45 +1,52 @@
 // src/screens/ShopListScreen.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
+import VerticalVideoSlot from "../components/VerticalVideoSlot";
+import button1F from "../assets/button-1F.svg";
+import button2F from "../assets/button-2F.svg";
+import button3F from "../assets/button-3F.svg";
+import button1FHighlight from "../assets/button-1F-highlight.svg";
+import button2FHighlight from "../assets/button-2F-highlight.svg";
+import button3FHighlight from "../assets/button-3F-highlight.svg";
+import selectLanguage from "../assets/select-language.svg";
+import openTime from "../assets/open-time.svg";
 
 /**
- * 店舗一覧画面
- * 画面サイズ: 3840×2160
- * 背景: 黒
- * 店舗一覧部分: 2640×2160（左側）
- * 店舗一覧部分の背景: #FDE7C6
- * Actionスペース: 1140×2160（右側）
- * Actionスペースの背景: 白
+ * Shop list screen
+ * Screen size: 3840×2160
+ * Background: Black
+ * Shop list area: 2640×2160 (left side)
+ * Shop list area background: #FDE7C6
+ * Action space: 1140×2160 (right side)
+ * Action space background: Black
  */
 const ShopListScreen: React.FC = () => {
-  // スクロールコンテナのref
+  // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [isScrolledToRight, setIsScrolledToRight] = useState(false);
-  const [isScrolledToLeft, setIsScrolledToLeft] = useState(true);
   
-  // ドラッグスクロール用の状態
+  // Drag scroll state
   const isDraggingRef = useRef(false);
   const dragStartXRef = useRef(0);
   const scrollStartXRef = useRef(0);
 
-  // 仮のカードデータ（50個）
+  // Temporary card data (50 items)
   const cardCount = 50;
   const cards = Array.from({ length: cardCount }, (_, i) => ({
     id: i + 1,
     name: `店舗 ${i + 1}`,
   }));
 
-  // 縦6行で配置
+  // Layout: 6 rows per column
   const rowsPerColumn = 6;
   const totalColumns = Math.ceil(cards.length / rowsPerColumn);
 
-  // カードのサイズ計算
-  // コンテンツ領域: width: 2580px (2640 - 30*2), height: 2040px (2100 - 30*2)
-  const cardHeight = (2040 - 20 * (rowsPerColumn - 1)) / rowsPerColumn; // 行間20px
-  const cardWidth = 376; // カード幅
-  const columnGap = 20; // 列間の余白
-  const imageHeight = 250; // 画像の高さ
+  // Card size calculation
+  // Content area: width: 2580px (2640 - 30*2), height: 2040px (2100 - 30*2)
+  const cardHeight = (2040 - 20 * (rowsPerColumn - 1)) / rowsPerColumn; // Row gap: 20px
+  const cardWidth = 376; // Card width
+  const columnGap = 20; // Column gap
+  const imageHeight = 250; // Image height
 
-  // カードを列ごとにグループ化
+  // Group cards by column
   const columns: typeof cards[] = [];
   for (let i = 0; i < totalColumns; i++) {
     const startIndex = i * rowsPerColumn;
@@ -47,38 +54,7 @@ const ShopListScreen: React.FC = () => {
     columns.push(cards.slice(startIndex, endIndex));
   }
 
-  // スクロール位置を監視
-  useEffect(() => {
-    const handleScroll = () => {
-      const container = scrollContainerRef.current;
-      if (!container) return;
-
-      const { scrollLeft, scrollWidth, clientWidth } = container;
-      // 右端に到達したかどうか（1pxの誤差を許容）
-      const isAtRight = scrollLeft + clientWidth >= scrollWidth - 1;
-      // 左端に到達したかどうか（1pxの誤差を許容）
-      // スクロール中（scrollLeft > 1）の場合は false になる
-      const isAtLeft = Math.abs(scrollLeft) < 1;
-      
-      setIsScrolledToRight(isAtRight);
-      setIsScrolledToLeft(isAtLeft);
-    };
-
-    const container = scrollContainerRef.current;
-    if (container) {
-      // 初期状態をチェック
-      handleScroll();
-      container.addEventListener("scroll", handleScroll);
-      // リサイズ時もチェック
-      window.addEventListener("resize", handleScroll);
-      return () => {
-        container.removeEventListener("scroll", handleScroll);
-        window.removeEventListener("resize", handleScroll);
-      };
-    }
-  }, []);
-
-  // マウスドラッグでスクロール
+  // Mouse drag scroll
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -118,7 +94,7 @@ const ShopListScreen: React.FC = () => {
     container.style.userSelect = "";
   };
 
-  // スクロールバーを非表示にするスタイルを追加
+  // Add style to hide scrollbar
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = `
@@ -145,7 +121,7 @@ const ShopListScreen: React.FC = () => {
         boxSizing: "border-box",
       }}
     >
-      {/* 店舗一覧部分（左側） */}
+      {/* Shop list area (left side) */}
       <div
         style={{
           width: "2640px",
@@ -162,7 +138,7 @@ const ShopListScreen: React.FC = () => {
           overflow: "hidden",
         }}
       >
-        {/* スクロール可能なコンテナ */}
+        {/* Scrollable container */}
         <div
           ref={scrollContainerRef}
           style={{
@@ -180,7 +156,7 @@ const ShopListScreen: React.FC = () => {
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
         >
-          {/* カードグリッドコンテナ */}
+          {/* Card grid container */}
           <div
             style={{
               display: "flex",
@@ -209,7 +185,7 @@ const ShopListScreen: React.FC = () => {
                       width: `${cardWidth}px`,
                       height: `${cardHeight}px`,
                       backgroundColor: "#000000",
-                      borderRadius: "0 30px 30px 30px", // 右上、左下、右下を30px
+                      borderRadius: "0 30px 30px 30px", // Top-right, bottom-left, bottom-right: 30px
                       display: "flex",
                       flexDirection: "column",
                       overflow: "hidden",
@@ -217,7 +193,7 @@ const ShopListScreen: React.FC = () => {
                       position: "relative",
                     }}
                   >
-                    {/* フロア表示（左上） */}
+                    {/* Floor display (top-left) */}
                     <div
                       style={{
                         position: "absolute",
@@ -237,7 +213,7 @@ const ShopListScreen: React.FC = () => {
                     >
                       1F
                     </div>
-                    {/* 画像エリア */}
+                    {/* Image area */}
                     <div
                       style={{
                         width: "100%",
@@ -253,7 +229,7 @@ const ShopListScreen: React.FC = () => {
                     >
                       Image
                     </div>
-                    {/* コンテンツエリア */}
+                    {/* Content area */}
                     <div
                       style={{
                         flex: 1,
@@ -275,18 +251,229 @@ const ShopListScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Actionスペース（右側） */}
+      {/* Action space (right side) */}
       <div
         style={{
           width: "1140px",
           height: "2160px",
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "#000000",
           flexShrink: 0,
           boxSizing: "border-box",
           marginLeft: "auto",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        {/* ここにActionスペースのコンテンツが入ります */}
+        {/* Top area (empty) */}
+        <div style={{ flex: 1 }} />
+
+        {/* Floor selection button area and business hours / language selection area (above CMS area) */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-end",
+            marginLeft: "30px",
+          }}
+        >
+          {/* Floor selection button area (left side) */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: "20px",
+            }}
+          >
+            {/* 3F button and FOOD FOREST */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "30px",
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  display: "inline-block",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  if (highlight) highlight.style.opacity = "1";
+                }}
+                onMouseLeave={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  if (highlight) highlight.style.opacity = "0";
+                }}
+              >
+                <img
+                  src={button3F}
+                  alt="3F"
+                  style={{
+                    display: "block",
+                  }}
+                />
+                <img
+                  src={button3FHighlight}
+                  alt="3F Highlight"
+                  className="highlight"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    display: "block",
+                    opacity: 0,
+                    transition: "opacity 0.3s ease-in-out",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+              {/* TODO: Add FOOD FOREST button */}
+            </div>
+            {/* 2F button and RESTAURANT */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "30px",
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  display: "inline-block",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  if (highlight) highlight.style.opacity = "1";
+                }}
+                onMouseLeave={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  if (highlight) highlight.style.opacity = "0";
+                }}
+              >
+                <img
+                  src={button2F}
+                  alt="2F"
+                  style={{
+                    display: "block",
+                  }}
+                />
+                <img
+                  src={button2FHighlight}
+                  alt="2F Highlight"
+                  className="highlight"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    display: "block",
+                    opacity: 0,
+                    transition: "opacity 0.3s ease-in-out",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+              {/* TODO: Add RESTAURANT button */}
+            </div>
+            {/* 1F button and SUZAKA 蔵 */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "30px",
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  display: "inline-block",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  if (highlight) highlight.style.opacity = "1";
+                }}
+                onMouseLeave={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  if (highlight) highlight.style.opacity = "0";
+                }}
+              >
+                <img
+                  src={button1F}
+                  alt="1F"
+                  style={{
+                    display: "block",
+                  }}
+                />
+                <img
+                  src={button1FHighlight}
+                  alt="1F Highlight"
+                  className="highlight"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    display: "block",
+                    opacity: 0,
+                    transition: "opacity 0.3s ease-in-out",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+              {/* TODO: Add SUZAKA 蔵 button */}
+            </div>
+          </div>
+
+          {/* Business hours / language selection area (right side of 1F button) */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "20px",
+              alignItems: "flex-start",
+              marginLeft: "30px",
+            }}
+          >
+            <img
+              src={openTime}
+              alt="Open Time"
+              style={{
+                display: "block",
+              }}
+            />
+            <img
+              src={selectLanguage}
+              alt="Select Language"
+              style={{
+                display: "block",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* CMS area (bottom) */}
+        <div
+          style={{
+            width: "1080px",
+            height: "844px",
+            margin: "30px",
+            boxSizing: "border-box",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            <VerticalVideoSlot />
+          </div>
+        </div>
       </div>
     </div>
   );
