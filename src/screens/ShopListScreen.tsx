@@ -1,5 +1,6 @@
 // src/screens/ShopListScreen.tsx
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
 import button1F from "../assets/button-1F.svg";
@@ -165,6 +166,15 @@ function toFileUrl(filePath: string): string {
 }
 
 /**
+ * Normalize floor value to standard format (e.g., "1" -> "1F", "1F" -> "1F")
+ */
+function normalizeFloor(value: string): string {
+  if (!value) return "";
+  const m = value.match(/(\d+)/);
+  return m ? `${m[1]}F` : value;
+}
+
+/**
  * Shop list screen
  * Screen size: 3840×2160
  * Background: Black
@@ -185,6 +195,9 @@ const ShopListScreen: React.FC = () => {
   // Shop data state
   const [shops, setShops] = useState<Shop[]>([]);
   const [error, setError] = useState<string | null>(null);
+  
+  // Floor filter state
+  const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
 
   // Fetch shops from API
   useEffect(() => {
@@ -225,10 +238,31 @@ const ShopListScreen: React.FC = () => {
     };
   }, []);
 
+  // Filter shops by selected floor
+  const filteredShops = React.useMemo(() => {
+    if (!selectedFloor) {
+      return shops;
+    }
+    
+    const normalizedSelectedFloor = normalizeFloor(selectedFloor);
+    
+    return shops.filter((shop) => {
+      if (!shop.floors || shop.floors.length === 0) {
+        return false;
+      }
+      
+      // Check if any of the shop's floors match the selected floor
+      return shop.floors.some((floor) => {
+        const normalizedShopFloor = normalizeFloor(String(floor));
+        return normalizedShopFloor === normalizedSelectedFloor;
+      });
+    });
+  }, [shops, selectedFloor]);
+
   // Layout: 6 rows per column
   // Card count is dynamically calculated based on the number of shops from API
   const rowsPerColumn = 6;
-  const totalColumns = shops.length > 0 ? Math.ceil(shops.length / rowsPerColumn) : 0;
+  const totalColumns = filteredShops.length > 0 ? Math.ceil(filteredShops.length / rowsPerColumn) : 0;
 
   // Card size calculation
   // Content area: width: 2580px (2640 - 30*2), height: 2040px (2100 - 30*2)
@@ -241,8 +275,8 @@ const ShopListScreen: React.FC = () => {
   const columns: Shop[][] = [];
   for (let i = 0; i < totalColumns; i++) {
     const startIndex = i * rowsPerColumn;
-    const endIndex = Math.min(startIndex + rowsPerColumn, shops.length);
-    columns.push(shops.slice(startIndex, endIndex));
+    const endIndex = Math.min(startIndex + rowsPerColumn, filteredShops.length);
+    columns.push(filteredShops.slice(startIndex, endIndex));
   }
 
   // Mouse drag scroll
@@ -348,25 +382,31 @@ const ShopListScreen: React.FC = () => {
           onMouseLeave={handleMouseLeave}
         >
           {/* Card grid container */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              height: "2040px",
-              width: `${30 + totalColumns * cardWidth + (totalColumns - 1) * columnGap + 30}px`,
-              gap: `${columnGap}px`,
-            }}
-          >
-            {error ? (
-              <div style={{ padding: "30px", color: "red", fontSize: "24px" }}>
-                Error: {error}
-              </div>
-            ) : shops.length === 0 ? (
-              <div style={{ padding: "30px", color: "#FFFFFF", fontSize: "24px" }}>
-                店舗データがありません
-              </div>
-            ) : (
-              columns.map((columnShops, columnIndex) => (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selectedFloor || "all"}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                height: "2040px",
+                width: `${30 + totalColumns * cardWidth + (totalColumns - 1) * columnGap + 30}px`,
+                gap: `${columnGap}px`,
+              }}
+            >
+              {error ? (
+                <div style={{ padding: "30px", color: "red", fontSize: "24px" }}>
+                  Error: {error}
+                </div>
+              ) : filteredShops.length === 0 ? (
+                <div style={{ padding: "30px", color: "#FFFFFF", fontSize: "24px" }}>
+                  店舗データがありません
+                </div>
+              ) : (
+                columns.map((columnShops, columnIndex) => (
                 <div
                   key={columnIndex}
                   style={{
@@ -506,7 +546,8 @@ const ShopListScreen: React.FC = () => {
                 </div>
               ))
             )}
-          </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 
@@ -581,13 +622,25 @@ const ShopListScreen: React.FC = () => {
                   display: "inline-block",
                   cursor: "pointer",
                 }}
+                onClick={() => {
+                  // If same floor is selected, deselect (show all shops)
+                  // Otherwise, select the clicked floor
+                  if (selectedFloor === "3F") {
+                    setSelectedFloor(null);
+                  } else {
+                    setSelectedFloor("3F");
+                  }
+                }}
                 onMouseEnter={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
                   if (highlight) highlight.style.opacity = "1";
                 }}
                 onMouseLeave={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "0";
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "3F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
                 }}
               >
                 <img
@@ -606,7 +659,7 @@ const ShopListScreen: React.FC = () => {
                     top: 0,
                     left: 0,
                     display: "block",
-                    opacity: 0,
+                    opacity: selectedFloor === "3F" ? 1 : 0,
                     transition: "opacity 0.3s ease-in-out",
                     pointerEvents: "none",
                   }}
@@ -628,13 +681,25 @@ const ShopListScreen: React.FC = () => {
                   display: "inline-block",
                   cursor: "pointer",
                 }}
+                onClick={() => {
+                  // If same floor is selected, deselect (show all shops)
+                  // Otherwise, select the clicked floor
+                  if (selectedFloor === "2F") {
+                    setSelectedFloor(null);
+                  } else {
+                    setSelectedFloor("2F");
+                  }
+                }}
                 onMouseEnter={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
                   if (highlight) highlight.style.opacity = "1";
                 }}
                 onMouseLeave={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "0";
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "2F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
                 }}
               >
                 <img
@@ -653,7 +718,7 @@ const ShopListScreen: React.FC = () => {
                     top: 0,
                     left: 0,
                     display: "block",
-                    opacity: 0,
+                    opacity: selectedFloor === "2F" ? 1 : 0,
                     transition: "opacity 0.3s ease-in-out",
                     pointerEvents: "none",
                   }}
@@ -675,13 +740,25 @@ const ShopListScreen: React.FC = () => {
                   display: "inline-block",
                   cursor: "pointer",
                 }}
+                onClick={() => {
+                  // If same floor is selected, deselect (show all shops)
+                  // Otherwise, select the clicked floor
+                  if (selectedFloor === "1F") {
+                    setSelectedFloor(null);
+                  } else {
+                    setSelectedFloor("1F");
+                  }
+                }}
                 onMouseEnter={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
                   if (highlight) highlight.style.opacity = "1";
                 }}
                 onMouseLeave={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "0";
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "1F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
                 }}
               >
                 <img
@@ -700,7 +777,7 @@ const ShopListScreen: React.FC = () => {
                     top: 0,
                     left: 0,
                     display: "block",
-                    opacity: 0,
+                    opacity: selectedFloor === "1F" ? 1 : 0,
                     transition: "opacity 0.3s ease-in-out",
                     pointerEvents: "none",
                   }}
