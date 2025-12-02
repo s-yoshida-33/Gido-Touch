@@ -432,6 +432,7 @@ function createMainWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       devTools: true, // Enable dev tools even in production for debugging
+      webSecurity: false, // Allow loading local file:// resources for shop images
     },
   });
 

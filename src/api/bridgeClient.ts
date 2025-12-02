@@ -100,9 +100,12 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
         shopId: item.shop_id,
         name: item.shop_name,
         genre: item.genre,
+        genreSub: item.genre_sub,
         genreMemo: item.genre_memo,
         number: item.number,
         floors,
+        photo1: item.photo1,
+        photo2: item.photo2,
       };
     });
 
