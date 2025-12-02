@@ -9,6 +9,7 @@ import type {
 
 import type { LocationIconSettings } from "./locationIcon";
 import type { ImageSettings } from "./imageSettings";
+import type { VideoSettings } from "./videoSettings";
 
 type ColumnPadding = {
   top?: number;
@@ -58,6 +59,9 @@ interface ElectronAPI {
   getImageSettings: () => Promise<ImageSettings>;
   saveImageSettings: (settings: ImageSettings) => Promise<ImageSettings>;
   onImageSettingsUpdated: (cb: (settings: ImageSettings) => void) => () => void;
+  getVideoSettings: () => Promise<VideoSettings>;
+  saveVideoSettings: (settings: VideoSettings) => Promise<VideoSettings>;
+  onVideoSettingsUpdated: (cb: (settings: VideoSettings) => void) => () => void;
   manualUpdateCheck: () => void;
   oneClickUpdate: () => void;
   quitApp: () => void;

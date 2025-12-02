@@ -125,6 +125,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   quitApp() {
     ipcRenderer.send('menu:quit');
   },
+  getVideoSettings() {
+    return ipcRenderer.invoke('get-video-settings');
+  },
+  saveVideoSettings(settings) {
+    return ipcRenderer.invoke('save-video-settings', settings);
+  },
+  onVideoSettingsUpdated(callback) {
+    const listener = (_event, updated) => callback(updated);
+    ipcRenderer.on('video-settings-updated', listener);
+
+    return () => {
+      ipcRenderer.removeListener('video-settings-updated', listener);
+    };
+  },
 });
 
 contextBridge.exposeInMainWorld('wspApi', {

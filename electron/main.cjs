@@ -107,6 +107,12 @@ function loadSettings() {
       },
       openTimeImage: '',
     },
+    videoSettings: {
+      enabled: false,
+      source: '', // File path or URL
+      loop: true,
+      autoplay: true,
+    },
   };
 
   try {
@@ -163,6 +169,14 @@ function loadSettings() {
             openTimeImage: parsed.imageSettings.openTimeImage || base.imageSettings.openTimeImage,
           }
         : base.imageSettings,
+      videoSettings: parsed.videoSettings
+        ? {
+            enabled: typeof parsed.videoSettings.enabled === 'boolean' ? parsed.videoSettings.enabled : base.videoSettings.enabled,
+            source: typeof parsed.videoSettings.source === 'string' ? parsed.videoSettings.source : base.videoSettings.source,
+            loop: typeof parsed.videoSettings.loop === 'boolean' ? parsed.videoSettings.loop : base.videoSettings.loop,
+            autoplay: typeof parsed.videoSettings.autoplay === 'boolean' ? parsed.videoSettings.autoplay : base.videoSettings.autoplay,
+          }
+        : base.videoSettings,
     };
 
 
@@ -730,6 +744,48 @@ ipcMain.handle('save-image-settings', async (_event, imageSettings) => {
     });
     throw error;
   }
+});
+
+/**
+ * IPC handlers for independent video settings.
+ */
+ipcMain.handle('get-video-settings', () => {
+  const settings = loadSettings();
+  logger.debug('IPC get-video-settings');
+  
+  const videoSettings = settings.videoSettings || {
+    enabled: false,
+    source: '',
+    loop: true,
+    autoplay: true,
+  };
+  
+  // Convert file path to file:// URL if it's a local path
+  let source = videoSettings.source || '';
+  if (source && !source.startsWith('file://') && !source.startsWith('http://') && !source.startsWith('https://')) {
+    // It's a local file path, convert to file:// URL
+    if (path.isAbsolute(source)) {
+      source = toFileUrl(source);
+    }
+  }
+  
+  return {
+    ...videoSettings,
+    source,
+  };
+});
+
+ipcMain.handle('save-video-settings', (_event, videoSettings) => {
+  logger.info('IPC save-video-settings');
+  
+  const settings = saveSettings({ videoSettings });
+  
+  // Broadcast to main window if it exists
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('video-settings-updated', settings.videoSettings);
+  }
+  
+  return settings.videoSettings;
 });
 
 /**

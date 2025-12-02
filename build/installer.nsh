@@ -83,9 +83,9 @@ FunctionEnd
   ${EndIf}
   
   ${If} $DesktopShortcutExists == "1"
-    CreateShortCut "$DESKTOP\Gido Touch.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
+    CreateShortCut "$DESKTOP\Gido Touch.lnk" "$INSTDIR\Gido Touch.exe" "" "$INSTDIR\icon.ico" 0
   ${ElseIf} $WantDesktop == ${BST_CHECKED}
-    CreateShortCut "$DESKTOP\Gido Touch.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
+    CreateShortCut "$DESKTOP\Gido Touch.lnk" "$INSTDIR\Gido Touch.exe" "" "$INSTDIR\icon.ico" 0
   ${EndIf}
 
   ; Start Menu shortcut handling
@@ -99,15 +99,15 @@ FunctionEnd
   
   ${If} $StartMenuShortcutExists == "1"
     CreateDirectory "$SMPROGRAMS\Gido Touch"
-    CreateShortCut "$SMPROGRAMS\Gido Touch\Gido Touch.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
+    CreateShortCut "$SMPROGRAMS\Gido Touch\Gido Touch.lnk" "$INSTDIR\Gido Touch.exe" "" "$INSTDIR\icon.ico" 0
   ${ElseIf} $WantStartMenu == ${BST_CHECKED}
     CreateDirectory "$SMPROGRAMS\Gido Touch"
-    CreateShortCut "$SMPROGRAMS\Gido Touch\Gido Touch.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
+    CreateShortCut "$SMPROGRAMS\Gido Touch\Gido Touch.lnk" "$INSTDIR\Gido Touch.exe" "" "$INSTDIR\icon.ico" 0
   ${EndIf}
 
   ; Windows auto-start registry
   ${If} $WantAutoStart == ${BST_CHECKED}
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido Touch" "$INSTDIR\Gido.exe"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido Touch" "$INSTDIR\Gido Touch.exe"
   ${Else}
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido Touch"
   ${EndIf}

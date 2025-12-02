@@ -1,6 +1,7 @@
 // src/screens/ShopListScreen.tsx
 import React, { useEffect, useRef } from "react";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
+import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
 import button1F from "../assets/button-1F.svg";
 import button2F from "../assets/button-2F.svg";
 import button3F from "../assets/button-3F.svg";
@@ -264,8 +265,22 @@ const ShopListScreen: React.FC = () => {
           flexDirection: "column",
         }}
       >
-        {/* Top area (empty) */}
-        <div style={{ flex: 1 }} />
+        {/* Independent video area (top) */}
+        <div
+          style={{
+            width: "1080px",
+            height: "608px",
+            marginTop: "30px",
+            marginLeft: "30px",
+            marginRight: "30px",
+            marginBottom: "0px",
+            boxSizing: "border-box",
+            overflow: "hidden",
+            alignSelf: "flex-start",
+          }}
+        >
+          <IndependentVideoPlayer />
+        </div>
 
         {/* Floor selection button area and business hours / language selection area (above CMS area) */}
         <div
@@ -461,6 +476,7 @@ const ShopListScreen: React.FC = () => {
             width: "1080px",
             height: "844px",
             margin: "30px",
+            marginTop: "0px",
             boxSizing: "border-box",
             overflow: "hidden",
           }}
