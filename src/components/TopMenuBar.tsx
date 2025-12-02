@@ -98,7 +98,7 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
       {/* Left side: App name */}
       <div style={titleBlockStyle}>
         <div style={logoStyle} />
-        <span style={{ fontSize: 12, opacity: 0.8 }}>Gido</span>
+        <span style={{ fontSize: 12, opacity: 0.8 }}>Gido Touch</span>
       </div>
 
       {/* Menu group */}

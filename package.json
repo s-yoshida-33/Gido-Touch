@@ -1,7 +1,7 @@
 {
-  "name": "gido",
+  "name": "gido-touch",
   "private": true,
-  "version": "0.1.0-beta.28",
+  "version": "0.1.0-beta.1",
   "type": "module",
   "description": "Floor guide display system",
   "author": "Toei Techno International Inc.",
@@ -17,7 +17,7 @@
   "main": "electron/main.cjs",
   "build": {
     "appId": "com.tti.gido",
-    "productName": "Gido",
+    "productName": "Gido Touch",
     "copyright": "© 2025 Toei Techno International Inc.",
     "directories": {
       "output": "release",
@@ -38,7 +38,7 @@
         }
       ],
       "icon": "build/icon.ico",
-      "artifactName": "GidoSetup-${arch}-${version}.exe",
+      "artifactName": "GidoTouchSetup-${arch}-${version}.exe",
       "extraFiles": [
         {
           "from": "build/icon.ico",
@@ -51,7 +51,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": false,
       "createStartMenuShortcut": false,
-      "shortcutName": "Gido",
+      "shortcutName": "Gido Touch",
       "deleteAppDataOnUninstall": false,
       "include": "build/installer.nsh",
       "warningsAsErrors": false,
@@ -63,7 +63,7 @@
         "ja_JP"
       ],
       "menuCategory": true,
-      "uninstallDisplayName": "Gido アンインストール",
+      "uninstallDisplayName": "Gido Touch アンインストール",
       "unicode": true,
       "differentialPackage": false
     },
@@ -71,7 +71,7 @@
       {
         "provider": "github",
         "owner": "s-yoshida-33",
-        "repo": "Gido",
+        "repo": "Gido-Touch",
         "releaseType": "release"
       }
     ]

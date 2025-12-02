@@ -74,42 +74,42 @@ FunctionEnd
 !macro customInstall
 
   ; Desktop shortcut handling
-  ${If} ${FileExists} "$DESKTOP\Gido.lnk"
+  ${If} ${FileExists} "$DESKTOP\Gido Touch.lnk"
     StrCpy $DesktopShortcutExists "1"
-    Delete "$DESKTOP\Gido.lnk"
+    Delete "$DESKTOP\Gido Touch.lnk"
     Sleep 100
   ${Else}
     StrCpy $DesktopShortcutExists "0"
   ${EndIf}
   
   ${If} $DesktopShortcutExists == "1"
-    CreateShortCut "$DESKTOP\Gido.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
+    CreateShortCut "$DESKTOP\Gido Touch.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
   ${ElseIf} $WantDesktop == ${BST_CHECKED}
-    CreateShortCut "$DESKTOP\Gido.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
+    CreateShortCut "$DESKTOP\Gido Touch.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
   ${EndIf}
 
   ; Start Menu shortcut handling
-  ${If} ${FileExists} "$SMPROGRAMS\Gido\Gido.lnk"
+  ${If} ${FileExists} "$SMPROGRAMS\Gido Touch\Gido Touch.lnk"
     StrCpy $StartMenuShortcutExists "1"
-    Delete "$SMPROGRAMS\Gido\Gido.lnk"
+    Delete "$SMPROGRAMS\Gido Touch\Gido Touch.lnk"
     Sleep 100
   ${Else}
     StrCpy $StartMenuShortcutExists "0"
   ${EndIf}
   
   ${If} $StartMenuShortcutExists == "1"
-    CreateDirectory "$SMPROGRAMS\Gido"
-    CreateShortCut "$SMPROGRAMS\Gido\Gido.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
+    CreateDirectory "$SMPROGRAMS\Gido Touch"
+    CreateShortCut "$SMPROGRAMS\Gido Touch\Gido Touch.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
   ${ElseIf} $WantStartMenu == ${BST_CHECKED}
-    CreateDirectory "$SMPROGRAMS\Gido"
-    CreateShortCut "$SMPROGRAMS\Gido\Gido.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
+    CreateDirectory "$SMPROGRAMS\Gido Touch"
+    CreateShortCut "$SMPROGRAMS\Gido Touch\Gido Touch.lnk" "$INSTDIR\Gido.exe" "" "$INSTDIR\icon.ico" 0
   ${EndIf}
 
   ; Windows auto-start registry
   ${If} $WantAutoStart == ${BST_CHECKED}
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido" "$INSTDIR\Gido.exe"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido Touch" "$INSTDIR\Gido.exe"
   ${Else}
-    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido Touch"
   ${EndIf}
 
 !macroend
@@ -145,5 +145,5 @@ FunctionEnd
 ; Custom uninstall actions
 ; -----------------------------------------
 !macro customUnInstall
-  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido Touch"
 !macroend
