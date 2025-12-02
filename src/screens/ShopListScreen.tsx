@@ -282,15 +282,24 @@ const ShopListScreen: React.FC = () => {
           <IndependentVideoPlayer />
         </div>
 
-        {/* Floor selection button area and business hours / language selection area (above CMS area) */}
+        {/* Bottom area container (floor buttons + CMS) */}
         <div
           style={{
+            marginTop: "auto",
             display: "flex",
-            flexDirection: "row",
-            alignItems: "flex-end",
-            marginLeft: "30px",
+            flexDirection: "column",
           }}
         >
+          {/* Floor selection button area and business hours / language selection area (above CMS area) */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "flex-end",
+              marginLeft: "30px",
+              marginBottom: "30px",
+            }}
+          >
           {/* Floor selection button area (left side) */}
           <div
             style={{
@@ -468,26 +477,28 @@ const ShopListScreen: React.FC = () => {
               }}
             />
           </div>
-        </div>
+          </div>
 
-        {/* CMS area (bottom) */}
-        <div
-          style={{
-            width: "1080px",
-            height: "844px",
-            margin: "30px",
-            marginTop: "0px",
-            boxSizing: "border-box",
-            overflow: "hidden",
-          }}
-        >
+          {/* CMS area (bottom) */}
           <div
             style={{
-              width: "100%",
-              height: "100%",
+              width: "1080px",
+              height: "844px",
+              margin: "30px",
+              marginTop: "0px",
+              marginBottom: "30px",
+              boxSizing: "border-box",
+              overflow: "hidden",
             }}
           >
-            <VerticalVideoSlot />
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+              }}
+            >
+              <VerticalVideoSlot />
+            </div>
           </div>
         </div>
       </div>
