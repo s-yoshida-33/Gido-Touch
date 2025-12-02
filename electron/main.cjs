@@ -342,38 +342,53 @@ function isPortAvailable(port, host = '127.0.0.1') {
  * Returns the first port that responds to HTTP requests successfully.
  */
 async function findAvailablePortInRange(minPort, maxPort, path = '/', host = '127.0.0.1') {
+  logger.debug('Starting port detection', { minPort, maxPort, path, host });
+  
   for (let port = minPort; port <= maxPort; port++) {
     try {
       const url = `http://${host}:${port}${path}`;
+      logger.debug('Trying port', { port, url });
+      
       // Try a quick HTTP request to see if the service is available
       const available = await new Promise((resolve) => {
-        const req = http.get(url, { timeout: 1000 }, (res) => {
-          req.destroy();
-          resolve(true); // Service is responding
+        const req = http.get(url, { timeout: 2000 }, (res) => {
+          // Check if status code is in success range (200-299)
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            req.destroy();
+            logger.debug('Port responded successfully', { port, statusCode: res.statusCode });
+            resolve(true); // Service is responding with success
+          } else {
+            req.destroy();
+            logger.debug('Port responded with non-success status', { port, statusCode: res.statusCode });
+            resolve(false); // Service is responding but with error status
+          }
         });
 
-        req.on('error', () => {
+        req.on('error', (err) => {
+          logger.debug('Port connection error', { port, error: err.code });
           resolve(false); // Service is not responding
         });
 
         req.on('timeout', () => {
           req.destroy();
+          logger.debug('Port connection timeout', { port });
           resolve(false);
         });
 
-        req.setTimeout(1000);
+        req.setTimeout(2000);
       });
 
       if (available) {
-        logger.debug('Found available port in range', { port, minPort, maxPort, path });
+        logger.info('Found available port in range', { port, minPort, maxPort, path, host });
         return port;
       }
     } catch (error) {
+      logger.debug('Exception while checking port', { port, error: error?.message });
       // Continue to next port
     }
   }
 
-  logger.warn('No available port found in range', { minPort, maxPort, path });
+  logger.warn('No available port found in range', { minPort, maxPort, path, host });
   return null;
 }
 
@@ -402,15 +417,25 @@ async function getCmsBaseUrl() {
   const settings = loadSettings();
   const portRange = settings.portRanges?.cms;
 
+  logger.debug('Getting CMS base URL', { portRange });
+
   if (portRange && portRange.min && portRange.max) {
     const port = await findAvailablePortInRange(portRange.min, portRange.max, '/current-timeline', '127.0.0.1');
     if (port) {
-      return `http://127.0.0.1:${port}`;
+      const baseUrl = `http://127.0.0.1:${port}`;
+      logger.info('CMS base URL determined', { baseUrl, port, portRange });
+      return baseUrl;
+    } else {
+      logger.warn('CMS port detection failed, using fallback', { portRange });
     }
+  } else {
+    logger.debug('CMS port range not configured, using fallback');
   }
 
   // Fallback to default
-  return 'http://127.0.0.1:8081';
+  const fallbackUrl = 'http://127.0.0.1:8081';
+  logger.info('Using CMS fallback URL', { fallbackUrl });
+  return fallbackUrl;
 }
 
 // Cache for base URLs to avoid repeated port detection
@@ -964,17 +989,47 @@ ipcMain.handle('save-video-settings', (_event, videoSettings) => {
 ipcMain.handle('wsp:get-current-asset', async () => {
   try {
     const baseUrl = await getCachedCmsBaseUrl();
-    const json = await httpGetJson(`${baseUrl}/current-timeline`);
+    const url = `${baseUrl}/current-timeline`;
+    logger.debug('wsp:get-current-asset: requesting', { url, baseUrl });
+    const json = await httpGetJson(url);
 
     if (!json || !json.current_timeline) {
-      logger.warn('wsp:get-current-asset: current_timeline is missing');
+      logger.warn('wsp:get-current-asset: current_timeline is missing', {
+        hasJson: !!json,
+        jsonKeys: json ? Object.keys(json) : [],
+      });
       return null;
     }
 
     const tl = json.current_timeline;
-    const assets = tl.media_assets || [];
-    if (!Array.isArray(assets) || assets.length === 0) {
-      logger.warn('wsp:get-current-asset: media_assets is empty');
+    // Check both current_timeline.media_assets and current_timeline.data.media_assets
+    let assets = [];
+    if (tl.media_assets && Array.isArray(tl.media_assets)) {
+      assets = tl.media_assets;
+    } else if (tl.data && tl.data.media_assets && Array.isArray(tl.data.media_assets)) {
+      assets = tl.data.media_assets;
+    }
+    
+    logger.debug('wsp:get-current-timeline response structure', {
+      hasCurrentTimeline: !!tl,
+      timelineKeys: tl ? Object.keys(tl) : [],
+      hasData: !!(tl && tl.data),
+      dataKeys: tl && tl.data ? Object.keys(tl.data) : [],
+      mediaAssetsCount: assets.length,
+      mediaAssetsLocation: tl.media_assets ? 'timeline.media_assets' : (tl.data && tl.data.media_assets ? 'timeline.data.media_assets' : 'not found'),
+    });
+    
+    if (assets.length === 0) {
+      logger.warn('wsp:get-current-asset: media_assets is empty', {
+        assetsLength: assets.length,
+        timelineStructure: {
+          hasMediaAssets: 'media_assets' in tl,
+          hasData: !!(tl && tl.data),
+          hasDataMediaAssets: !!(tl && tl.data && 'media_assets' in tl.data),
+          timelineKeys: Object.keys(tl),
+          dataKeys: tl && tl.data ? Object.keys(tl.data) : [],
+        },
+      });
       return null;
     }
 
@@ -982,8 +1037,9 @@ ipcMain.handle('wsp:get-current-asset', async () => {
 
     // Determine media type from asset properties or URL extension
     const mediaType = asset.mediaType || asset.type || '';
-    const url = asset.url || '';
-    const urlLower = url.toLowerCase();
+    // Use url if available, otherwise use localPath
+    const assetUrl = asset.url || asset.localPath || '';
+    const urlLower = assetUrl.toLowerCase();
     
     // Infer media type from URL extension if not provided
     let inferredMediaType = mediaType;
@@ -995,30 +1051,37 @@ ipcMain.handle('wsp:get-current-asset', async () => {
       }
     }
 
+    // Use url if available, otherwise use localPath
+    const assetPath = asset.url || asset.localPath || '';
+    
     logger.info('wsp:get-current-asset: returning first asset', {
       assetId: asset.id,
-      url: asset.url,
+      url: assetPath,
       mediaType: inferredMediaType,
     });
 
     return {
       id: asset.id,
-      src: toFileUrl(asset.url),
+      src: toFileUrl(assetPath),
       duration: asset.duration,
       width: asset.width,
       height: asset.height,
       name:
-        Array.isArray(tl.media_names) && tl.media_names.length > 0
+        (Array.isArray(tl.media_names) && tl.media_names.length > 0)
           ? tl.media_names[0]
+          : (tl.data && Array.isArray(tl.data.media_names) && tl.data.media_names.length > 0)
+          ? tl.data.media_names[0]
           : '',
-      startTime: tl.start_time,
-      endTime: tl.end_time,
+      startTime: tl.start_time || (tl.data && tl.data.start_time) || '',
+      endTime: tl.end_time || (tl.data && tl.data.end_time) || '',
       mediaType: inferredMediaType,
       type: asset.type,
     };
   } catch (error) {
     logger.error('wsp:get-current-asset failed', {
       error: error?.message,
+      stack: error?.stack,
+      baseUrl: await getCachedCmsBaseUrl().catch(() => 'unknown'),
     });
     return null;
   }
@@ -1030,12 +1093,21 @@ ipcMain.handle('wsp:get-current-asset', async () => {
 ipcMain.handle('wsp:get-current-timeline', async () => {
   try {
     const baseUrl = await getCachedCmsBaseUrl();
-    const json = await httpGetJson(`${baseUrl}/current-timeline`);
-    logger.debug('wsp:get-current-timeline: success');
+    const url = `${baseUrl}/current-timeline`;
+    logger.debug('wsp:get-current-timeline: requesting', { url, baseUrl });
+    const json = await httpGetJson(url);
+    logger.debug('wsp:get-current-timeline: success', { 
+      hasData: !!json,
+      hasCurrentTimeline: !!(json && json.current_timeline),
+    });
     return json || null;
   } catch (error) {
+    const baseUrl = await getCachedCmsBaseUrl().catch(() => 'unknown');
     logger.error('wsp:get-current-timeline failed', {
       error: error?.message,
+      stack: error?.stack,
+      baseUrl,
+      attemptedUrl: `${baseUrl}/current-timeline`,
     });
     return null;
   }
