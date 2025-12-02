@@ -1,7 +1,7 @@
 // src/components/IndependentVideoPlayer.tsx
 import React from 'react';
 import { useIndependentVideo } from '../hooks/useIndependentVideo';
-import { logInfo, logWarn, logError } from '../logs/logging';
+import { logInfo, logError } from '../logs/logging';
 
 const IndependentVideoPlayer: React.FC = () => {
   const { videoSettings, isLoading } = useIndependentVideo();
