@@ -154,6 +154,9 @@ contextBridge.exposeInMainWorld('wspApi', {
   getTimeline(hour) {
     return ipcRenderer.invoke('wsp:get-timeline', { hour });
   },
+  getRightTopVideoAsset() {
+    return ipcRenderer.invoke('wsp:get-right-top-video-asset');
+  },
 });
 
 contextBridge.exposeInMainWorld('logger', {

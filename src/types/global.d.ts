@@ -93,6 +93,7 @@ interface WspApi {
   getCurrentAsset: () => Promise<CurrentAsset | null>;
   getCurrentTimeline: () => Promise<WspCurrentTimelineResponse | null>;
   getTimeline: (hour?: number) => Promise<WspTimelineResponse | null>;
+  getRightTopVideoAsset: () => Promise<CurrentAsset | null>;
 }
 
 interface LoggerApi {

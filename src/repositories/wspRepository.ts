@@ -60,4 +60,22 @@ import type {
       return null;
     }
   }
+
+  /**
+   * Fetch current asset from right-top video CMS via Electron IPC bridge.
+   */
+  export async function fetchRightTopVideoAsset(): Promise<CurrentAsset | null> {
+    if (!window.wspApi?.getRightTopVideoAsset) {
+      return null;
+    }
+  
+    try {
+      const asset = await window.wspApi.getRightTopVideoAsset();
+      return asset ?? null;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[fetchRightTopVideoAsset] failed:', error);
+      return null;
+    }
+  }
   

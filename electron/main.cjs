@@ -123,6 +123,10 @@ function loadSettings() {
         min: 8080,
         max: 8089,
       },
+      rightTopVideoCms: {
+        min: 8100,
+        max: 8109,
+      },
     },
   };
 
@@ -197,6 +201,10 @@ function loadSettings() {
             cms: {
               min: typeof parsed.portRanges.cms?.min === 'number' ? parsed.portRanges.cms.min : base.portRanges.cms.min,
               max: typeof parsed.portRanges.cms?.max === 'number' ? parsed.portRanges.cms.max : base.portRanges.cms.max,
+            },
+            rightTopVideoCms: {
+              min: typeof parsed.portRanges.rightTopVideoCms?.min === 'number' ? parsed.portRanges.rightTopVideoCms.min : base.portRanges.rightTopVideoCms.min,
+              max: typeof parsed.portRanges.rightTopVideoCms?.max === 'number' ? parsed.portRanges.rightTopVideoCms.max : base.portRanges.rightTopVideoCms.max,
             },
           }
         : base.portRanges,
@@ -438,9 +446,38 @@ async function getCmsBaseUrl() {
   return fallbackUrl;
 }
 
+/**
+ * Get the base URL for right-top video CMS, using port range detection if configured.
+ */
+async function getRightTopVideoCmsBaseUrl() {
+  const settings = loadSettings();
+  const portRange = settings.portRanges?.rightTopVideoCms;
+
+  logger.debug('Getting right-top video CMS base URL', { portRange });
+
+  if (portRange && portRange.min && portRange.max) {
+    const port = await findAvailablePortInRange(portRange.min, portRange.max, '/current-timeline', '127.0.0.1');
+    if (port) {
+      const baseUrl = `http://127.0.0.1:${port}`;
+      logger.info('Right-top video CMS base URL determined', { baseUrl, port, portRange });
+      return baseUrl;
+    } else {
+      logger.warn('Right-top video CMS port detection failed, using fallback', { portRange });
+    }
+  } else {
+    logger.debug('Right-top video CMS port range not configured, using fallback');
+  }
+
+  // Fallback to default
+  const fallbackUrl = 'http://127.0.0.1:8100';
+  logger.info('Using right-top video CMS fallback URL', { fallbackUrl });
+  return fallbackUrl;
+}
+
 // Cache for base URLs to avoid repeated port detection
 let cachedBridgeBaseUrl = null;
 let cachedCmsBaseUrl = null;
+let cachedRightTopVideoCmsBaseUrl = null;
 let lastPortCheckTime = 0;
 const PORT_CHECK_INTERVAL = 30000; // Check every 30 seconds
 
@@ -466,6 +503,18 @@ async function getCachedCmsBaseUrl() {
     lastPortCheckTime = now;
   }
   return cachedCmsBaseUrl;
+}
+
+/**
+ * Get cached or fresh right-top video CMS base URL.
+ */
+async function getCachedRightTopVideoCmsBaseUrl() {
+  const now = Date.now();
+  if (!cachedRightTopVideoCmsBaseUrl || (now - lastPortCheckTime) > PORT_CHECK_INTERVAL) {
+    cachedRightTopVideoCmsBaseUrl = await getRightTopVideoCmsBaseUrl();
+    lastPortCheckTime = now;
+  }
+  return cachedRightTopVideoCmsBaseUrl;
 }
 
 /**
@@ -1082,6 +1131,112 @@ ipcMain.handle('wsp:get-current-asset', async () => {
       error: error?.message,
       stack: error?.stack,
       baseUrl: await getCachedCmsBaseUrl().catch(() => 'unknown'),
+    });
+    return null;
+  }
+});
+
+/**
+ * IPC handler for right-top video CMS current asset.
+ * Uses /current-timeline from right-top video CMS (port 8100-8109),
+ * extracts the first media asset, and returns a simplified object for the renderer.
+ */
+ipcMain.handle('wsp:get-right-top-video-asset', async () => {
+  try {
+    const baseUrl = await getCachedRightTopVideoCmsBaseUrl();
+    const url = `${baseUrl}/current-timeline`;
+    logger.debug('wsp:get-right-top-video-asset: requesting', { url, baseUrl });
+    const json = await httpGetJson(url);
+
+    if (!json || !json.current_timeline) {
+      logger.warn('wsp:get-right-top-video-asset: current_timeline is missing', {
+        hasJson: !!json,
+        jsonKeys: json ? Object.keys(json) : [],
+      });
+      return null;
+    }
+
+    const tl = json.current_timeline;
+    // Check both current_timeline.media_assets and current_timeline.data.media_assets
+    let assets = [];
+    if (tl.media_assets && Array.isArray(tl.media_assets)) {
+      assets = tl.media_assets;
+    } else if (tl.data && tl.data.media_assets && Array.isArray(tl.data.media_assets)) {
+      assets = tl.data.media_assets;
+    }
+    
+    logger.debug('wsp:get-right-top-video-asset response structure', {
+      hasCurrentTimeline: !!tl,
+      timelineKeys: tl ? Object.keys(tl) : [],
+      hasData: !!(tl && tl.data),
+      dataKeys: tl && tl.data ? Object.keys(tl.data) : [],
+      mediaAssetsCount: assets.length,
+      mediaAssetsLocation: tl.media_assets ? 'timeline.media_assets' : (tl.data && tl.data.media_assets ? 'timeline.data.media_assets' : 'not found'),
+    });
+    
+    if (assets.length === 0) {
+      logger.warn('wsp:get-right-top-video-asset: media_assets is empty', {
+        assetsLength: assets.length,
+        timelineStructure: {
+          hasMediaAssets: 'media_assets' in tl,
+          hasData: !!(tl && tl.data),
+          hasDataMediaAssets: !!(tl && tl.data && 'media_assets' in tl.data),
+          timelineKeys: Object.keys(tl),
+          dataKeys: tl && tl.data ? Object.keys(tl.data) : [],
+        },
+      });
+      return null;
+    }
+
+    const asset = assets[0];
+
+    // Determine media type from asset properties or URL extension
+    const mediaType = asset.mediaType || asset.type || '';
+    // Use url if available, otherwise use localPath
+    const assetUrl = asset.url || asset.localPath || '';
+    const urlLower = assetUrl.toLowerCase();
+    
+    // Infer media type from URL extension if not provided
+    let inferredMediaType = mediaType;
+    if (!inferredMediaType) {
+      if (urlLower.match(/\.(mp4|webm|ogg|mov|avi|mkv)$/)) {
+        inferredMediaType = 'video';
+      } else if (urlLower.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/)) {
+        inferredMediaType = 'image';
+      }
+    }
+
+    // Use url if available, otherwise use localPath
+    const assetPath = asset.url || asset.localPath || '';
+    
+    logger.info('wsp:get-right-top-video-asset: returning first asset', {
+      assetId: asset.id,
+      url: assetPath,
+      mediaType: inferredMediaType,
+    });
+
+    return {
+      id: asset.id,
+      src: toFileUrl(assetPath),
+      duration: asset.duration,
+      width: asset.width,
+      height: asset.height,
+      name:
+        (Array.isArray(tl.media_names) && tl.media_names.length > 0)
+          ? tl.media_names[0]
+          : (tl.data && Array.isArray(tl.data.media_names) && tl.data.media_names.length > 0)
+          ? tl.data.media_names[0]
+          : '',
+      startTime: tl.start_time || (tl.data && tl.data.start_time) || '',
+      endTime: tl.end_time || (tl.data && tl.data.end_time) || '',
+      mediaType: inferredMediaType,
+      type: asset.type,
+    };
+  } catch (error) {
+    logger.error('wsp:get-right-top-video-asset failed', {
+      error: error?.message,
+      stack: error?.stack,
+      baseUrl: await getCachedRightTopVideoCmsBaseUrl().catch(() => 'unknown'),
     });
     return null;
   }

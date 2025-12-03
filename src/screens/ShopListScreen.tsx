@@ -832,7 +832,7 @@ const ShopListScreen: React.FC = () => {
                 height: "100%",
               }}
             >
-              <VerticalVideoSlot />
+              <VerticalVideoSlot useRightTopVideoCms={true} />
             </div>
           </div>
         </div>
