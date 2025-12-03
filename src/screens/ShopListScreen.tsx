@@ -449,19 +449,16 @@ const ShopListScreen: React.FC = () => {
 
   // Recalculate scroll state when content changes
   useLayoutEffect(() => {
-    // Use setTimeout to ensure layout is complete after animation
-    const timer1 = setTimeout(() => {
-      handleScroll();
-    }, 100);
+    // Immediately check scroll state (synchronous check)
+    handleScroll();
     
-    // Also check after a longer delay to catch animation completion
-    const timer2 = setTimeout(() => {
+    // Also check after a short delay to ensure layout is complete
+    const timer = setTimeout(() => {
       handleScroll();
-    }, 400);
+    }, 50);
 
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
+      clearTimeout(timer);
     };
   }, [filteredShops, selectedFloor, handleScroll]);
 
@@ -925,6 +922,10 @@ const ShopListScreen: React.FC = () => {
                   cursor: "pointer",
                 }}
                 onClick={() => {
+                  // Close modal if open
+                  if (selectedShop) {
+                    setSelectedShop(null);
+                  }
                   // If same floor is selected, deselect (show all shops)
                   // Otherwise, select the clicked floor
                   if (selectedFloor === "3F") {
@@ -1006,6 +1007,10 @@ const ShopListScreen: React.FC = () => {
                   cursor: "pointer",
                 }}
                 onClick={() => {
+                  // Close modal if open
+                  if (selectedShop) {
+                    setSelectedShop(null);
+                  }
                   // If same floor is selected, deselect (show all shops)
                   // Otherwise, select the clicked floor
                   if (selectedFloor === "2F") {
@@ -1087,6 +1092,10 @@ const ShopListScreen: React.FC = () => {
                   cursor: "pointer",
                 }}
                 onClick={() => {
+                  // Close modal if open
+                  if (selectedShop) {
+                    setSelectedShop(null);
+                  }
                   // If same floor is selected, deselect (show all shops)
                   // Otherwise, select the clicked floor
                   if (selectedFloor === "1F") {
