@@ -142,6 +142,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('video-settings-updated', listener);
     };
   },
+  getShopImage(filePath) {
+    return ipcRenderer.invoke('get-shop-image', filePath);
+  },
 });
 
 contextBridge.exposeInMainWorld('wspApi', {

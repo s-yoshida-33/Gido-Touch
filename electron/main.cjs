@@ -890,6 +890,50 @@ function readSvgFileAsDataUrl(filePath) {
 }
 
 /**
+ * Read image file and return as data URL
+ * Supports PNG, JPEG, GIF, WebP, SVG
+ */
+function readImageFileAsDataUrl(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+    const buffer = fs.readFileSync(filePath);
+    const base64 = buffer.toString('base64');
+    
+    // Determine MIME type from file extension
+    const ext = path.extname(filePath).toLowerCase();
+    let mimeType = 'image/png'; // default
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        mimeType = 'image/jpeg';
+        break;
+      case '.png':
+        mimeType = 'image/png';
+        break;
+      case '.gif':
+        mimeType = 'image/gif';
+        break;
+      case '.webp':
+        mimeType = 'image/webp';
+        break;
+      case '.svg':
+        mimeType = 'image/svg+xml';
+        break;
+    }
+    
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    logger.error('Failed to read image file', {
+      error: error?.message,
+      filePath,
+    });
+    return null;
+  }
+}
+
+/**
  * IPC handlers for image settings.
  */
 ipcMain.handle('get-image-settings', () => {
@@ -985,6 +1029,35 @@ ipcMain.handle('save-image-settings', async (_event, imageSettings) => {
       error: error?.message,
     });
     throw error;
+  }
+});
+
+/**
+ * IPC handler for reading shop image files as data URLs
+ */
+ipcMain.handle('get-shop-image', async (_event, filePath) => {
+  try {
+    // Remove file:// prefix if present
+    let localPath = filePath;
+    if (filePath.startsWith('file://')) {
+      localPath = filePath.replace('file://', '');
+      // Handle Windows paths: file:///C:/... -> C:/...
+      if (localPath.startsWith('/') && localPath.match(/^\/[A-Za-z]:/)) {
+        localPath = localPath.substring(1);
+      }
+    }
+    
+    // Normalize path separators for Windows
+    localPath = localPath.replace(/\//g, path.sep);
+    
+    const dataUrl = readImageFileAsDataUrl(localPath);
+    return dataUrl;
+  } catch (error) {
+    logger.error('Failed to get shop image', {
+      error: error?.message,
+      filePath,
+    });
+    return null;
   }
 });
 
@@ -1353,7 +1426,6 @@ app.whenReady().then(() => {
     isDev,
   });
 
-  createPatchWindow();
   createAppMenu();
 
   // Initialize autoUpdater with patch + main window references
@@ -1363,8 +1435,16 @@ app.whenReady().then(() => {
   });
 
   // Startup update check (silent, handled inside updateChecker)
-  logger.info('Starting initial update check');
-  checkForUpdates(false);
+  // Skip update check in development mode
+  if (!isDev) {
+    createPatchWindow();
+    logger.info('Starting initial update check');
+    checkForUpdates(false);
+  } else {
+    logger.info('Skipping update check in development mode');
+    // In dev mode, open main window immediately without patch window
+    createMainWindow();
+  }
 
   app.on('activate', () => {
     if (process.platform !== 'darwin') return;

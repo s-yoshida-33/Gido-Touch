@@ -63,6 +63,7 @@ interface ElectronAPI {
   getVideoSettings: () => Promise<VideoSettings>;
   saveVideoSettings: (settings: VideoSettings) => Promise<VideoSettings>;
   onVideoSettingsUpdated: (cb: (settings: VideoSettings) => void) => () => void;
+  getShopImage: (filePath: string) => Promise<string | null>;
   manualUpdateCheck: () => void;
   oneClickUpdate: () => void;
   quitApp: () => void;

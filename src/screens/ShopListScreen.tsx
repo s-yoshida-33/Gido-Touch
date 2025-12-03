@@ -13,6 +13,7 @@ import selectLanguage from "../assets/select-language.svg";
 import openTime from "../assets/open-time.svg";
 import { fetchShops } from "../repositories/shopRepository";
 import type { Shop } from "../types/shop";
+import ShopDetailScreen from "./ShopDetailScreen";
 
 /**
  * Build image path using shop_id if photo is relative or filename only
@@ -83,6 +84,89 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
   
   return photo;
 }
+
+/**
+ * Shop image component that loads images via Electron IPC or falls back to file:// URL
+ */
+const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefined }> = ({ photo, shopId }) => {
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!photo) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loadImage = async () => {
+      const imagePath = buildImagePath(photo, shopId);
+      if (!imagePath) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if we're in Electron environment
+      const electronAPI = window.electronAPI;
+      if (electronAPI && electronAPI.getShopImage) {
+        try {
+          // Use Electron IPC to load image as data URL
+          const dataUrl = await electronAPI.getShopImage(imagePath);
+          if (dataUrl) {
+            setImageUrl(dataUrl);
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error("Failed to load image via IPC:", error);
+        }
+      }
+
+      // Fallback to file:// URL (works in Electron, not in browser)
+      const fileUrl = toFileUrl(imagePath);
+      setImageUrl(fileUrl);
+      setIsLoading(false);
+    };
+
+    loadImage();
+  }, [photo, shopId]);
+
+  if (!photo || (!imageUrl && !isLoading)) {
+    return (
+      <span style={{ color: "#000000", fontSize: "24px", fontWeight: 700 }}>
+        Image
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt=""
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        userSelect: "none",
+        pointerEvents: "auto",
+        display: isLoading ? "none" : "block",
+      }}
+      onError={(e) => {
+        // Fallback to placeholder if image fails to load
+        const target = e.target as HTMLImageElement;
+        target.style.display = "none";
+        if (target.parentElement) {
+          target.parentElement.style.backgroundColor = "#FFFFFF";
+          target.parentElement.style.color = "#000000";
+          target.parentElement.style.fontSize = "24px";
+          target.parentElement.style.fontWeight = "700";
+          target.parentElement.textContent = "Image";
+        }
+      }}
+    />
+  );
+};
 
 /**
  * Shop name display component that scales text to fit width
@@ -198,6 +282,9 @@ const ShopListScreen: React.FC = () => {
   
   // Floor filter state
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
+  
+  // Selected shop for detail modal
+  const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
 
   // Fetch shops from API
   useEffect(() => {
@@ -266,7 +353,9 @@ const ShopListScreen: React.FC = () => {
 
   // Card size calculation
   // Content area: width: 2580px (2640 - 30*2), height: 2040px (2100 - 30*2)
-  const cardHeight = (2040 - 20 * (rowsPerColumn - 1)) / rowsPerColumn; // Row gap: 20px
+  // Card grid container height: 2032px (2040 - 4*2) with padding 12px top/bottom to accommodate animation and drop shadow
+  // Actual content area: 2008px (2032 - 12 - 12)
+  const cardHeight = (2008 - 20 * (rowsPerColumn - 1)) / rowsPerColumn; // Row gap: 20px
   const cardWidth = 376; // Card width
   const columnGap = 20; // Column gap
   const imageHeight = 251; // Image height
@@ -361,6 +450,7 @@ const ShopListScreen: React.FC = () => {
           flexShrink: 0,
           boxSizing: "border-box",
           overflow: "hidden",
+          position: "relative",
         }}
       >
         {/* Scrollable container */}
@@ -392,9 +482,12 @@ const ShopListScreen: React.FC = () => {
               style={{
                 display: "flex",
                 flexDirection: "row",
-                height: "2040px",
+                height: "2032px",
                 width: `${30 + totalColumns * cardWidth + (totalColumns - 1) * columnGap + 30}px`,
                 gap: `${columnGap}px`,
+                paddingTop: "20px",
+                paddingBottom: "12px",
+                boxSizing: "border-box",
               }}
             >
               {error ? (
@@ -429,18 +522,35 @@ const ShopListScreen: React.FC = () => {
                     const firstLine = `${floor} [${shop.number}] ${genreMemo}`;
 
                     return (
-                      <div
+                      <motion.div
                         key={shop.shopId || shop.number}
+                        onClick={() => setSelectedShop(shop)}
+                        whileHover={{
+                          scale: 1.05,
+                          y: -4,
+                          boxShadow: "0 6px 12px rgba(0, 0, 0, 0.3)",
+                        }}
+                        whileTap={{
+                          scale: 1.02,
+                          y: -2,
+                          boxShadow: "0 4px 8px rgba(0, 0, 0, 0.25)",
+                        }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 20,
+                        }}
                         style={{
                           width: `${cardWidth}px`,
                           height: `${cardHeight}px`,
-                          backgroundColor: "#000000",
+                          backgroundColor: "#FFFFFF",
                           borderRadius: "0 30px 30px 30px", // Top-right, bottom-left, bottom-right: 30px
                           display: "flex",
                           flexDirection: "column",
                           overflow: "hidden",
                           flexShrink: 0,
                           position: "relative",
+                          cursor: "pointer",
                         }}
                       >
                         {/* Floor display (top-left) */}
@@ -470,50 +580,16 @@ const ShopListScreen: React.FC = () => {
                           style={{
                             width: "100%",
                             height: `${imageHeight}px`,
-                            backgroundColor: "#333333",
+                            backgroundColor: "#FFFFFF",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             overflow: "hidden",
+                            borderRadius: "0 30px 0 0",
+                            boxSizing: "border-box",
                           }}
                         >
-                          {(() => {
-                            // Use photo2 if available, otherwise fallback to photo1
-                            const photo = shop.photo2 || shop.photo1;
-                            const imagePath = buildImagePath(photo, shop.shopId);
-                            const imageUrl = imagePath ? toFileUrl(imagePath) : "";
-                            return imageUrl ? (
-                              <img
-                                src={imageUrl}
-                                alt={shop.name}
-                                draggable={false}
-                                onDragStart={(e) => e.preventDefault()}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "contain", // Always use contain to prevent cropping
-                                  userSelect: "none",
-                                  pointerEvents: "auto",
-                                }}
-                                onError={(e) => {
-                                  // Fallback to placeholder if image fails to load
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = "none";
-                                  if (target.parentElement) {
-                                    target.parentElement.style.backgroundColor = "#333333";
-                                    target.parentElement.style.color = "#FFFFFF";
-                                    target.parentElement.style.fontSize = "24px";
-                                    target.parentElement.style.fontWeight = "700";
-                                    target.parentElement.textContent = "Image";
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <span style={{ color: "#FFFFFF", fontSize: "24px", fontWeight: 700 }}>
-                                Image
-                              </span>
-                            );
-                          })()}
+                          <ShopImage photo={shop.photo2 || shop.photo1} shopId={shop.shopId} />
                         </div>
                         {/* Content area */}
                         <div
@@ -522,6 +598,7 @@ const ShopListScreen: React.FC = () => {
                             display: "flex",
                             flexDirection: "column",
                             padding: "12px",
+                            backgroundColor: "#000000",
                             color: "#FFFFFF",
                             justifyContent: "center",
                           }}
@@ -540,7 +617,7 @@ const ShopListScreen: React.FC = () => {
                           {/* Second line: Shop name (24px) */}
                           <ShopNameDisplay name={shop.name} />
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -549,6 +626,11 @@ const ShopListScreen: React.FC = () => {
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {/* Shop detail modal */}
+        {selectedShop && (
+          <ShopDetailScreen shop={selectedShop} onClose={() => setSelectedShop(null)} />
+        )}
       </div>
 
       {/* Action space (right side) */}
