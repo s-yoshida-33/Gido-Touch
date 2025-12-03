@@ -1,5 +1,5 @@
 // src/screens/ShopListScreen.tsx
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
@@ -11,6 +11,8 @@ import button2FHighlight from "../assets/button-2F-highlight.svg";
 import button3FHighlight from "../assets/button-3F-highlight.svg";
 import selectLanguage from "../assets/select-language.svg";
 import openTime from "../assets/open-time.svg";
+import prev from "../assets/button-prev.svg";
+import next from "../assets/button-next.svg";
 import { fetchShops } from "../repositories/shopRepository";
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
@@ -286,6 +288,10 @@ const ShopListScreen: React.FC = () => {
   // Selected shop for detail modal
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
 
+  // Scroll position state for navigation buttons
+  const [scrollPercentage, setScrollPercentage] = useState(0);
+  const [canScroll, setCanScroll] = useState(false);
+
   // Fetch shops from API
   useEffect(() => {
     let cancelled = false;
@@ -408,6 +414,84 @@ const ShopListScreen: React.FC = () => {
     container.style.userSelect = "";
   };
 
+  // Calculate scroll percentage
+  const calculateScrollPercentage = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return { percentage: 0, canScroll: false };
+    
+    const scrollLeft = container.scrollLeft;
+    const scrollWidth = container.scrollWidth;
+    const clientWidth = container.clientWidth;
+    const maxScroll = scrollWidth - clientWidth;
+    
+    if (maxScroll <= 0) return { percentage: 0, canScroll: false };
+    return { percentage: (scrollLeft / maxScroll) * 100, canScroll: true };
+  }, []);
+
+  // Handle scroll event
+  const handleScroll = useCallback(() => {
+    const result = calculateScrollPercentage();
+    setScrollPercentage(result.percentage);
+    setCanScroll(result.canScroll);
+  }, [calculateScrollPercentage]);
+
+  // Update scroll percentage on scroll
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    container.addEventListener("scroll", handleScroll);
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, [handleScroll]);
+
+  // Recalculate scroll state when content changes
+  useLayoutEffect(() => {
+    // Use setTimeout to ensure layout is complete after animation
+    const timer1 = setTimeout(() => {
+      handleScroll();
+    }, 100);
+    
+    // Also check after a longer delay to catch animation completion
+    const timer2 = setTimeout(() => {
+      handleScroll();
+    }, 400);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [filteredShops, selectedFloor, handleScroll]);
+
+  // Also recalculate when shops data changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleScroll();
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [shops.length, handleScroll]);
+
+  // Scroll to start
+  const scrollToStart = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTo({ left: 0, behavior: "smooth" });
+    }
+  };
+
+  // Scroll to end
+  const scrollToEnd = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTo({ left: container.scrollWidth, behavior: "smooth" });
+    }
+  };
+
   // Add style to hide scrollbar
   useEffect(() => {
     const style = document.createElement("style");
@@ -455,30 +539,121 @@ const ShopListScreen: React.FC = () => {
       >
         {/* Scrollable container */}
         <div
-          ref={scrollContainerRef}
           style={{
             width: "100%",
             height: "100%",
-            overflowX: "auto",
-            overflowY: "hidden",
-            scrollbarWidth: "none", // Firefox
-            msOverflowStyle: "none", // IE/Edge
-            cursor: "grab",
+            position: "relative",
           }}
-          className="shop-list-scroll-container"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
         >
+          {/* Prev button (left side) */}
+          {canScroll && scrollPercentage > 50 && (
+            <button
+              onClick={scrollToStart}
+              style={{
+                position: "absolute",
+                left: "0",
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 10,
+                width: "150px",
+                height: "224px",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <img
+                src={prev}
+                alt="最初に移動"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  objectFit: "contain",
+                }}
+              />
+            </button>
+          )}
+          {/* Next button (right side) */}
+          {canScroll && scrollPercentage <= 50 && (
+            <button
+              onClick={scrollToEnd}
+              style={{
+                position: "absolute",
+                right: "0",
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 10,
+                width: "150px",
+                height: "224px",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <img
+                src={next}
+                alt="最後に移動"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  objectFit: "contain",
+                }}
+              />
+            </button>
+          )}
+          <div
+            ref={scrollContainerRef}
+            style={{
+              width: "100%",
+              height: "100%",
+              overflowX: "auto",
+              overflowY: "hidden",
+              scrollbarWidth: "none", // Firefox
+              msOverflowStyle: "none", // IE/Edge
+              cursor: "grab",
+            }}
+            className="shop-list-scroll-container"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+          >
           {/* Card grid container */}
-          <AnimatePresence mode="wait">
+          <AnimatePresence 
+            mode="wait"
+            onExitComplete={() => {
+              // Recalculate scroll state after animation completes
+              setTimeout(() => {
+                handleScroll();
+              }, 50);
+            }}
+          >
             <motion.div
               key={selectedFloor || "all"}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
+              onAnimationComplete={() => {
+                // Recalculate scroll state after animation completes
+                setTimeout(() => {
+                  handleScroll();
+                }, 50);
+              }}
               style={{
                 display: "flex",
                 flexDirection: "row",
@@ -625,6 +800,7 @@ const ShopListScreen: React.FC = () => {
             )}
             </motion.div>
           </AnimatePresence>
+          </div>
         </div>
 
         {/* Shop detail modal */}
