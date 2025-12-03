@@ -900,6 +900,24 @@ const ShopListScreen: React.FC = () => {
                     highlight.style.opacity = "0";
                   }
                 }}
+                onTouchStart={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  if (highlight) highlight.style.opacity = "1";
+                }}
+                onTouchEnd={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "3F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
+                }}
+                onTouchCancel={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "3F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
+                }}
               >
                 <img
                   src={button3F}
@@ -963,6 +981,24 @@ const ShopListScreen: React.FC = () => {
                     highlight.style.opacity = "0";
                   }
                 }}
+                onTouchStart={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  if (highlight) highlight.style.opacity = "1";
+                }}
+                onTouchEnd={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "2F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
+                }}
+                onTouchCancel={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "2F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
+                }}
               >
                 <img
                   src={button2F}
@@ -1020,6 +1056,24 @@ const ShopListScreen: React.FC = () => {
                   if (highlight) highlight.style.opacity = "1";
                 }}
                 onMouseLeave={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "1F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
+                }}
+                onTouchStart={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  if (highlight) highlight.style.opacity = "1";
+                }}
+                onTouchEnd={(e) => {
+                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "1F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
+                }}
+                onTouchCancel={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
                   // Keep highlight visible if this floor is selected
                   if (selectedFloor !== "1F" && highlight) {

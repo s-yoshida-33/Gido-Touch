@@ -567,6 +567,18 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 }}
                 onMouseDown={() => setZoomInClicked(true)}
                 onMouseUp={() => setZoomInClicked(false)}
+                onTouchStart={() => {
+                  setZoomInHovered(true);
+                  setZoomInClicked(true);
+                }}
+                onTouchEnd={() => {
+                  setZoomInHovered(false);
+                  setZoomInClicked(false);
+                }}
+                onTouchCancel={() => {
+                  setZoomInHovered(false);
+                  setZoomInClicked(false);
+                }}
                 onClick={() => {
                   if (transformRef.current && displayAreaRef.current) {
                     const currentScale = transformRef.current.state.scale;
@@ -630,6 +642,18 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 }}
                 onMouseDown={() => setZoomOutClicked(true)}
                 onMouseUp={() => setZoomOutClicked(false)}
+                onTouchStart={() => {
+                  setZoomOutHovered(true);
+                  setZoomOutClicked(true);
+                }}
+                onTouchEnd={() => {
+                  setZoomOutHovered(false);
+                  setZoomOutClicked(false);
+                }}
+                onTouchCancel={() => {
+                  setZoomOutHovered(false);
+                  setZoomOutClicked(false);
+                }}
                 onClick={() => {
                   if (transformRef.current && displayAreaRef.current) {
                     const currentScale = transformRef.current.state.scale;
@@ -705,6 +729,18 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 }}
                 onMouseDown={() => setResetClicked(true)}
                 onMouseUp={() => setResetClicked(false)}
+                onTouchStart={() => {
+                  setResetHovered(true);
+                  setResetClicked(true);
+                }}
+                onTouchEnd={() => {
+                  setResetHovered(false);
+                  setResetClicked(false);
+                }}
+                onTouchCancel={() => {
+                  setResetHovered(false);
+                  setResetClicked(false);
+                }}
                 onClick={() => {
                   if (transformRef.current) {
                     transformRef.current.resetTransform();
