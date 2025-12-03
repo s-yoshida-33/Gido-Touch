@@ -132,7 +132,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
 
   if (!photo || (!imageUrl && !isLoading)) {
     return (
-      <span style={{ color: "#FFFFFF", fontSize: "24px", fontWeight: 700 }}>
+      <span style={{ color: "#000000", fontSize: "24px", fontWeight: 700 }}>
         Image
       </span>
     );
@@ -157,8 +157,8 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
         const target = e.target as HTMLImageElement;
         target.style.display = "none";
         if (target.parentElement) {
-          target.parentElement.style.backgroundColor = "#333333";
-          target.parentElement.style.color = "#FFFFFF";
+          target.parentElement.style.backgroundColor = "#FFFFFF";
+          target.parentElement.style.color = "#000000";
           target.parentElement.style.fontSize = "24px";
           target.parentElement.style.fontWeight = "700";
           target.parentElement.textContent = "Image";
@@ -353,7 +353,9 @@ const ShopListScreen: React.FC = () => {
 
   // Card size calculation
   // Content area: width: 2580px (2640 - 30*2), height: 2040px (2100 - 30*2)
-  const cardHeight = (2040 - 20 * (rowsPerColumn - 1)) / rowsPerColumn; // Row gap: 20px
+  // Card grid container height: 2032px (2040 - 4*2) with padding 12px top/bottom to accommodate animation and drop shadow
+  // Actual content area: 2008px (2032 - 12 - 12)
+  const cardHeight = (2008 - 20 * (rowsPerColumn - 1)) / rowsPerColumn; // Row gap: 20px
   const cardWidth = 376; // Card width
   const columnGap = 20; // Column gap
   const imageHeight = 251; // Image height
@@ -480,9 +482,12 @@ const ShopListScreen: React.FC = () => {
               style={{
                 display: "flex",
                 flexDirection: "row",
-                height: "2040px",
+                height: "2032px",
                 width: `${30 + totalColumns * cardWidth + (totalColumns - 1) * columnGap + 30}px`,
                 gap: `${columnGap}px`,
+                paddingTop: "20px",
+                paddingBottom: "12px",
+                boxSizing: "border-box",
               }}
             >
               {error ? (
@@ -517,13 +522,28 @@ const ShopListScreen: React.FC = () => {
                     const firstLine = `${floor} [${shop.number}] ${genreMemo}`;
 
                     return (
-                      <div
+                      <motion.div
                         key={shop.shopId || shop.number}
                         onClick={() => setSelectedShop(shop)}
+                        whileHover={{
+                          scale: 1.05,
+                          y: -4,
+                          boxShadow: "0 6px 12px rgba(0, 0, 0, 0.3)",
+                        }}
+                        whileTap={{
+                          scale: 1.02,
+                          y: -2,
+                          boxShadow: "0 4px 8px rgba(0, 0, 0, 0.25)",
+                        }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 20,
+                        }}
                         style={{
                           width: `${cardWidth}px`,
                           height: `${cardHeight}px`,
-                          backgroundColor: "#000000",
+                          backgroundColor: "#FFFFFF",
                           borderRadius: "0 30px 30px 30px", // Top-right, bottom-left, bottom-right: 30px
                           display: "flex",
                           flexDirection: "column",
@@ -560,11 +580,13 @@ const ShopListScreen: React.FC = () => {
                           style={{
                             width: "100%",
                             height: `${imageHeight}px`,
-                            backgroundColor: "#333333",
+                            backgroundColor: "#FFFFFF",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             overflow: "hidden",
+                            borderRadius: "0 30px 0 0",
+                            boxSizing: "border-box",
                           }}
                         >
                           <ShopImage photo={shop.photo2 || shop.photo1} shopId={shop.shopId} />
@@ -576,6 +598,7 @@ const ShopListScreen: React.FC = () => {
                             display: "flex",
                             flexDirection: "column",
                             padding: "12px",
+                            backgroundColor: "#000000",
                             color: "#FFFFFF",
                             justifyContent: "center",
                           }}
@@ -594,7 +617,7 @@ const ShopListScreen: React.FC = () => {
                           {/* Second line: Shop name (24px) */}
                           <ShopNameDisplay name={shop.name} />
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>

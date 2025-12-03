@@ -1,5 +1,5 @@
 // src/screens/ShopDetailScreen.tsx
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import buttonClose from "../assets/button-close.svg";
 import food1FMap from "../assets/food-1F-map.svg";
@@ -17,6 +17,169 @@ import zoomOutHighlight from "../assets/zoom-out-highlight.svg";
 import reset from "../assets/reset.svg";
 import resetHighlight from "../assets/reset-highlight.svg";
 import type { Shop } from "../types/shop";
+
+/**
+ * Build image path using shop_id if photo is relative or filename only
+ * Expected full path format: C:\Users\...\AppData\Roaming\TTI\BridgeWebPopper\files\shop\{shop_id}\photo2.png
+ */
+function buildImagePath(photo: string | undefined, shopId: string | undefined): string {
+  if (!photo) {
+    if (shopId) {
+      return "";
+    }
+    return "";
+  }
+  
+  // If already a full path (contains drive letter like C:\), return as is
+  if (photo.match(/^[A-Za-z]:[\\/]/)) {
+    return photo;
+  }
+  
+  // If already a URL (file://, http://, https://, or data:), return as is
+  if (photo.startsWith("file://") || 
+      photo.startsWith("http://") || 
+      photo.startsWith("https://") ||
+      photo.startsWith("data:")) {
+    return photo;
+  }
+  
+  // If starts with absolute path markers (/, \), might be absolute path
+  if (photo.startsWith("/") || photo.startsWith("\\")) {
+    if (photo.startsWith("\\\\")) {
+      return photo;
+    }
+    if (photo.startsWith("/")) {
+      return photo;
+    }
+  }
+  
+  // If shop_id is available and photo is relative or filename only, build path
+  if (shopId) {
+    if (photo.includes(`shop/${shopId}/`) || photo.includes(`shop\\${shopId}\\`) ||
+        photo.includes(`files/shop/${shopId}/`) || photo.includes(`files\\shop\\${shopId}\\`)) {
+      return photo;
+    }
+    
+    const normalizedPhoto = photo.replace(/\\/g, "/");
+    const cleanPhoto = normalizedPhoto.startsWith("/") ? normalizedPhoto.slice(1) : normalizedPhoto;
+    
+    if (!cleanPhoto.includes("/")) {
+      return `files/shop/${shopId}/${cleanPhoto}`;
+    }
+    
+    if (cleanPhoto.startsWith("files/shop/")) {
+      return cleanPhoto;
+    }
+    return `files/shop/${shopId}/${cleanPhoto}`;
+  }
+  
+  return photo;
+}
+
+/**
+ * Convert a local file path to a file:// URL for Electron
+ */
+function toFileUrl(filePath: string): string {
+  if (!filePath) return "";
+  
+  if (filePath.startsWith("file://") || 
+      filePath.startsWith("http://") || 
+      filePath.startsWith("https://") ||
+      filePath.startsWith("data:")) {
+    return filePath;
+  }
+  
+  const normalized = filePath.replace(/\\/g, "/");
+  
+  if (normalized.match(/^[A-Za-z]:\//)) {
+    return `file:///${normalized}`;
+  }
+  
+  if (normalized.startsWith("/")) {
+    return `file://${normalized}`;
+  }
+  
+  return `file:///${normalized}`;
+}
+
+/**
+ * Shop image component that loads images via Electron IPC or falls back to file:// URL
+ */
+const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefined }> = ({ photo, shopId }) => {
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!photo) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loadImage = async () => {
+      const imagePath = buildImagePath(photo, shopId);
+      if (!imagePath) {
+        setIsLoading(false);
+        return;
+      }
+
+      const electronAPI = window.electronAPI;
+      if (electronAPI && electronAPI.getShopImage) {
+        try {
+          const dataUrl = await electronAPI.getShopImage(imagePath);
+          if (dataUrl) {
+            setImageUrl(dataUrl);
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error("Failed to load image via IPC:", error);
+        }
+      }
+
+      const fileUrl = toFileUrl(imagePath);
+      setImageUrl(fileUrl);
+      setIsLoading(false);
+    };
+
+    loadImage();
+  }, [photo, shopId]);
+
+  if (!photo || (!imageUrl && !isLoading)) {
+    return (
+      <span style={{ color: "#FFFFFF", fontSize: "24px", fontWeight: 700 }}>
+        Image
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt=""
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        userSelect: "none",
+        pointerEvents: "auto",
+        display: isLoading ? "none" : "block",
+      }}
+      onError={(e) => {
+        const target = e.target as HTMLImageElement;
+        target.style.display = "none";
+        if (target.parentElement) {
+          target.parentElement.style.backgroundColor = "#333333";
+          target.parentElement.style.color = "#FFFFFF";
+          target.parentElement.style.fontSize = "24px";
+          target.parentElement.style.fontWeight = "700";
+          target.parentElement.textContent = "Image";
+        }
+      }}
+    />
+  );
+};
 
 /**
  * Normalize floor value to standard format (e.g., "1" -> "1F", "1F" -> "1F")
@@ -419,8 +582,25 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
             width: "700px",
             height: "100%",
             flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
           }}
-        />
+        >
+          {/* Shop image display area */}
+          <div
+            style={{
+              width: "100%",
+              height: "394px",
+              backgroundColor: "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+            }}
+          >
+            <ShopImage photo={shop.photo2 || shop.photo1} shopId={shop.shopId} />
+          </div>
+        </div>
       </div>
       {/* Close button - positioned outside modal, at top-right corner, aligned to modal's right edge */}
       <button
