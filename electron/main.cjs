@@ -123,10 +123,11 @@ function loadSettings() {
         min: 8080,
         max: 8089,
       },
-      rightTopVideoCms: {
-        min: 8100,
-        max: 8109,
-      },
+      // rightTopVideoCms is no longer used - disabled
+      // rightTopVideoCms: {
+      //   min: 8100,
+      //   max: 8109,
+      // },
     },
   };
 
@@ -202,10 +203,7 @@ function loadSettings() {
               min: typeof parsed.portRanges.cms?.min === 'number' ? parsed.portRanges.cms.min : base.portRanges.cms.min,
               max: typeof parsed.portRanges.cms?.max === 'number' ? parsed.portRanges.cms.max : base.portRanges.cms.max,
             },
-            rightTopVideoCms: {
-              min: typeof parsed.portRanges.rightTopVideoCms?.min === 'number' ? parsed.portRanges.rightTopVideoCms.min : base.portRanges.rightTopVideoCms.min,
-              max: typeof parsed.portRanges.rightTopVideoCms?.max === 'number' ? parsed.portRanges.rightTopVideoCms.max : base.portRanges.rightTopVideoCms.max,
-            },
+            // rightTopVideoCms is no longer used - ignored if present in settings file
           }
         : base.portRanges,
     };
@@ -440,38 +438,19 @@ async function getCmsBaseUrl() {
     logger.debug('CMS port range not configured, using fallback');
   }
 
-  // Fallback to default
-  const fallbackUrl = 'http://127.0.0.1:8081';
+  // Fallback to default (8080)
+  const fallbackUrl = 'http://127.0.0.1:8080';
   logger.info('Using CMS fallback URL', { fallbackUrl });
   return fallbackUrl;
 }
 
 /**
  * Get the base URL for right-top video CMS, using port range detection if configured.
+ * NOTE: Right-top video CMS is currently disabled - this function returns null.
  */
 async function getRightTopVideoCmsBaseUrl() {
-  const settings = loadSettings();
-  const portRange = settings.portRanges?.rightTopVideoCms;
-
-  logger.debug('Getting right-top video CMS base URL', { portRange });
-
-  if (portRange && portRange.min && portRange.max) {
-    const port = await findAvailablePortInRange(portRange.min, portRange.max, '/current-timeline', '127.0.0.1');
-    if (port) {
-      const baseUrl = `http://127.0.0.1:${port}`;
-      logger.info('Right-top video CMS base URL determined', { baseUrl, port, portRange });
-      return baseUrl;
-    } else {
-      logger.warn('Right-top video CMS port detection failed, using fallback', { portRange });
-    }
-  } else {
-    logger.debug('Right-top video CMS port range not configured, using fallback');
-  }
-
-  // Fallback to default
-  const fallbackUrl = 'http://127.0.0.1:8100';
-  logger.info('Using right-top video CMS fallback URL', { fallbackUrl });
-  return fallbackUrl;
+  logger.debug('Right-top video CMS is disabled - returning null');
+  return null;
 }
 
 // Cache for base URLs to avoid repeated port detection
@@ -1229,20 +1208,53 @@ ipcMain.handle('wsp:get-current-asset', async () => {
 
 /**
  * IPC handler for right-top video CMS current asset.
+ * NOTE: Right-top video CMS is currently disabled - this handler returns null.
  * Uses /current-timeline from right-top video CMS (port 8100-8109),
  * extracts the first media asset, and returns a simplified object for the renderer.
  */
 ipcMain.handle('wsp:get-right-top-video-asset', async () => {
+  logger.debug('wsp:get-right-top-video-asset: right-top video CMS is disabled');
+  return null;
+  
+  // Disabled code below - right-top video CMS is no longer used
+  /*
   try {
     const baseUrl = await getCachedRightTopVideoCmsBaseUrl();
+    if (!baseUrl) {
+      logger.debug('wsp:get-right-top-video-asset: baseUrl is null, right-top video CMS is disabled');
+      return null;
+    }
     const url = `${baseUrl}/current-timeline`;
-    logger.debug('wsp:get-right-top-video-asset: requesting', { url, baseUrl });
-    const json = await httpGetJson(url);
+    logger.info('wsp:get-right-top-video-asset: requesting', { url, baseUrl });
+    
+    let json;
+    try {
+      json = await httpGetJson(url);
+    } catch (httpError) {
+      logger.error('wsp:get-right-top-video-asset: HTTP request failed', {
+        url,
+        baseUrl,
+        error: httpError?.message,
+        errorCode: httpError?.code,
+      });
+      return null;
+    }
 
-    if (!json || !json.current_timeline) {
+    if (!json) {
+      logger.warn('wsp:get-right-top-video-asset: JSON response is null or undefined', {
+        url,
+        baseUrl,
+      });
+      return null;
+    }
+
+    if (!json.current_timeline) {
       logger.warn('wsp:get-right-top-video-asset: current_timeline is missing', {
         hasJson: !!json,
         jsonKeys: json ? Object.keys(json) : [],
+        url,
+        baseUrl,
+        jsonString: JSON.stringify(json).substring(0, 500), // First 500 chars for debugging
       });
       return null;
     }
@@ -1256,18 +1268,22 @@ ipcMain.handle('wsp:get-right-top-video-asset', async () => {
       assets = tl.data.media_assets;
     }
     
-    logger.debug('wsp:get-right-top-video-asset response structure', {
+    logger.info('wsp:get-right-top-video-asset response structure', {
       hasCurrentTimeline: !!tl,
       timelineKeys: tl ? Object.keys(tl) : [],
       hasData: !!(tl && tl.data),
       dataKeys: tl && tl.data ? Object.keys(tl.data) : [],
       mediaAssetsCount: assets.length,
       mediaAssetsLocation: tl.media_assets ? 'timeline.media_assets' : (tl.data && tl.data.media_assets ? 'timeline.data.media_assets' : 'not found'),
+      url,
+      baseUrl,
     });
     
     if (assets.length === 0) {
       logger.warn('wsp:get-right-top-video-asset: media_assets is empty', {
         assetsLength: assets.length,
+        url,
+        baseUrl,
         timelineStructure: {
           hasMediaAssets: 'media_assets' in tl,
           hasData: !!(tl && tl.data),
@@ -1275,6 +1291,7 @@ ipcMain.handle('wsp:get-right-top-video-asset', async () => {
           timelineKeys: Object.keys(tl),
           dataKeys: tl && tl.data ? Object.keys(tl.data) : [],
         },
+        timelineString: JSON.stringify(tl).substring(0, 1000), // First 1000 chars for debugging
       });
       return null;
     }
@@ -1300,15 +1317,55 @@ ipcMain.handle('wsp:get-right-top-video-asset', async () => {
     // Use url if available, otherwise use localPath
     const assetPath = asset.url || asset.localPath || '';
     
+    // Check if localPath exists (if it's a file path, not a URL)
+    let finalPath = assetPath;
+    if (assetPath && !assetPath.startsWith('http://') && !assetPath.startsWith('https://') && !assetPath.startsWith('file://')) {
+      // It's a local file path
+      if (!fs.existsSync(assetPath)) {
+        logger.warn('wsp:get-right-top-video-asset: localPath does not exist', {
+          assetId: asset.id,
+          localPath: assetPath,
+          assetUrl: asset.url,
+          assetLocalPath: asset.localPath,
+        });
+        // If url is provided, use it instead
+        if (asset.url) {
+          finalPath = asset.url;
+          logger.info('wsp:get-right-top-video-asset: using url instead of localPath', {
+            assetId: asset.id,
+            url: asset.url,
+          });
+        } else {
+          // File doesn't exist and no URL provided - still return the path but log warning
+          logger.error('wsp:get-right-top-video-asset: localPath does not exist and no url provided', {
+            assetId: asset.id,
+            localPath: assetPath,
+          });
+        }
+      } else {
+        logger.debug('wsp:get-right-top-video-asset: localPath exists', {
+          assetId: asset.id,
+          localPath: assetPath,
+        });
+      }
+    }
+    
     logger.info('wsp:get-right-top-video-asset: returning first asset', {
       assetId: asset.id,
-      url: assetPath,
+      originalPath: assetPath,
+      finalPath: finalPath,
       mediaType: inferredMediaType,
+      pathExists: finalPath && !finalPath.startsWith('http') ? fs.existsSync(finalPath) : 'N/A (URL)',
     });
+
+    // Convert to file:// URL if it's a local path, otherwise use as-is (for HTTP URLs)
+    const src = (finalPath.startsWith('http://') || finalPath.startsWith('https://'))
+      ? finalPath
+      : toFileUrl(finalPath);
 
     return {
       id: asset.id,
-      src: toFileUrl(assetPath),
+      src: src,
       duration: asset.duration,
       width: asset.width,
       height: asset.height,
@@ -1324,13 +1381,18 @@ ipcMain.handle('wsp:get-right-top-video-asset', async () => {
       type: asset.type,
     };
   } catch (error) {
+    const baseUrl = await getCachedRightTopVideoCmsBaseUrl().catch(() => 'unknown');
     logger.error('wsp:get-right-top-video-asset failed', {
       error: error?.message,
+      errorName: error?.name,
+      errorCode: error?.code,
       stack: error?.stack,
-      baseUrl: await getCachedRightTopVideoCmsBaseUrl().catch(() => 'unknown'),
+      baseUrl,
+      url: baseUrl !== 'unknown' ? `${baseUrl}/current-timeline` : 'unknown',
     });
     return null;
   }
+  */
 });
 
 /**

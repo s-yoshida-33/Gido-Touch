@@ -476,11 +476,42 @@ const ShopListScreen: React.FC = () => {
     };
   }, [shops.length, handleScroll]);
 
+  // Smooth scroll animation helper
+  const smoothScrollTo = (targetScrollLeft: number, duration: number = 800) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const startScrollLeft = container.scrollLeft;
+    const distance = targetScrollLeft - startScrollLeft;
+    const startTime = performance.now();
+
+    // Easing function: easeInOutCubic
+    const easeInOutCubic = (t: number): number => {
+      return t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    };
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeInOutCubic(progress);
+      
+      container.scrollLeft = startScrollLeft + distance * easedProgress;
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  };
+
   // Scroll to start
   const scrollToStart = () => {
     const container = scrollContainerRef.current;
     if (container) {
-      container.scrollTo({ left: 0, behavior: "smooth" });
+      smoothScrollTo(0, 800);
     }
   };
 
@@ -488,7 +519,8 @@ const ShopListScreen: React.FC = () => {
   const scrollToEnd = () => {
     const container = scrollContainerRef.current;
     if (container) {
-      container.scrollTo({ left: container.scrollWidth, behavior: "smooth" });
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      smoothScrollTo(maxScroll, 800);
     }
   };
 
@@ -666,11 +698,23 @@ const ShopListScreen: React.FC = () => {
               }}
             >
               {error ? (
-                <div style={{ padding: "30px", color: "red", fontSize: "24px" }}>
+                <div 
+                  style={{ 
+                    padding: "30px", 
+                    color: "red", 
+                    fontSize: "24px",
+                  }}
+                >
                   Error: {error}
                 </div>
               ) : filteredShops.length === 0 ? (
-                <div style={{ padding: "30px", color: "#FFFFFF", fontSize: "24px" }}>
+                <div 
+                  style={{ 
+                    padding: "30px", 
+                    color: "#FFFFFF", 
+                    fontSize: "24px",
+                  }}
+                >
                   店舗データがありません
                 </div>
               ) : (
@@ -1160,7 +1204,7 @@ const ShopListScreen: React.FC = () => {
                 height: "100%",
               }}
             >
-              <VerticalVideoSlot useRightTopVideoCms={true} />
+              <VerticalVideoSlot />
             </div>
           </div>
         </div>

@@ -64,7 +64,8 @@ export function useRightTopVideoAsset(
           // Status: noAsset (API OK but no current asset)
           if (lastStatusRef.current !== 'noAsset') {
             logWarn('video', 'No current right-top video asset returned by CMS', {
-              fetchDurationMs: Date.now() - startTime,
+              fetchDurationMs: fetchDuration,
+              reason: 'API returned null or undefined',
             });
           }
           lastStatusRef.current = 'noAsset';
@@ -80,11 +81,15 @@ export function useRightTopVideoAsset(
         if (lastStatusRef.current !== 'error') {
           logError('video', 'Failed to fetch current right-top video asset', {
             error: error?.message,
+            errorName: error?.name,
+            errorCode: error?.code,
+            errorStack: error?.stack,
             fetchDurationMs: fetchDuration,
           });
         }
         lastStatusRef.current = 'error';
 
+        setAsset(null);
         setIsLoading(false);
       } finally {
         if (!isMounted) return;

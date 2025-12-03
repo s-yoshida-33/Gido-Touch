@@ -572,14 +572,21 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                   setZoomInClicked(true);
                 }}
                 onTouchEnd={() => {
-                  setZoomInHovered(false);
-                  setZoomInClicked(false);
+                  // Use setTimeout to ensure highlight is visible briefly, then remove
+                  setTimeout(() => {
+                    setZoomInHovered(false);
+                    setZoomInClicked(false);
+                  }, 100);
                 }}
                 onTouchCancel={() => {
                   setZoomInHovered(false);
                   setZoomInClicked(false);
                 }}
                 onClick={() => {
+                  // Reset highlight immediately on click
+                  setZoomInHovered(false);
+                  setZoomInClicked(false);
+                  
                   if (transformRef.current && displayAreaRef.current) {
                     const currentScale = transformRef.current.state.scale;
                     const newScale = Math.min(currentScale * 1.5, 4); // 50% increase, max 400%
@@ -647,14 +654,21 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                   setZoomOutClicked(true);
                 }}
                 onTouchEnd={() => {
-                  setZoomOutHovered(false);
-                  setZoomOutClicked(false);
+                  // Use setTimeout to ensure highlight is visible briefly, then remove
+                  setTimeout(() => {
+                    setZoomOutHovered(false);
+                    setZoomOutClicked(false);
+                  }, 100);
                 }}
                 onTouchCancel={() => {
                   setZoomOutHovered(false);
                   setZoomOutClicked(false);
                 }}
                 onClick={() => {
+                  // Reset highlight immediately on click
+                  setZoomOutHovered(false);
+                  setZoomOutClicked(false);
+                  
                   if (transformRef.current && displayAreaRef.current) {
                     const currentScale = transformRef.current.state.scale;
                     const newScale = Math.max(currentScale / 1.5, 1); // 50% decrease, min 100%
@@ -734,14 +748,21 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                   setResetClicked(true);
                 }}
                 onTouchEnd={() => {
-                  setResetHovered(false);
-                  setResetClicked(false);
+                  // Use setTimeout to ensure highlight is visible briefly, then remove
+                  setTimeout(() => {
+                    setResetHovered(false);
+                    setResetClicked(false);
+                  }, 100);
                 }}
                 onTouchCancel={() => {
                   setResetHovered(false);
                   setResetClicked(false);
                 }}
                 onClick={() => {
+                  // Reset highlight immediately on click
+                  setResetHovered(false);
+                  setResetClicked(false);
+                  
                   if (transformRef.current) {
                     transformRef.current.resetTransform();
                   }

@@ -92,7 +92,13 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ useRightTopVideoC
   // No asset case
   if (!asset) {
     if (!isLoading) {
-      logWarn('video', 'No video asset available for VerticalVideoSlot');
+      logWarn('video', 'No video asset available for VerticalVideoSlot', {
+        useRightTopVideoCms,
+        isLoadingCurrent,
+        isLoadingRightTop,
+        currentAssetId: currentAsset?.id || null,
+        rightTopAssetId: rightTopAsset?.id || null,
+      });
     }
 
     return (
