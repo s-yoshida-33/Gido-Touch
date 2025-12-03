@@ -28,6 +28,7 @@ type FloorLayoutPerFloor = {
 type FloorLayout = Record<string, FloorLayoutPerFloor>;
 
 interface ElectronAPI {
+  getBridgeBaseUrl: () => Promise<string>;
   getFloor: () => Promise<string>;
   setFloor: (floor: string) => void;
   onFloorChanged: (cb: (floor: string) => void) => void;
@@ -92,6 +93,7 @@ interface WspApi {
   getCurrentAsset: () => Promise<CurrentAsset | null>;
   getCurrentTimeline: () => Promise<WspCurrentTimelineResponse | null>;
   getTimeline: (hour?: number) => Promise<WspTimelineResponse | null>;
+  getRightTopVideoAsset: () => Promise<CurrentAsset | null>;
 }
 
 interface LoggerApi {

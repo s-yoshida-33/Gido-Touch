@@ -1,5 +1,6 @@
 // src/screens/ShopListScreen.tsx
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
 import button1F from "../assets/button-1F.svg";
@@ -10,6 +11,168 @@ import button2FHighlight from "../assets/button-2F-highlight.svg";
 import button3FHighlight from "../assets/button-3F-highlight.svg";
 import selectLanguage from "../assets/select-language.svg";
 import openTime from "../assets/open-time.svg";
+import { fetchShops } from "../repositories/shopRepository";
+import type { Shop } from "../types/shop";
+
+/**
+ * Build image path using shop_id if photo is relative or filename only
+ * Expected full path format: C:\Users\...\AppData\Roaming\TTI\BridgeWebPopper\files\shop\{shop_id}\photo2.png
+ */
+function buildImagePath(photo: string | undefined, shopId: string | undefined): string {
+  if (!photo) {
+    // If no photo but shop_id is available, try to build path from shop_id
+    if (shopId) {
+      // This is a fallback - API should provide photo, but if not, we can try to construct it
+      // However, we don't know the base path, so return empty
+      return "";
+    }
+    return "";
+  }
+  
+  // If already a full path (contains drive letter like C:\), return as is
+  if (photo.match(/^[A-Za-z]:[\\/]/)) {
+    return photo;
+  }
+  
+  // If already a URL (file://, http://, https://, or data:), return as is
+  if (photo.startsWith("file://") || 
+      photo.startsWith("http://") || 
+      photo.startsWith("https://") ||
+      photo.startsWith("data:")) {
+    return photo;
+  }
+  
+  // If starts with absolute path markers (/, \), might be absolute path
+  // But without drive letter, it's likely a Unix-style path or network path
+  if (photo.startsWith("/") || photo.startsWith("\\")) {
+    // Check if it looks like a Windows network path (\\server\share)
+    if (photo.startsWith("\\\\")) {
+      return photo;
+    }
+    // For Unix-style absolute paths, return as is
+    if (photo.startsWith("/")) {
+      return photo;
+    }
+  }
+  
+  // If shop_id is available and photo is relative or filename only, build path
+  if (shopId) {
+    // Check if photo already contains shop_id in path (e.g., "shop/31/photo2.png" or "files/shop/31/photo2.png")
+    if (photo.includes(`shop/${shopId}/`) || photo.includes(`shop\\${shopId}\\`) ||
+        photo.includes(`files/shop/${shopId}/`) || photo.includes(`files\\shop\\${shopId}\\`)) {
+      return photo;
+    }
+    
+    // Normalize path separators
+    const normalizedPhoto = photo.replace(/\\/g, "/");
+    // Remove leading slash if present
+    const cleanPhoto = normalizedPhoto.startsWith("/") ? normalizedPhoto.slice(1) : normalizedPhoto;
+    
+    // If it's just a filename (no path separators), build full path
+    if (!cleanPhoto.includes("/")) {
+      return `files/shop/${shopId}/${cleanPhoto}`;
+    }
+    
+    // If it's a relative path, prepend shop_id folder
+    // But check if it already starts with files/shop
+    if (cleanPhoto.startsWith("files/shop/")) {
+      return cleanPhoto;
+    }
+    return `files/shop/${shopId}/${cleanPhoto}`;
+  }
+  
+  return photo;
+}
+
+/**
+ * Shop name display component that scales text to fit width
+ */
+const ShopNameDisplay: React.FC<{ name: string }> = ({ name }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (containerRef.current && textRef.current) {
+      const containerWidth = containerRef.current.clientWidth;
+      const textWidth = textRef.current.scrollWidth;
+      
+      if (textWidth > containerWidth) {
+        const scale = containerWidth / textWidth;
+        textRef.current.style.transform = `scaleX(${Math.max(scale, 0.5)})`;
+      } else {
+        textRef.current.style.transform = "scaleX(1)";
+      }
+    }
+  }, [name]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        fontSize: "24px",
+        fontWeight: 700,
+        lineHeight: "1.4",
+        width: "100%",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        transformOrigin: "left center",
+      }}
+    >
+      <div
+        ref={textRef}
+        style={{
+          display: "inline-block",
+          transform: "scaleX(1)",
+          whiteSpace: "nowrap",
+          transformOrigin: "left center",
+        }}
+      >
+        {name}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Convert a local file path to a file:// URL for Electron
+ */
+function toFileUrl(filePath: string): string {
+  if (!filePath) return "";
+  
+  // If already a URL (file://, http://, https://, or data:), return as is
+  if (filePath.startsWith("file://") || 
+      filePath.startsWith("http://") || 
+      filePath.startsWith("https://") ||
+      filePath.startsWith("data:")) {
+    return filePath;
+  }
+  
+  // Convert Windows backslashes to forward slashes
+  const normalized = filePath.replace(/\\/g, "/");
+  
+  // Add file:// protocol
+  // For Windows absolute paths (C:/...), use file:///C:/...
+  if (normalized.match(/^[A-Za-z]:\//)) {
+    return `file:///${normalized}`;
+  }
+  
+  // For paths starting with /, use file://
+  if (normalized.startsWith("/")) {
+    return `file://${normalized}`;
+  }
+  
+  // For relative paths, use file:///
+  return `file:///${normalized}`;
+}
+
+/**
+ * Normalize floor value to standard format (e.g., "1" -> "1F", "1F" -> "1F")
+ */
+function normalizeFloor(value: string): string {
+  if (!value) return "";
+  const m = value.match(/(\d+)/);
+  return m ? `${m[1]}F` : value;
+}
 
 /**
  * Shop list screen
@@ -29,30 +192,91 @@ const ShopListScreen: React.FC = () => {
   const dragStartXRef = useRef(0);
   const scrollStartXRef = useRef(0);
 
-  // Temporary card data (50 items)
-  const cardCount = 50;
-  const cards = Array.from({ length: cardCount }, (_, i) => ({
-    id: i + 1,
-    name: `店舗 ${i + 1}`,
-  }));
+  // Shop data state
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Floor filter state
+  const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
+
+  // Fetch shops from API
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadShops = async () => {
+      try {
+        const data = await fetchShops();
+        if (cancelled) return;
+
+        // Filter shops: only "飲食店・食品" genre
+        const filtered = data.filter((shop) => shop.genre === "飲食店・食品");
+
+        // Exclude "イオン堺北花田店"
+        const excluded = filtered.filter((shop) => !shop.name.includes("イオン堺北花田店"));
+
+        // Clean shop names (remove furigana in brackets)
+        const cleaned = excluded.map((s) => ({
+          ...s,
+          name: s.name.replace(/【.*?】/g, "").trim(),
+        }));
+
+        setShops(cleaned);
+        setError(null);
+      } catch (e: any) {
+        console.error(e);
+        if (cancelled) return;
+
+        const message = e?.message ?? "failed to load";
+        setError(message);
+      }
+    };
+
+    loadShops();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Filter shops by selected floor
+  const filteredShops = React.useMemo(() => {
+    if (!selectedFloor) {
+      return shops;
+    }
+    
+    const normalizedSelectedFloor = normalizeFloor(selectedFloor);
+    
+    return shops.filter((shop) => {
+      if (!shop.floors || shop.floors.length === 0) {
+        return false;
+      }
+      
+      // Check if any of the shop's floors match the selected floor
+      return shop.floors.some((floor) => {
+        const normalizedShopFloor = normalizeFloor(String(floor));
+        return normalizedShopFloor === normalizedSelectedFloor;
+      });
+    });
+  }, [shops, selectedFloor]);
 
   // Layout: 6 rows per column
+  // Card count is dynamically calculated based on the number of shops from API
   const rowsPerColumn = 6;
-  const totalColumns = Math.ceil(cards.length / rowsPerColumn);
+  const totalColumns = filteredShops.length > 0 ? Math.ceil(filteredShops.length / rowsPerColumn) : 0;
 
   // Card size calculation
   // Content area: width: 2580px (2640 - 30*2), height: 2040px (2100 - 30*2)
   const cardHeight = (2040 - 20 * (rowsPerColumn - 1)) / rowsPerColumn; // Row gap: 20px
   const cardWidth = 376; // Card width
   const columnGap = 20; // Column gap
-  const imageHeight = 250; // Image height
+  const imageHeight = 251; // Image height
 
-  // Group cards by column
-  const columns: typeof cards[] = [];
+  // Group shops by column
+  const columns: Shop[][] = [];
   for (let i = 0; i < totalColumns; i++) {
     const startIndex = i * rowsPerColumn;
-    const endIndex = Math.min(startIndex + rowsPerColumn, cards.length);
-    columns.push(cards.slice(startIndex, endIndex));
+    const endIndex = Math.min(startIndex + rowsPerColumn, filteredShops.length);
+    columns.push(filteredShops.slice(startIndex, endIndex));
   }
 
   // Mouse drag scroll
@@ -158,97 +382,172 @@ const ShopListScreen: React.FC = () => {
           onMouseLeave={handleMouseLeave}
         >
           {/* Card grid container */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              height: "2040px",
-              width: `${30 + totalColumns * cardWidth + (totalColumns - 1) * columnGap + 30}px`,
-              gap: `${columnGap}px`,
-            }}
-          >
-            {columns.map((columnCards, columnIndex) => (
-              <div
-                key={columnIndex}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "20px",
-                  width: `${cardWidth}px`,
-                  marginLeft: columnIndex === 0 ? "30px" : "0px",
-                  marginRight: columnIndex === totalColumns - 1 ? "30px" : "0px",
-                }}
-              >
-                {columnCards.map((card) => (
-                  <div
-                    key={card.id}
-                    style={{
-                      width: `${cardWidth}px`,
-                      height: `${cardHeight}px`,
-                      backgroundColor: "#000000",
-                      borderRadius: "0 30px 30px 30px", // Top-right, bottom-left, bottom-right: 30px
-                      display: "flex",
-                      flexDirection: "column",
-                      overflow: "hidden",
-                      flexShrink: 0,
-                      position: "relative",
-                    }}
-                  >
-                    {/* Floor display (top-left) */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "50px",
-                        height: "50px",
-                        backgroundColor: "#E63B93",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        zIndex: 10,
-                        fontSize: "24px",
-                        fontWeight: 700,
-                        color: "#FFFFFF",
-                      }}
-                    >
-                      1F
-                    </div>
-                    {/* Image area */}
-                    <div
-                      style={{
-                        width: "100%",
-                        height: `${imageHeight}px`,
-                        backgroundColor: "#333333",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#FFFFFF",
-                        fontSize: "24px",
-                        fontWeight: 700,
-                      }}
-                    >
-                      Image
-                    </div>
-                    {/* Content area */}
-                    <div
-                      style={{
-                        flex: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#FFFFFF",
-                      }}
-                    >
-                      <span style={{ fontSize: "24px", fontWeight: 700 }}>
-                        {card.name}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selectedFloor || "all"}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                height: "2040px",
+                width: `${30 + totalColumns * cardWidth + (totalColumns - 1) * columnGap + 30}px`,
+                gap: `${columnGap}px`,
+              }}
+            >
+              {error ? (
+                <div style={{ padding: "30px", color: "red", fontSize: "24px" }}>
+                  Error: {error}
+                </div>
+              ) : filteredShops.length === 0 ? (
+                <div style={{ padding: "30px", color: "#FFFFFF", fontSize: "24px" }}>
+                  店舗データがありません
+                </div>
+              ) : (
+                columns.map((columnShops, columnIndex) => (
+                <div
+                  key={columnIndex}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "20px",
+                    width: `${cardWidth}px`,
+                    marginLeft: columnIndex === 0 ? "30px" : "0px",
+                    marginRight: columnIndex === totalColumns - 1 ? "30px" : "0px",
+                  }}
+                >
+                  {columnShops.map((shop) => {
+                    // Get first floor for display
+                    const floor = shop.floors && shop.floors.length > 0 ? shop.floors[0] : "";
+                    // Get first genre memo only (if multiple, take the first one)
+                    const genreMemo = shop.genreMemo 
+                      ? shop.genreMemo.split(/[,、，\s]+/)[0].trim() 
+                      : "";
+                    // Format first line: "フロア [区画番号] ジャンルメモ"
+                    const firstLine = `${floor} [${shop.number}] ${genreMemo}`;
+
+                    return (
+                      <div
+                        key={shop.shopId || shop.number}
+                        style={{
+                          width: `${cardWidth}px`,
+                          height: `${cardHeight}px`,
+                          backgroundColor: "#000000",
+                          borderRadius: "0 30px 30px 30px", // Top-right, bottom-left, bottom-right: 30px
+                          display: "flex",
+                          flexDirection: "column",
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          position: "relative",
+                        }}
+                      >
+                        {/* Floor display (top-left) */}
+                        {floor && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              width: "50px",
+                              height: "50px",
+                              backgroundColor: "#E63B93",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              zIndex: 10,
+                              fontSize: "24px",
+                              fontWeight: 700,
+                              color: "#FFFFFF",
+                            }}
+                          >
+                            {floor}
+                          </div>
+                        )}
+                        {/* Image area */}
+                        <div
+                          style={{
+                            width: "100%",
+                            height: `${imageHeight}px`,
+                            backgroundColor: "#333333",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {(() => {
+                            // Use photo2 if available, otherwise fallback to photo1
+                            const photo = shop.photo2 || shop.photo1;
+                            const imagePath = buildImagePath(photo, shop.shopId);
+                            const imageUrl = imagePath ? toFileUrl(imagePath) : "";
+                            return imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={shop.name}
+                                draggable={false}
+                                onDragStart={(e) => e.preventDefault()}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "contain", // Always use contain to prevent cropping
+                                  userSelect: "none",
+                                  pointerEvents: "auto",
+                                }}
+                                onError={(e) => {
+                                  // Fallback to placeholder if image fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = "none";
+                                  if (target.parentElement) {
+                                    target.parentElement.style.backgroundColor = "#333333";
+                                    target.parentElement.style.color = "#FFFFFF";
+                                    target.parentElement.style.fontSize = "24px";
+                                    target.parentElement.style.fontWeight = "700";
+                                    target.parentElement.textContent = "Image";
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <span style={{ color: "#FFFFFF", fontSize: "24px", fontWeight: 700 }}>
+                                Image
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        {/* Content area */}
+                        <div
+                          style={{
+                            flex: 1,
+                            display: "flex",
+                            flexDirection: "column",
+                            padding: "12px",
+                            color: "#FFFFFF",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {/* First line: Floor, number, genre memo (16px) */}
+                          <div
+                            style={{
+                              fontSize: "16px",
+                              fontWeight: 400,
+                              marginBottom: "8px",
+                              lineHeight: "1.4",
+                            }}
+                          >
+                            {firstLine}
+                          </div>
+                          {/* Second line: Shop name (24px) */}
+                          <ShopNameDisplay name={shop.name} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 
@@ -323,13 +622,25 @@ const ShopListScreen: React.FC = () => {
                   display: "inline-block",
                   cursor: "pointer",
                 }}
+                onClick={() => {
+                  // If same floor is selected, deselect (show all shops)
+                  // Otherwise, select the clicked floor
+                  if (selectedFloor === "3F") {
+                    setSelectedFloor(null);
+                  } else {
+                    setSelectedFloor("3F");
+                  }
+                }}
                 onMouseEnter={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
                   if (highlight) highlight.style.opacity = "1";
                 }}
                 onMouseLeave={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "0";
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "3F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
                 }}
               >
                 <img
@@ -348,7 +659,7 @@ const ShopListScreen: React.FC = () => {
                     top: 0,
                     left: 0,
                     display: "block",
-                    opacity: 0,
+                    opacity: selectedFloor === "3F" ? 1 : 0,
                     transition: "opacity 0.3s ease-in-out",
                     pointerEvents: "none",
                   }}
@@ -370,13 +681,25 @@ const ShopListScreen: React.FC = () => {
                   display: "inline-block",
                   cursor: "pointer",
                 }}
+                onClick={() => {
+                  // If same floor is selected, deselect (show all shops)
+                  // Otherwise, select the clicked floor
+                  if (selectedFloor === "2F") {
+                    setSelectedFloor(null);
+                  } else {
+                    setSelectedFloor("2F");
+                  }
+                }}
                 onMouseEnter={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
                   if (highlight) highlight.style.opacity = "1";
                 }}
                 onMouseLeave={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "0";
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "2F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
                 }}
               >
                 <img
@@ -395,7 +718,7 @@ const ShopListScreen: React.FC = () => {
                     top: 0,
                     left: 0,
                     display: "block",
-                    opacity: 0,
+                    opacity: selectedFloor === "2F" ? 1 : 0,
                     transition: "opacity 0.3s ease-in-out",
                     pointerEvents: "none",
                   }}
@@ -417,13 +740,25 @@ const ShopListScreen: React.FC = () => {
                   display: "inline-block",
                   cursor: "pointer",
                 }}
+                onClick={() => {
+                  // If same floor is selected, deselect (show all shops)
+                  // Otherwise, select the clicked floor
+                  if (selectedFloor === "1F") {
+                    setSelectedFloor(null);
+                  } else {
+                    setSelectedFloor("1F");
+                  }
+                }}
                 onMouseEnter={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
                   if (highlight) highlight.style.opacity = "1";
                 }}
                 onMouseLeave={(e) => {
                   const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "0";
+                  // Keep highlight visible if this floor is selected
+                  if (selectedFloor !== "1F" && highlight) {
+                    highlight.style.opacity = "0";
+                  }
                 }}
               >
                 <img
@@ -442,7 +777,7 @@ const ShopListScreen: React.FC = () => {
                     top: 0,
                     left: 0,
                     display: "block",
-                    opacity: 0,
+                    opacity: selectedFloor === "1F" ? 1 : 0,
                     transition: "opacity 0.3s ease-in-out",
                     pointerEvents: "none",
                   }}
@@ -497,7 +832,7 @@ const ShopListScreen: React.FC = () => {
                 height: "100%",
               }}
             >
-              <VerticalVideoSlot />
+              <VerticalVideoSlot useRightTopVideoCms={true} />
             </div>
           </div>
         </div>

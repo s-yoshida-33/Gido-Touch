@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('appInfo', {
 });
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  getBridgeBaseUrl() {
+    return ipcRenderer.invoke('get-bridge-base-url');
+  },
   getFloor() {
     return ipcRenderer.invoke('settings:get-floor');
   },
@@ -150,6 +153,9 @@ contextBridge.exposeInMainWorld('wspApi', {
   },
   getTimeline(hour) {
     return ipcRenderer.invoke('wsp:get-timeline', { hour });
+  },
+  getRightTopVideoAsset() {
+    return ipcRenderer.invoke('wsp:get-right-top-video-asset');
   },
 });
 
