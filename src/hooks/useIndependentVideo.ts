@@ -74,3 +74,4 @@ export function useIndependentVideo(): UseIndependentVideoResult {
   return { videoSettings, isLoading };
 }
 
+
