@@ -12,6 +12,10 @@ export interface Shop {
   floors: FloorId[];
   photo1?: string;
   photo2?: string;
+  shopLogo?: string;
+  description?: string;
+  openTime?: string;
+  tel?: string;
 }
 
 // Raw data type from BridgeWebPopper /api/shops
@@ -25,4 +29,8 @@ export interface BridgeShop {
   shop_id?: string;
   photo1?: string;
   photo2?: string;
+  shop_logo?: string;
+  description?: string;
+  open_time?: string;
+  tel?: string;
 }

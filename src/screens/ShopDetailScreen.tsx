@@ -1,5 +1,5 @@
 // src/screens/ShopDetailScreen.tsx
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useLayoutEffect } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import buttonClose from "../assets/button-close.svg";
 import food1FMap from "../assets/food-1F-map.svg";
@@ -16,6 +16,9 @@ import zoomInHighlight from "../assets/zoom-in-highlight.svg";
 import zoomOutHighlight from "../assets/zoom-out-highlight.svg";
 import reset from "../assets/reset.svg";
 import resetHighlight from "../assets/reset-highlight.svg";
+import iconLocation from "../assets/icon-location.svg";
+import iconTime from "../assets/icon-time.svg";
+import iconTel from "../assets/icon-tel.svg";
 import type { Shop } from "../types/shop";
 
 /**
@@ -30,9 +33,11 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
     return "";
   }
   
-  // If already a full path (contains drive letter like C:\), return as is
+  // If already a full path (contains drive letter like C:\), normalize and return
   if (photo.match(/^[A-Za-z]:[\\/]/)) {
-    return photo;
+    // Normalize mixed slashes to forward slashes for consistency
+    // Keep the drive letter format (C:/ instead of C:\) for better compatibility
+    return photo.replace(/\\/g, "/");
   }
   
   // If already a URL (file://, http://, https://, or data:), return as is
@@ -103,6 +108,94 @@ function toFileUrl(filePath: string): string {
 }
 
 /**
+ * Shop logo component that loads logo images via Electron IPC or falls back to file:// URL
+ */
+const ShopLogoImage: React.FC<{ photo: string | undefined; shopId: string | undefined }> = ({ photo, shopId }) => {
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    if (!photo) {
+      setIsLoading(false);
+      setHasError(true);
+      return;
+    }
+
+    const loadImage = async () => {
+      console.log("ShopLogoImage - Original photo:", photo, "shopId:", shopId);
+      const imagePath = buildImagePath(photo, shopId);
+      console.log("ShopLogoImage - Built image path:", imagePath);
+      if (!imagePath) {
+        setIsLoading(false);
+        setHasError(true);
+        return;
+      }
+
+      const electronAPI = window.electronAPI;
+      if (electronAPI && electronAPI.getShopImage) {
+        try {
+          // For Windows paths, convert to forward slashes for IPC
+          const normalizedPath = imagePath.replace(/\\/g, "/");
+          console.log("ShopLogoImage - Normalized path for IPC:", normalizedPath);
+          const dataUrl = await electronAPI.getShopImage(normalizedPath);
+          if (dataUrl) {
+            console.log("ShopLogoImage - Successfully loaded via IPC");
+            setImageUrl(dataUrl);
+            setIsLoading(false);
+            setHasError(false);
+            return;
+          } else {
+            console.log("ShopLogoImage - IPC returned null/undefined");
+          }
+        } catch (error) {
+          console.error("Failed to load logo via IPC:", error, "Path:", imagePath);
+          setHasError(true);
+        }
+      }
+
+      const fileUrl = toFileUrl(imagePath);
+      console.log("ShopLogoImage - File URL:", fileUrl);
+      setImageUrl(fileUrl);
+      setIsLoading(false);
+    };
+
+    loadImage();
+  }, [photo, shopId]);
+
+  if (hasError || (!imageUrl && !isLoading) || imageUrl === "") {
+    return null; // Don't show anything if logo fails to load or URL is empty
+  }
+
+  if (isLoading || !imageUrl) {
+    return null; // Don't render img element while loading or if URL is empty
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt=""
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        userSelect: "none",
+        pointerEvents: "auto",
+        display: "block",
+      }}
+      onError={(e) => {
+        console.error("Failed to load logo image:", imageUrl);
+        setHasError(true);
+        const target = e.target as HTMLImageElement;
+        target.style.display = "none";
+      }}
+    />
+  );
+};
+
+/**
  * Shop image component that loads images via Electron IPC or falls back to file:// URL
  */
 const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefined }> = ({ photo, shopId }) => {
@@ -125,14 +218,16 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
       const electronAPI = window.electronAPI;
       if (electronAPI && electronAPI.getShopImage) {
         try {
-          const dataUrl = await electronAPI.getShopImage(imagePath);
+          // For Windows paths, convert to forward slashes for IPC
+          const normalizedPath = imagePath.replace(/\\/g, "/");
+          const dataUrl = await electronAPI.getShopImage(normalizedPath);
           if (dataUrl) {
             setImageUrl(dataUrl);
             setIsLoading(false);
             return;
           }
         } catch (error) {
-          console.error("Failed to load image via IPC:", error);
+          console.error("Failed to load image via IPC:", error, "Path:", imagePath);
         }
       }
 
@@ -189,6 +284,57 @@ function normalizeFloor(value: string): string {
   const m = value.match(/(\d+)/);
   return m ? `${m[1]}F` : value;
 }
+
+/**
+ * Shop name display component that scales text to fit width (same as ShopListScreen)
+ */
+const ShopNameDisplay: React.FC<{ name: string; width: string; fontSize: string }> = ({ name, width, fontSize }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (containerRef.current && textRef.current) {
+      const containerWidth = containerRef.current.clientWidth;
+      const textWidth = textRef.current.scrollWidth;
+      
+      if (textWidth > containerWidth) {
+        const scale = containerWidth / textWidth;
+        textRef.current.style.transform = `scaleX(${Math.max(scale, 0.5)})`;
+      } else {
+        textRef.current.style.transform = "scaleX(1)";
+      }
+    }
+  }, [name]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        fontSize: fontSize,
+        fontFamily: "'Rounded Mplus 1c', sans-serif",
+        fontWeight: 700,
+        lineHeight: "1.4",
+        width: width,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        transformOrigin: "left center",
+        flexShrink: 0,
+      }}
+    >
+      <div
+        ref={textRef}
+        style={{
+          display: "inline-block",
+          transform: "scaleX(1)",
+          whiteSpace: "nowrap",
+          transformOrigin: "left center",
+        }}
+      >
+        {name}
+      </div>
+    </div>
+  );
+};
 
 interface ShopDetailScreenProps {
   shop: Shop;
@@ -600,6 +746,186 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
           >
             <ShopImage photo={shop.photo2 || shop.photo1} shopId={shop.shopId} />
           </div>
+          {/* Shop logo and name */}
+          <div
+            style={{
+              marginTop: "50px",
+              marginLeft: "30px",
+              marginRight: "30px",
+              marginBottom: "30px",
+              display: "flex",
+              alignItems: "center",
+              gap: "20px",
+            }}
+          >
+            {/* Shop logo */}
+            {(() => {
+              // Try to get logo from shop.shopLogo, or construct default path if shopId exists
+              const logoPath = shop.shopLogo || (shop.shopId ? `files/shop/${shop.shopId}/shop_logo.png` : undefined);
+              console.log("Shop logo check:", {
+                shopLogo: shop.shopLogo,
+                shopId: shop.shopId,
+                constructedLogoPath: logoPath,
+              });
+              return logoPath;
+            })() && (
+              <div
+                style={{
+                  width: "200px",
+                  height: "200px",
+                  borderRadius: "20px",
+                  border: "1px solid #D9D9D9",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  backgroundColor: "#FFFFFF",
+                  boxSizing: "border-box",
+                  padding: "10px",
+                  flexShrink: 0,
+                }}
+              >
+                <ShopLogoImage 
+                  photo={shop.shopLogo || (shop.shopId ? `files/shop/${shop.shopId}/shop_logo.png` : undefined)} 
+                  shopId={shop.shopId} 
+                />
+              </div>
+            )}
+            {/* Shop name */}
+            <ShopNameDisplay name={shop.name} width="410px" fontSize="32px" />
+          </div>
+          {/* Shop description */}
+          {shop.description && (
+            <div
+              style={{
+                fontSize: "24px",
+                fontFamily: "'Rounded Mplus 1c', sans-serif",
+                fontWeight: 400,
+                width: "640px",
+                marginLeft: "30px",
+                marginRight: "30px",
+                marginBottom: "30px",
+                color: "#000000",
+                lineHeight: "1.6",
+                wordWrap: "break-word",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {shop.description}
+            </div>
+          )}
+          {/* Divider line */}
+          <div
+            style={{
+              width: "640px",
+              height: "1px",
+              backgroundColor: "#D9D9D9",
+              marginLeft: "30px",
+              marginRight: "30px",
+              marginBottom: "30px",
+            }}
+          />
+          {/* Floor information */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginLeft: "30px",
+              marginRight: "30px",
+              marginBottom: "30px",
+              fontSize: "24px",
+              fontFamily: "'Rounded Mplus 1c', sans-serif",
+              fontWeight: 400,
+              color: "#000000",
+            }}
+          >
+            {/* Location icon */}
+            <img
+              src={iconLocation}
+              alt=""
+              style={{
+                width: "24px",
+                height: "24px",
+                flexShrink: 0,
+              }}
+            />
+            {/* Floor */}
+            {shop.floors && shop.floors.length > 0 && (
+              <span>{normalizeFloor(shop.floors[0])}</span>
+            )}
+            {/* Number */}
+            {shop.number && (
+              <span>[{shop.number}]</span>
+            )}
+            {/* Genre memo */}
+            {shop.genreMemo && (
+              <>
+                <span>/</span>
+                <span>{shop.genreMemo}</span>
+              </>
+            )}
+          </div>
+          {/* Opening hours */}
+          {shop.openTime && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginLeft: "30px",
+                marginRight: "30px",
+                marginBottom: "30px",
+                fontSize: "24px",
+                fontFamily: "'Rounded Mplus 1c', sans-serif",
+                fontWeight: 400,
+                color: "#000000",
+              }}
+            >
+              {/* Time icon */}
+              <img
+                src={iconTime}
+                alt=""
+                style={{
+                  width: "24px",
+                  height: "24px",
+                  flexShrink: 0,
+                }}
+              />
+              {/* Opening hours text */}
+              <span>{shop.openTime}</span>
+            </div>
+          )}
+          {/* Phone number */}
+          {shop.tel && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginLeft: "30px",
+                marginRight: "30px",
+                marginBottom: "30px",
+                fontSize: "24px",
+                fontFamily: "'Rounded Mplus 1c', sans-serif",
+                fontWeight: 400,
+                color: "#000000",
+              }}
+            >
+              {/* Tel icon */}
+              <img
+                src={iconTel}
+                alt=""
+                style={{
+                  width: "24px",
+                  height: "24px",
+                  flexShrink: 0,
+                }}
+              />
+              {/* Phone number text */}
+              <span>{shop.tel}</span>
+            </div>
+          )}
         </div>
       </div>
       {/* Close button - positioned outside modal, at top-right corner, aligned to modal's right edge */}

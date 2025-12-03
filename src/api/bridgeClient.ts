@@ -97,6 +97,25 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
         });
       }
 
+      // Debug: Log shop_logo if it exists
+      // Try multiple ways to access shop_logo in case of type issues
+      const shopLogoValue = (item as any).shop_logo || item.shop_logo;
+      if (shopLogoValue) {
+        logInfo("shopList", "Shop has shop_logo", {
+          shopId: item.shop_id,
+          shopName: item.shop_name,
+          shopLogo: shopLogoValue,
+        });
+      } else {
+        logInfo("shopList", "Shop missing shop_logo", {
+          shopId: item.shop_id,
+          shopName: item.shop_name,
+          availableKeys: Object.keys(item),
+          hasShopLogoKey: "shop_logo" in item,
+          hasShopLogoKeyAny: "shop_logo" in (item as any),
+        });
+      }
+
       return {
         shopId: item.shop_id,
         name: item.shop_name,
@@ -107,6 +126,10 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
         floors,
         photo1: item.photo1,
         photo2: item.photo2,
+        shopLogo: shopLogoValue,
+        description: (item as any).description || item.description,
+        openTime: (item as any).open_time || item.open_time,
+        tel: (item as any).tel || item.tel,
       };
     });
 

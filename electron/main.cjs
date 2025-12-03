@@ -676,6 +676,12 @@ function createMainWindow() {
     if (input.key === 'F12') {
       mainWindow.webContents.toggleDevTools();
     }
+    // Enable Ctrl+R to reload window in development mode
+    if (isDev && input.key === 'r' && input.control && !input.shift && !input.alt && !input.meta) {
+      event.preventDefault();
+      logger.info('Reloading window via Ctrl+R');
+      mainWindow.reload();
+    }
   });
 
   mainWindow.loadURL(rendererBaseUrl);
@@ -742,6 +748,18 @@ function createAppMenu() {
             }
           },
         },
+        ...(isDev ? [
+          {
+            label: '再読み込み',
+            accelerator: 'Ctrl+R',
+            click: () => {
+              logger.info('Reloading window via menu');
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.reload();
+              }
+            },
+          },
+        ] : []),
       ],
     },
     {
