@@ -728,6 +728,8 @@ const ShopListScreen: React.FC = () => {
                 <img
                   src={button3F}
                   alt="3F"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     display: "block",
                   }}
@@ -736,6 +738,8 @@ const ShopListScreen: React.FC = () => {
                   src={button3FHighlight}
                   alt="3F Highlight"
                   className="highlight"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -787,6 +791,8 @@ const ShopListScreen: React.FC = () => {
                 <img
                   src={button2F}
                   alt="2F"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     display: "block",
                   }}
@@ -795,6 +801,8 @@ const ShopListScreen: React.FC = () => {
                   src={button2FHighlight}
                   alt="2F Highlight"
                   className="highlight"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -846,6 +854,8 @@ const ShopListScreen: React.FC = () => {
                 <img
                   src={button1F}
                   alt="1F"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     display: "block",
                   }}
@@ -854,6 +864,8 @@ const ShopListScreen: React.FC = () => {
                   src={button1FHighlight}
                   alt="1F Highlight"
                   className="highlight"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -882,6 +894,8 @@ const ShopListScreen: React.FC = () => {
             <img
               src={openTime}
               alt="Open Time"
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
               style={{
                 display: "block",
               }}
@@ -889,6 +903,8 @@ const ShopListScreen: React.FC = () => {
             <img
               src={selectLanguage}
               alt="Select Language"
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
               style={{
                 display: "block",
               }}

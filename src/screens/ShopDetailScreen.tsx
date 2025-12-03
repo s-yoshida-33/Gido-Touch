@@ -336,6 +336,7 @@ const ShopNameDisplay: React.FC<{ name: string; width: string; fontSize: string 
   );
 };
 
+
 interface ShopDetailScreenProps {
   shop: Shop;
   onClose: () => void;
@@ -482,6 +483,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
               <img
                 src={floorLabel}
                 alt={`${normalizedFloor} label`}
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
                 style={{
                   display: "block",
                 }}
@@ -526,6 +529,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 <img
                   src={mapImage}
                   alt={`${normalizedFloor} map`}
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -590,6 +595,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 <img
                   src={zoomIn}
                   alt="Zoom in"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     display: "block",
                   }}
@@ -597,6 +604,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 <img
                   src={zoomInHighlight}
                   alt="Zoom in highlight"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -649,6 +658,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 <img
                   src={zoomOut}
                   alt="Zoom out"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     display: "block",
                   }}
@@ -656,6 +667,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 <img
                   src={zoomOutHighlight}
                   alt="Zoom out highlight"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -701,6 +714,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 <img
                   src={reset}
                   alt="Reset"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     display: "block",
                   }}
@@ -708,6 +723,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 <img
                   src={resetHighlight}
                   alt="Reset highlight"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -844,6 +861,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
             <img
               src={iconLocation}
               alt=""
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
               style={{
                 width: "24px",
                 height: "24px",
@@ -867,35 +886,59 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
             )}
           </div>
           {/* Opening hours */}
-          {shop.openTime && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginLeft: "30px",
-                marginRight: "30px",
-                marginBottom: "30px",
-                fontSize: "24px",
-                fontFamily: "'Rounded Mplus 1c', sans-serif",
-                fontWeight: 400,
-                color: "#000000",
-              }}
-            >
-              {/* Time icon */}
-              <img
-                src={iconTime}
-                alt=""
+          {shop.openTime && (() => {
+            // Split at 】 if found
+            const closingBracketIndex = shop.openTime.indexOf("】");
+            const hasBracket = closingBracketIndex !== -1;
+            let firstLine = shop.openTime;
+            let secondLine = "";
+            
+            if (hasBracket) {
+              firstLine = shop.openTime.substring(0, closingBracketIndex + 1);
+              secondLine = shop.openTime.substring(closingBracketIndex + 1);
+            }
+            
+            return (
+              <div
                 style={{
-                  width: "24px",
-                  height: "24px",
-                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginLeft: "30px",
+                  marginRight: "30px",
+                  marginBottom: "30px",
+                  fontSize: "24px",
+                  fontFamily: "'Rounded Mplus 1c', sans-serif",
+                  fontWeight: 400,
+                  color: "#000000",
                 }}
-              />
-              {/* Opening hours text */}
-              <span>{shop.openTime}</span>
-            </div>
-          )}
+              >
+                {/* Time icon */}
+                <img
+                  src={iconTime}
+                  alt=""
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
+                  style={{
+                    width: "24px",
+                    height: "24px",
+                    flexShrink: 0,
+                  }}
+                />
+                {/* Opening hours text */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    lineHeight: "1.4",
+                  }}
+                >
+                  <span>{firstLine}</span>
+                  {secondLine && <span>{secondLine}</span>}
+                </div>
+              </div>
+            );
+          })()}
           {/* Phone number */}
           {shop.tel && (
             <div
@@ -916,6 +959,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
               <img
                 src={iconTel}
                 alt=""
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
                 style={{
                   width: "24px",
                   height: "24px",
@@ -952,6 +997,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
         <img
           src={buttonClose}
           alt="Close"
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
           style={{
             width: "100%",
             height: "100%",
