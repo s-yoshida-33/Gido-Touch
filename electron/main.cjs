@@ -7,6 +7,7 @@ const fs = require('fs');
 const http = require('http');
 const net = require('net');
 const { pathToFileURL } = require('url');
+const AdmZip = require('adm-zip');
 const {
   initAutoUpdater,
   checkForUpdates,
@@ -1393,6 +1394,144 @@ ipcMain.handle('wsp:get-right-top-video-asset', async () => {
     return null;
   }
   */
+});
+
+/**
+ * Get media directory path.
+ * Uses resources/media if packaged, otherwise userData/media for development.
+ */
+function getMediaDirectory() {
+  if (app.isPackaged) {
+    // In production, use resources directory (read-only, bundled with app)
+    return path.join(process.resourcesPath, 'media');
+  } else {
+    // In development, use userData directory (writable)
+    return path.join(app.getPath('userData'), 'media');
+  }
+}
+
+/**
+ * Check if a file is a supported media type
+ */
+function isMediaFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mediaExtensions = ['.mp4', '.jpg', '.jpeg', '.png', '.svg', '.webp'];
+  return mediaExtensions.includes(ext);
+}
+
+/**
+ * Extract zip file and return list of media files
+ */
+function extractZipFile(zipPath, extractDir) {
+  try {
+    const zip = new AdmZip(zipPath);
+    const zipEntries = zip.getEntries();
+    const mediaFiles = [];
+
+    // Extract all entries
+    zip.extractAllTo(extractDir, true);
+
+    // Find media files in extracted directory
+    function findMediaFiles(dir) {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+          findMediaFiles(fullPath);
+        } else if (isMediaFile(fullPath)) {
+          mediaFiles.push(fullPath);
+        }
+      }
+    }
+
+    findMediaFiles(extractDir);
+    return mediaFiles;
+  } catch (error) {
+    logger.error('Failed to extract zip file', {
+      zipPath,
+      error: error?.message,
+    });
+    return [];
+  }
+}
+
+/**
+ * Scan directory for media files and zip files
+ */
+function scanMediaDirectory(mediaDir) {
+  const mediaFiles = [];
+  
+  if (!fs.existsSync(mediaDir)) {
+    logger.debug('Media directory does not exist', { mediaDir });
+    return mediaFiles;
+  }
+
+  try {
+    const files = fs.readdirSync(mediaDir);
+    
+    for (const file of files) {
+      const fullPath = path.join(mediaDir, file);
+      const stat = fs.statSync(fullPath);
+      
+      if (stat.isDirectory()) {
+        // Recursively scan subdirectories
+        const subFiles = scanMediaDirectory(fullPath);
+        mediaFiles.push(...subFiles);
+      } else if (isMediaFile(fullPath)) {
+        // Direct media file
+        mediaFiles.push(fullPath);
+      } else if (path.extname(file).toLowerCase() === '.zip') {
+        // Zip file - extract and find media files
+        const extractDir = path.join(mediaDir, path.basename(file, '.zip'));
+        // Create extract directory if it doesn't exist
+        if (!fs.existsSync(extractDir)) {
+          fs.mkdirSync(extractDir, { recursive: true });
+        }
+        const extractedFiles = extractZipFile(fullPath, extractDir);
+        mediaFiles.push(...extractedFiles);
+      }
+    }
+    
+    // Sort files by name for consistent ordering
+    mediaFiles.sort();
+    
+    return mediaFiles;
+  } catch (error) {
+    logger.error('Failed to scan media directory', {
+      mediaDir,
+      error: error?.message,
+    });
+    return [];
+  }
+}
+
+/**
+ * IPC handler: get media files from local directory
+ * Returns array of file:// URLs for media files found in the media directory
+ */
+ipcMain.handle('get-local-media-files', async () => {
+  try {
+    const mediaDir = getMediaDirectory();
+    logger.debug('Scanning media directory', { mediaDir });
+    
+    const mediaFiles = scanMediaDirectory(mediaDir);
+    
+    // Convert to file:// URLs
+    const mediaUrls = mediaFiles.map(filePath => toFileUrl(filePath));
+    
+    logger.info('Found media files', {
+      count: mediaUrls.length,
+      mediaDir,
+    });
+    
+    return mediaUrls;
+  } catch (error) {
+    logger.error('Failed to get local media files', {
+      error: error?.message,
+    });
+    return [];
+  }
 });
 
 /**

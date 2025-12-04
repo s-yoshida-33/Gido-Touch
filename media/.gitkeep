@@ -1,0 +1,4 @@
+# This directory is for local media files (videos, images, zip files)
+# Files in this directory will be included in the build but are ignored by Git
+# See MEDIA_DIRECTORY_README.md for usage instructions
+

@@ -32,3 +32,8 @@ out/
 *.msi
 *.deb
 *.dmg
+
+# Media directory (local content files)
+# Exclude all files in media/ but keep the directory structure
+media/*
+!media/.gitkeep

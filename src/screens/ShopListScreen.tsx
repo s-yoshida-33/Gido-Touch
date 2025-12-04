@@ -1205,6 +1205,7 @@ const ShopListScreen: React.FC = () => {
               marginBottom: "30px",
               boxSizing: "border-box",
               overflow: "hidden",
+              borderRadius: "30px",
             }}
           >
             <div

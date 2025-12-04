@@ -145,6 +145,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getShopImage(filePath) {
     return ipcRenderer.invoke('get-shop-image', filePath);
   },
+  getLocalMediaFiles() {
+    return ipcRenderer.invoke('get-local-media-files');
+  },
 });
 
 contextBridge.exposeInMainWorld('wspApi', {
