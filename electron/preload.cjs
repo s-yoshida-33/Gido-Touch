@@ -148,6 +148,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getLocalMediaFiles() {
     return ipcRenderer.invoke('get-local-media-files');
   },
+  getShopPositions() {
+    return ipcRenderer.invoke('get-shop-positions');
+  },
+  saveShopPositions(settings) {
+    return ipcRenderer.invoke('save-shop-positions', settings);
+  },
+  onShopPositionsUpdated(callback) {
+    const listener = (_event, updated) => callback(updated);
+    ipcRenderer.on('shop-positions-updated', listener);
+
+    return () => {
+      ipcRenderer.removeListener('shop-positions-updated', listener);
+    };
+  },
 });
 
 contextBridge.exposeInMainWorld('wspApi', {

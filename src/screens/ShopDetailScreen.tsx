@@ -20,6 +20,7 @@ import iconLocation from "../assets/icon-location.svg";
 import iconTime from "../assets/icon-time.svg";
 import iconTel from "../assets/icon-tel.svg";
 import type { Shop } from "../types/shop";
+import { ShopPin } from "../components/ShopPin";
 
 /**
  * Build image path using shop_id if photo is relative or filename only
@@ -526,17 +527,38 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                   justifyContent: "center",
                 }}
               >
-                <img
-                  src={mapImage}
-                  alt={`${normalizedFloor} map`}
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
+                <div
                   style={{
+                    position: "relative",
                     width: "100%",
                     height: "100%",
-                    objectFit: "contain",
                   }}
-                />
+                >
+                  <img
+                    src={mapImage}
+                    alt={`${normalizedFloor} map`}
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                    }}
+                  />
+                  {/* ショップ位置ピン */}
+                  {shop.position &&
+                    shop.position.floor === normalizedFloor && (
+                      <ShopPin
+                        position={{
+                          ...shop.position,
+                          // 0～100の値を0.0～1.0に変換（後方互換性のため）
+                          x: shop.position.x <= 1 ? shop.position.x * 100 : shop.position.x,
+                          y: shop.position.y <= 1 ? shop.position.y * 100 : shop.position.y,
+                        }}
+                        shopName={shop.name}
+                      />
+                    )}
+                </div>
               </TransformComponent>
             </TransformWrapper>
             {/* Zoom controls - positioned at bottom-left */}

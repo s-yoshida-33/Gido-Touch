@@ -8,10 +8,161 @@ import { FloorSettingsTab } from "../components/FloorSettingsTab";
 import { LayoutSettingsTab } from "../components/LayoutSettingsTab";
 import { LocationSettingsTab } from "../components/LocationSettingsTab";
 import { ImageSettingsTab } from "../components/ImageSettingsTab";
+import { ShopPositionSettingsTab } from "../components/ShopPositionSettingsTab";
+import { ShopPin } from "../components/ShopPin";
 import iconSvg from "../assets/icon.svg";
 import type { ImageSettings } from "../types/imageSettings";
+import type { ShopPositionSettings } from "../types/shopPosition";
+import type { Shop } from "../types/shop";
+import food1FMap from "../assets/food-1F-map.svg";
+import food2FMap from "../assets/food-2F-map.svg";
+import food3FMap from "../assets/food-3F-map.svg";
+import food4FMap from "../assets/food-4F-map.svg";
 
-type TabType = "floor" | "layout" | "location" | "image";
+type TabType = "floor" | "layout" | "location" | "image" | "shopPosition";
+
+function normalizeFloor(value: string): string {
+  const normalized = value.toUpperCase().trim();
+  if (normalized.match(/^[0-9]+F$/)) {
+    return normalized;
+  }
+  return "1F";
+}
+
+function getMapImage(floor: FloorId): string {
+  const normalized = normalizeFloor(floor);
+  switch (normalized) {
+    case "1F":
+      return food1FMap;
+    case "2F":
+      return food2FMap;
+    case "3F":
+      return food3FMap;
+    case "4F":
+      return food4FMap;
+    default:
+      return food1FMap;
+  }
+}
+
+const ShopPositionPreview: React.FC<{
+  floor: FloorId;
+  shopPositions: ShopPositionSettings;
+  shops: Shop[];
+  onMapClick: (x: number, y: number) => void;
+  onPinDrag?: (shopId: string, x: number, y: number) => void;
+  selectedShopId: string | null;
+}> = ({ floor, shopPositions, shops, onMapClick, onPinDrag, selectedShopId }) => {
+  // 安全に値を取得
+  const safeShopPositions = shopPositions || { positions: {} };
+  const safeShops = shops || [];
+  const mapImage = getMapImage(floor);
+  const normalizedFloor = normalizeFloor(floor);
+
+  // 安全にpositionsを取得
+  const positions = safeShopPositions.positions || {};
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#FFFFFF",
+      }}
+    >
+      <div
+        ref={containerRef}
+        onMouseDown={(e) => {
+          // ピンがクリックされた場合は処理しない
+          if ((e.target as HTMLElement).closest('[data-shop-pin]')) {
+            return;
+          }
+          if (!selectedShopId) {
+            return;
+          }
+          // マウスダウン時に位置を設定（ドラッグ開始）
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = (e.clientX - rect.left) / rect.width;
+          const y = (e.clientY - rect.top) / rect.height;
+          console.log("ShopPositionPreview - onMouseDown:", { x, y, selectedShopId });
+          // 0.0～1.0の形式で渡す（後で100倍される）
+          onMapClick(x, y);
+        }}
+        onClick={(e) => {
+          // ピンがクリックされた場合は処理しない
+          if ((e.target as HTMLElement).closest('[data-shop-pin]')) {
+            return;
+          }
+          if (!selectedShopId) {
+            console.log("ShopPositionPreview - onClick: selectedShopId is null");
+            return;
+          }
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = (e.clientX - rect.left) / rect.width;
+          const y = (e.clientY - rect.top) / rect.height;
+          console.log("ShopPositionPreview - onClick:", { x, y, selectedShopId });
+          // 0.0～1.0の形式で渡す（後で100倍される）
+          onMapClick(x, y);
+        }}
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: selectedShopId ? "crosshair" : "default",
+        }}
+      >
+        <img
+          src={mapImage}
+          alt={`${normalizedFloor} map`}
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            pointerEvents: "none",
+          }}
+        />
+        {/* ショップ位置ピン */}
+        {Object.entries(positions).map(([shopId, position]) => {
+          if (!position || !position.floor || position.floor !== normalizedFloor) return null;
+          const shop = safeShops.find((s) => (s.shopId || s.number) === shopId);
+          if (!shop || !shop.name) return null;
+          
+          // 後方互換性: 0～1の値の場合は100倍に変換
+          const normalizedPosition = {
+            ...position,
+            x: position.x <= 1 ? position.x * 100 : position.x,
+            y: position.y <= 1 ? position.y * 100 : position.y,
+          };
+
+          return (
+            <div key={shopId} data-shop-pin style={{ pointerEvents: "none" }}>
+              <ShopPin
+                position={normalizedPosition}
+                shopName={shop.name}
+                isSelected={selectedShopId === shopId}
+                onDrag={onPinDrag ? (x, y) => {
+                  console.log("ShopPositionPreview - onPinDrag:", { shopId, x, y });
+                  onPinDrag(shopId, x, y);
+                } : undefined}
+                containerRef={containerRef}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 interface UnifiedSettingsScreenProps {
   floor: FloorId;
@@ -22,6 +173,9 @@ interface UnifiedSettingsScreenProps {
   onSaveLocationIconSettings: (settings: LocationIconSettings) => Promise<void> | void;
   imageSettings: ImageSettings;
   onSaveImageSettings: (settings: ImageSettings) => Promise<void> | void;
+  shopPositions: ShopPositionSettings;
+  onSaveShopPositions: (settings: ShopPositionSettings) => Promise<void> | void;
+  shops: Shop[];
 }
 
 const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
@@ -33,6 +187,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   onSaveLocationIconSettings,
   imageSettings: initialImageSettings,
   onSaveImageSettings,
+  shopPositions: initialShopPositions,
+  onSaveShopPositions,
+  shops,
 }) => {
   const [visible, setVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("floor");
@@ -45,6 +202,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [locationIconSettings, setLocationIconSettings] =
     useState<LocationIconSettings>(initialLocationIconSettings);
   const [imageSettings, setImageSettings] = useState<ImageSettings>(initialImageSettings);
+  const [shopPositions, setShopPositions] = useState<ShopPositionSettings>(initialShopPositions);
+  const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+  const [mapClickHandler, setMapClickHandler] = useState<((x: number, y: number) => void) | null>(null);
 
   // Transform wrapper ref for programmatic control
   const transformRef = useRef<{
@@ -172,6 +332,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         onSaveFloorLayout(floorLayout),
         onSaveLocationIconSettings(locationIconSettings),
         onSaveImageSettings(imageSettings),
+        onSaveShopPositions(shopPositions),
       ]);
       handleClose();
     } catch (e) {
@@ -337,6 +498,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               { id: "layout" as TabType, label: "レイアウト" },
               { id: "location" as TabType, label: "現在地" },
               { id: "image" as TabType, label: "画像" },
+              { id: "shopPosition" as TabType, label: "ショップ位置" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -388,6 +550,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               doubleClick={{
                 disabled: true,
               }}
+              panning={{
+                disabled: activeTab === "shopPosition" && selectedShopId !== null,
+              }}
               onInit={(ref) => {
                 transformRef.current = ref;
               }}
@@ -402,12 +567,34 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 height: `${window.screen.height >= 2160 ? 2160 : 1080}px`,
               }}
             >
-              <GidoApp
-                locationIconSettings={locationIconSettings}
-                previewFloor={floor}
-                previewFloorLayout={floorLayout}
-                imageSettings={imageSettings}
-              />
+              {activeTab === "shopPosition" ? (
+                <ShopPositionPreview
+                  floor={floor}
+                  shopPositions={shopPositions}
+                  shops={shops}
+                  onMapClick={(x, y) => {
+                    if (mapClickHandler) {
+                      mapClickHandler(x, y);
+                    } else {
+                      console.log("ShopPositionPreview - mapClickHandler is null");
+                    }
+                  }}
+                  onPinDrag={(shopId, x, y) => {
+                    if (mapClickHandler && selectedShopId === shopId) {
+                      // x, yは0.0～1.0の形式で渡される
+                      mapClickHandler(x, y);
+                    }
+                  }}
+                  selectedShopId={selectedShopId}
+                />
+              ) : (
+                <GidoApp
+                  locationIconSettings={locationIconSettings}
+                  previewFloor={floor}
+                  previewFloorLayout={floorLayout}
+                  imageSettings={imageSettings}
+                />
+              )}
             </TransformComponent>
           </TransformWrapper>
           </div>
@@ -519,6 +706,17 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onChangeFloor={setFloor}
               imageSettings={imageSettings}
               onChangeImageSettings={setImageSettings}
+            />
+          )}
+          {activeTab === "shopPosition" && (
+            <ShopPositionSettingsTab
+              floor={floor}
+              onChangeFloor={setFloor}
+              shopPositions={shopPositions}
+              onChangeShopPositions={setShopPositions}
+              shops={shops}
+              onSelectedShopIdChange={setSelectedShopId}
+              onMapClickHandlerChange={setMapClickHandler}
             />
           )}
         </div>

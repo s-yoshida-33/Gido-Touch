@@ -10,6 +10,7 @@ import type {
 import type { LocationIconSettings } from "./locationIcon";
 import type { ImageSettings } from "./imageSettings";
 import type { VideoSettings } from "./videoSettings";
+import type { ShopPositionSettings } from "./shopPosition";
 
 type ColumnPadding = {
   top?: number;
@@ -65,6 +66,9 @@ interface ElectronAPI {
   onVideoSettingsUpdated: (cb: (settings: VideoSettings) => void) => () => void;
   getShopImage: (filePath: string) => Promise<string | null>;
   getLocalMediaFiles: () => Promise<string[]>;
+  getShopPositions: () => Promise<ShopPositionSettings>;
+  saveShopPositions: (settings: ShopPositionSettings) => Promise<ShopPositionSettings>;
+  onShopPositionsUpdated: (cb: (settings: ShopPositionSettings) => void) => () => void;
   manualUpdateCheck: () => void;
   oneClickUpdate: () => void;
   quitApp: () => void;

@@ -332,7 +332,29 @@ const ShopListScreen: React.FC = () => {
           name: s.name.replace(/【.*?】/g, "").trim(),
         }));
 
-        setShops(cleaned);
+        // Load shop positions and merge with shop data
+        const api = window.electronAPI;
+        if (api && api.getShopPositions) {
+          try {
+            const shopPositions = await api.getShopPositions();
+            const shopsWithPositions = cleaned.map((shop) => {
+              if (shop.shopId && shopPositions.positions[shop.shopId]) {
+                return {
+                  ...shop,
+                  position: shopPositions.positions[shop.shopId],
+                };
+              }
+              return shop;
+            });
+            setShops(shopsWithPositions);
+          } catch (e) {
+            console.error("Failed to load shop positions:", e);
+            setShops(cleaned);
+          }
+        } else {
+          setShops(cleaned);
+        }
+
         setError(null);
       } catch (e: any) {
         console.error(e);
@@ -347,6 +369,37 @@ const ShopListScreen: React.FC = () => {
 
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  // ショップ位置情報の更新を監視
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api || !api.onShopPositionsUpdated) return;
+
+    const unsubscribe = api.onShopPositionsUpdated(async (updatedPositions) => {
+      // 位置情報が更新されたら、ショップデータを再読み込み
+      try {
+        const shopPositions = updatedPositions;
+        setShops((prevShops) => {
+          return prevShops.map((shop) => {
+            const shopId = shop.shopId || shop.number;
+            if (shopId && shopPositions.positions[shopId]) {
+              return {
+                ...shop,
+                position: shopPositions.positions[shopId],
+              };
+            }
+            return shop;
+          });
+        });
+      } catch (e) {
+        console.error("Failed to update shop positions:", e);
+      }
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
     };
   }, []);
 

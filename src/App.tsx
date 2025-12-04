@@ -9,6 +9,9 @@ import {
 import type { LocationIconSettings } from "./types/locationIcon";
 import type { ImageSettings } from "./types/imageSettings";
 import { DEFAULT_IMAGE_SETTINGS } from "./types/imageSettings";
+import type { ShopPositionSettings } from "./types/shopPosition";
+import type { Shop } from "./types/shop";
+import { fetchShops } from "./repositories/shopRepository";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
 
@@ -44,6 +47,8 @@ const App: React.FC = () => {
   const [floor, setFloor] = useState<FloorId>("1F");
   const [floorLayout, setFloorLayout] = useState<FloorLayout>(DEFAULT_FLOOR_LAYOUT);
   const [imageSettings, setImageSettings] = useState<ImageSettings>(DEFAULT_IMAGE_SETTINGS);
+  const [shopPositions, setShopPositions] = useState<ShopPositionSettings>({ positions: {} });
+  const [shops, setShops] = useState<Shop[]>([]);
 
   // Load initial settings from Electron and subscribe to updates
   useEffect(() => {
@@ -99,6 +104,28 @@ const App: React.FC = () => {
           setImageSettings(saved);
         }
       }
+
+      // Load shop positions
+      if (api.getShopPositions) {
+        const saved = await api.getShopPositions();
+        if (saved) {
+          setShopPositions(saved);
+        }
+      }
+
+      // Load shops
+      try {
+        const shopData = await fetchShops();
+        const filtered = shopData.filter((shop) => shop.genre === "飲食店・食品");
+        const excluded = filtered.filter((shop) => !shop.name.includes("イオン堺北花田店"));
+        const cleaned = excluded.map((s) => ({
+          ...s,
+          name: s.name.replace(/【.*?】/g, "").trim(),
+        }));
+        setShops(cleaned);
+      } catch (e) {
+        console.error("Failed to load shops:", e);
+      }
     };
 
     init();
@@ -140,6 +167,12 @@ const App: React.FC = () => {
       if (api.onImageSettingsUpdated) {
         api.onImageSettingsUpdated((updated) => {
           setImageSettings(updated);
+        });
+      }
+
+      if (api.onShopPositionsUpdated) {
+        api.onShopPositionsUpdated((updated) => {
+          setShopPositions(updated);
         });
       }
     }
@@ -203,6 +236,20 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveShopPositions = async (settings: ShopPositionSettings) => {
+    const api = window.electronAPI;
+    if (!api) return;
+
+    try {
+      const saved = await api.saveShopPositions(settings);
+      if (saved) {
+        setShopPositions(saved);
+      }
+    } catch (e) {
+      console.error("Failed to save shop positions", e);
+    }
+  };
+
   return (
     <>
       <ShopListScreen />
@@ -215,6 +262,9 @@ const App: React.FC = () => {
         onSaveLocationIconSettings={handleSaveLocationSettings}
         imageSettings={imageSettings}
         onSaveImageSettings={handleSaveImageSettings}
+        shopPositions={shopPositions}
+        onSaveShopPositions={handleSaveShopPositions}
+        shops={shops}
       />
       <VersionInfoScreen onClose={() => {}} />
     </>

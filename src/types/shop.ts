@@ -2,6 +2,14 @@
 
 export type FloorId = string;
 
+export interface ShopPosition {
+  // 相対座標（0.0〜100.0、0.1単位）
+  x: number;
+  y: number;
+  // 階数（複数階対応）
+  floor: FloorId;
+}
+
 export interface Shop {
   shopId?: string;
   name: string;
@@ -16,6 +24,7 @@ export interface Shop {
   description?: string;
   openTime?: string;
   tel?: string;
+  position?: ShopPosition; // 位置情報（オプショナル）
 }
 
 // Raw data type from BridgeWebPopper /api/shops

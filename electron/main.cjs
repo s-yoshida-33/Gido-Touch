@@ -130,6 +130,9 @@ function loadSettings() {
       //   max: 8109,
       // },
     },
+    shopPositions: {
+      positions: {},
+    },
   };
 
   try {
@@ -207,6 +210,13 @@ function loadSettings() {
             // rightTopVideoCms is no longer used - ignored if present in settings file
           }
         : base.portRanges,
+      shopPositions: parsed.shopPositions
+        ? {
+            positions: typeof parsed.shopPositions.positions === 'object' && parsed.shopPositions.positions !== null
+              ? parsed.shopPositions.positions
+              : base.shopPositions.positions,
+          }
+        : base.shopPositions,
     };
 
 
@@ -1028,6 +1038,25 @@ ipcMain.handle('save-image-settings', async (_event, imageSettings) => {
     });
     throw error;
   }
+});
+
+ipcMain.handle('get-shop-positions', () => {
+  logger.info('IPC get-shop-positions');
+  const settings = loadSettings();
+  return settings.shopPositions || { positions: {} };
+});
+
+ipcMain.handle('save-shop-positions', (_event, shopPositions) => {
+  logger.info('IPC save-shop-positions');
+  
+  const settings = saveSettings({ shopPositions });
+  
+  // Broadcast to main window if it exists
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('shop-positions-updated', settings.shopPositions);
+  }
+  
+  return settings.shopPositions;
 });
 
 /**
