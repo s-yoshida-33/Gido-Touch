@@ -95,7 +95,37 @@ function getSettingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
 }
 
+function loadDefaultShopPositions() {
+  // ビルド時にデフォルトとして使用する店舗位置設定を読み込む
+  // electron/default-shop-positions.json が存在する場合は、それをデフォルト値として使用
+  const defaultShopPositionsPath = path.join(__dirname, 'default-shop-positions.json');
+  
+  try {
+    if (fs.existsSync(defaultShopPositionsPath)) {
+      const raw = fs.readFileSync(defaultShopPositionsPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      
+      // 形式を確認
+      if (parsed && typeof parsed === 'object' && parsed.positions) {
+        logger.info('Loaded default shop positions from default-shop-positions.json');
+        return parsed;
+      }
+    }
+  } catch (error) {
+    logger.warn('Failed to load default shop positions, using empty defaults', {
+      error: error?.message,
+    });
+  }
+  
+  // デフォルトファイルが存在しない、または読み込みに失敗した場合は空のオブジェクトを返す
+  return {
+    positions: {},
+  };
+}
+
 function loadSettings() {
+  const defaultShopPositions = loadDefaultShopPositions();
+  
   const base = {
     floor: '1F',
     locationIcons: DEFAULT_LOCATION_ICON_SETTINGS,
@@ -130,9 +160,7 @@ function loadSettings() {
       //   max: 8109,
       // },
     },
-    shopPositions: {
-      positions: {},
-    },
+    shopPositions: defaultShopPositions,
   };
 
   try {
@@ -719,7 +747,7 @@ function createAppMenu() {
       label: '設定',
       submenu: [
         {
-          label: '設定画面を開く...',
+          label: '設定画面を開く',
           click: () => {
             logger.info('Unified settings screen menu clicked');
             if (mainWindow && !mainWindow.isDestroyed()) {

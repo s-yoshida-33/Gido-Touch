@@ -1,11 +1,10 @@
 // src/screens/UnifiedSettingsScreen.tsx
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback, useLayoutEffect } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import GidoApp from "./GidoApp";
 import type { LocationIconSettings } from "../types/locationIcon";
 import type { FloorId, FloorLayout } from "../types/floorLayout";
 import { FloorSettingsTab } from "../components/FloorSettingsTab";
-import { LayoutSettingsTab } from "../components/LayoutSettingsTab";
 import { LocationSettingsTab } from "../components/LocationSettingsTab";
 import { ImageSettingsTab } from "../components/ImageSettingsTab";
 import { ShopPositionSettingsTab } from "../components/ShopPositionSettingsTab";
@@ -19,7 +18,7 @@ import food2FMap from "../assets/food-2F-map.svg";
 import food3FMap from "../assets/food-3F-map.svg";
 import food4FMap from "../assets/food-4F-map.svg";
 
-type TabType = "floor" | "layout" | "location" | "image" | "shopPosition";
+type TabType = "floor" | "location" | "image" | "shopPosition";
 
 function normalizeFloor(value: string): string {
   const normalized = value.toUpperCase().trim();
@@ -236,6 +235,8 @@ const ShopPositionPreview: React.FC<{
                 }}
                 shopName={shop.name}
                 isSelected={selectedShopId === shopId}
+                shopLogo={shop.shopLogo}
+                shopId={shop.shopId || shop.number}
               />
             </div>
           );
@@ -248,7 +249,6 @@ interface UnifiedSettingsScreenProps {
   floor: FloorId;
   onSaveFloor: (floor: FloorId) => Promise<void> | void;
   floorLayout: FloorLayout;
-  onSaveFloorLayout: (layout: FloorLayout) => Promise<void> | void;
   locationIconSettings: LocationIconSettings;
   onSaveLocationIconSettings: (settings: LocationIconSettings) => Promise<void> | void;
   imageSettings: ImageSettings;
@@ -261,8 +261,7 @@ interface UnifiedSettingsScreenProps {
 const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   floor: initialFloor,
   onSaveFloor,
-  floorLayout: initialFloorLayout,
-  onSaveFloorLayout,
+  floorLayout,
   locationIconSettings: initialLocationIconSettings,
   onSaveLocationIconSettings,
   imageSettings: initialImageSettings,
@@ -278,7 +277,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // Local state for editing (preserved when switching tabs)
   const [floor, setFloor] = useState<FloorId>(initialFloor);
-  const [floorLayout, setFloorLayout] = useState<FloorLayout>(initialFloorLayout);
   const [locationIconSettings, setLocationIconSettings] =
     useState<LocationIconSettings>(initialLocationIconSettings);
   const [imageSettings, setImageSettings] = useState<ImageSettings>(initialImageSettings);
@@ -296,6 +294,90 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   
   // Container ref for calculating center position
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  
+  // 中央位置を計算する関数
+  // 1700×1580のコンテンツ自体を中央に配置する
+  const calculateCenterPosition = useCallback(() => {
+    if (!previewContainerRef.current) return { x: 0, y: 0, scale: 0.6 };
+    
+    const containerRect = previewContainerRef.current.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+    
+    // ショップ位置タブのコンテンツサイズ（1700×1580）
+    const contentWidth = 1700;
+    const contentHeight = 1580;
+    const scale = 0.6;
+    
+    // スケール後のコンテンツサイズ
+    const scaledWidth = contentWidth * scale;
+    const scaledHeight = contentHeight * scale;
+    
+    // 1700×1580のコンテンツの中央をビューポートの中央に配置するための左上角の位置
+    const centerX = (containerWidth - scaledWidth) / 2;
+    const centerY = (containerHeight - scaledHeight) / 2;
+    
+    return { x: centerX, y: centerY, scale };
+  }, []);
+
+  // 他のタブ（3840×2160）の中央位置を計算する関数
+  const calculateOtherTabCenterPosition = useCallback(() => {
+    if (!previewContainerRef.current) return { x: 0, y: 0, scale: 0.6 };
+    
+    const containerRect = previewContainerRef.current.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+    
+    const contentWidth = window.screen.width >= 3840 ? 3840 : 1920;
+    const contentHeight = window.screen.height >= 2160 ? 2160 : 1080;
+    const scale = 0.6;
+    const scaledWidth = contentWidth * scale;
+    const scaledHeight = contentHeight * scale;
+    
+    const centerX = (containerWidth - scaledWidth) / 2;
+    const centerY = (containerHeight - scaledHeight) / 2;
+    
+    return { x: centerX, y: centerY, scale };
+  }, []);
+
+  // アクティブなタブに応じて中央位置を計算する関数
+  const calculateCenterPositionForActiveTab = useCallback(() => {
+    if (activeTab === "shopPosition") {
+      return calculateCenterPosition();
+    } else {
+      return calculateOtherTabCenterPosition();
+    }
+  }, [activeTab, calculateCenterPosition, calculateOtherTabCenterPosition]);
+
+  // ショップ位置タブが選択されたときに中央に配置（アニメーションなし）
+  useLayoutEffect(() => {
+    if (activeTab === "shopPosition" && transformRef.current && previewContainerRef.current) {
+      // レイアウト確定後に中央に配置
+      const timer = setTimeout(() => {
+        if (transformRef.current && previewContainerRef.current) {
+          const { x, y, scale } = calculateCenterPosition();
+          // アニメーションなしで直接位置を設定
+          transformRef.current.setTransform(x, y, scale);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, calculateCenterPosition]);
+  
+  // TransformWrapperが初期化されたときに中央に配置
+  useEffect(() => {
+    if (activeTab === "shopPosition" && transformRef.current && previewContainerRef.current) {
+      // 少し遅延させてから中央に配置（TransformWrapperの初期化を待つ）
+      const timer = setTimeout(() => {
+        if (transformRef.current && previewContainerRef.current) {
+          const { x, y, scale } = calculateCenterPosition();
+          // アニメーションなしで直接位置を設定
+          transformRef.current.setTransform(x, y, scale);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, calculateCenterPosition]);
 
   // Load initial values when screen opens
   useEffect(() => {
@@ -306,14 +388,19 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setVisible(true);
         setActiveTab("floor");
         setFloor(initialFloor);
-        setFloorLayout(initialFloorLayout);
         setLocationIconSettings(initialLocationIconSettings);
         setImageSettings(initialImageSettings);
         setShopPositions(initialShopPositions);
         setErrors({});
         // Reset transform when opening settings
-        if (transformRef.current) {
-          transformRef.current.resetTransform();
+        // 設定画面を開くときは"floor"タブが選択されるので、3840×2160のコンテンツを中央に配置
+        if (transformRef.current && previewContainerRef.current) {
+          requestAnimationFrame(() => {
+            if (transformRef.current && previewContainerRef.current) {
+              const { x, y, scale } = calculateOtherTabCenterPosition();
+              transformRef.current.setTransform(x, y, scale);
+            }
+          });
         }
       });
     }
@@ -321,18 +408,17 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions]);
+  }, [initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, calculateOtherTabCenterPosition]);
 
   // Sync with external changes when screen is closed
   useEffect(() => {
     if (!visible) {
       setFloor(initialFloor);
-      setFloorLayout(initialFloorLayout);
       setLocationIconSettings(initialLocationIconSettings);
       setImageSettings(initialImageSettings);
       setShopPositions(initialShopPositions);
     }
-  }, [visible, initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions]);
+  }, [visible, initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions]);
 
   const handleClose = () => {
     setVisible(false);
@@ -342,51 +428,24 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const handleCancel = () => {
     // Revert to initial values
     setFloor(initialFloor);
-    setFloorLayout(initialFloorLayout);
     setLocationIconSettings(initialLocationIconSettings);
     setImageSettings(initialImageSettings);
     setShopPositions(initialShopPositions);
     setErrors({});
-    // Reset transform
-    if (transformRef.current) {
-      transformRef.current.resetTransform();
+    // Reset transform - 現在のactiveTabに応じて適切な中央位置を計算
+    if (transformRef.current && previewContainerRef.current) {
+      requestAnimationFrame(() => {
+        if (transformRef.current && previewContainerRef.current) {
+          const { x, y, scale } = calculateCenterPositionForActiveTab();
+          transformRef.current.setTransform(x, y, scale);
+        }
+      });
     }
     handleClose();
   };
 
   const validateSettings = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    if (activeTab === "layout") {
-      const selectedFloor = floor; // Use current floor for layout validation
-      const layout = floorLayout[selectedFloor];
-      if (layout) {
-        if (layout.columns <= 0 || layout.columns > 10) {
-          newErrors["layout.columns"] = "列数は1〜10の範囲で入力してください";
-        }
-        if (layout.rowsPerCol <= 0 || layout.rowsPerCol > 100) {
-          newErrors["layout.rowsPerCol"] = "行数は1〜100の範囲で入力してください";
-        }
-        if (layout.perColumnRows) {
-          layout.perColumnRows.forEach((rows, idx) => {
-            if (rows !== undefined && (rows <= 0 || rows > 100)) {
-              newErrors[`layout.perColumnRows.${idx}`] = "行数は1〜100の範囲で入力してください";
-            }
-          });
-        }
-        if (layout.perColumnPadding) {
-          layout.perColumnPadding.forEach((padding, idx) => {
-            if (padding) {
-              Object.entries(padding).forEach(([key, value]) => {
-                if (value !== undefined && value < 0) {
-                  newErrors[`layout.perColumnPadding.${idx}.${key}`] = "間隔は0以上の値を入力してください";
-                }
-              });
-            }
-          });
-        }
-      }
-    }
 
     if (activeTab === "location") {
       // Validate location icon settings
@@ -411,7 +470,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setSaving(true);
       await Promise.all([
         onSaveFloor(floor),
-        onSaveFloorLayout(floorLayout),
         onSaveLocationIconSettings(locationIconSettings),
         onSaveImageSettings(imageSettings),
         onSaveShopPositions(shopPositions),
@@ -442,20 +500,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const handleReset = () => {
     if (transformRef.current && previewContainerRef.current) {
       // Reset to initial scale (0.6) and center position
-      // Calculate center position based on content and container size
-      const contentWidth = window.screen.width >= 3840 ? 3840 : 1920;
-      const contentHeight = window.screen.height >= 2160 ? 2160 : 1080;
-      const scale = 0.6;
-      const scaledWidth = contentWidth * scale;
-      const scaledHeight = contentHeight * scale;
-      
-      // Get container dimensions
-      const containerWidth = previewContainerRef.current.clientWidth;
-      const containerHeight = previewContainerRef.current.clientHeight;
-      // Calculate center position
-      const centerX = (containerWidth - scaledWidth) / 2;
-      const centerY = (containerHeight - scaledHeight) / 2;
-      transformRef.current.setTransform(centerX, centerY, scale);
+      const { x, y, scale } = calculateCenterPositionForActiveTab();
+      transformRef.current.setTransform(x, y, scale);
     }
   };
 
@@ -577,7 +623,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
           <div style={{ flex: 1, padding: "16px 0" }}>
             {[
               { id: "floor" as TabType, label: "フロア" },
-              { id: "layout" as TabType, label: "レイアウト" },
               { id: "location" as TabType, label: "現在地" },
               { id: "image" as TabType, label: "画像" },
               { id: "shopPosition" as TabType, label: "ショップ位置" },
@@ -625,7 +670,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               minScale={0.6}
               maxScale={1.5}
               limitToBounds={false}
-              centerOnInit={true}
+              centerOnInit={false}
               wheel={{
                 step: 0.05,
               }}
@@ -760,15 +805,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             <FloorSettingsTab
               floor={floor}
               onChangeFloor={setFloor}
-            />
-          )}
-          {activeTab === "layout" && (
-            <LayoutSettingsTab
-              floor={floor}
-              onChangeFloor={setFloor}
-              floorLayout={floorLayout}
-              onChangeFloorLayout={setFloorLayout}
-              errors={errors}
             />
           )}
           {activeTab === "location" && (

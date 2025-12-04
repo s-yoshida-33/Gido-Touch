@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "electron:dev": "cross-env NODE_ENV=development concurrently \"npm:dev\" \"npm:electron:start\"",
     "electron:start": "wait-on http://localhost:5173 && electron .",
-    "electron:build": "npm run build && electron-builder"
+    "electron:build": "npm run build && electron-builder",
+    "export:shop-positions": "node electron/export-shop-positions.cjs"
   },
   "main": "electron/main.cjs",
   "build": {

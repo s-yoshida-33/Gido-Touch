@@ -294,7 +294,9 @@ const MapWithPinsComponent: React.FC<{
   normalizedFloor: string;
   shopPosition?: Shop["position"];
   shopName: string;
-}> = ({ mapImage, normalizedFloor, shopPosition, shopName }) => {
+  shopLogo?: string;
+  shopId?: string;
+}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageInfo, setImageInfo] = useState<{ 
@@ -483,6 +485,8 @@ const MapWithPinsComponent: React.FC<{
       <ShopPin
         position={pinPosition}
         shopName={shopName}
+        shopLogo={shopLogo}
+        shopId={shopId}
       />
     </div>
   );
@@ -734,6 +738,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                   normalizedFloor={normalizedFloor}
                   shopPosition={shop.position}
                   shopName={shop.name}
+                  shopLogo={shop.shopLogo}
+                  shopId={shop.shopId || shop.number}
                 />
               </TransformComponent>
             </TransformWrapper>
