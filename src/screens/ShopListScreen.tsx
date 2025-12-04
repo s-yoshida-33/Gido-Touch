@@ -881,31 +881,28 @@ const ShopListScreen: React.FC = () => {
           <IndependentVideoPlayer />
         </div>
 
-        {/* Bottom area container (floor buttons + CMS) */}
+        {/* Spacer between top video and middle buttons */}
+        <div style={{ flex: 1, minHeight: 0 }} />
+
+        {/* Floor selection button area and business hours / language selection area */}
         <div
           style={{
-            marginTop: "auto",
             display: "flex",
-            flexDirection: "column",
+            flexDirection: "row",
+            alignItems: "stretch",
+            marginLeft: "30px",
+            marginRight: "30px",
+            flexShrink: 0,
           }}
         >
-          {/* Floor selection button area and business hours / language selection area (above CMS area) */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "flex-end",
-              marginLeft: "30px",
-              marginBottom: "30px",
-            }}
-          >
           {/* Floor selection button area (left side) */}
           <div
             style={{
               display: "flex",
               flexDirection: "column",
               alignItems: "flex-start",
-              gap: "20px",
+              gap: "50px",
+              height: "100%",
             }}
           >
             {/* 3F button and FOOD FOREST */}
@@ -1173,6 +1170,7 @@ const ShopListScreen: React.FC = () => {
               gap: "20px",
               alignItems: "flex-start",
               marginLeft: "30px",
+              height: "100%",
             }}
           >
             <img
@@ -1184,6 +1182,7 @@ const ShopListScreen: React.FC = () => {
                 display: "block",
               }}
             />
+            <div style={{ flex: 1 }} />
             <img
               src={selectLanguage}
               alt="Select Language"
@@ -1196,27 +1195,31 @@ const ShopListScreen: React.FC = () => {
           </div>
           </div>
 
-          {/* CMS area (bottom) */}
+        {/* Spacer between middle buttons and bottom CMS */}
+        <div style={{ flex: 1, minHeight: 0 }} />
+
+        {/* CMS area (bottom) */}
+        <div
+          style={{
+            width: "1080px",
+            height: "607.5px", // 16:9 aspect ratio (1080 × 9/16 = 607.5)
+            marginLeft: "30px",
+            marginRight: "30px",
+            marginTop: "0px",
+            marginBottom: "30px",
+            boxSizing: "border-box",
+            overflow: "hidden",
+            borderRadius: "30px",
+            alignSelf: "flex-start",
+          }}
+        >
           <div
             style={{
-              width: "1080px",
-              height: "844px",
-              margin: "30px",
-              marginTop: "0px",
-              marginBottom: "30px",
-              boxSizing: "border-box",
-              overflow: "hidden",
-              borderRadius: "30px",
+              width: "100%",
+              height: "100%",
             }}
           >
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-              }}
-            >
-              <VerticalVideoSlot />
-            </div>
+            <VerticalVideoSlot />
           </div>
         </div>
       </div>

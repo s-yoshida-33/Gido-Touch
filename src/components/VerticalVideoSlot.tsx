@@ -20,8 +20,8 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ useRightTopVideoC
   const prevAssetIdRef = React.useRef<string | null>(null);
   const [objectFit, setObjectFit] = React.useState<'cover' | 'contain'>('cover');
 
-  // CMSエリアのアスペクト比: 1080px × 844px
-  const containerAspectRatio = 1080 / 844;
+  // CMSエリアのアスペクト比: 1080px × 607.5px (16:9)
+  const containerAspectRatio = 1080 / 607.5;
 
   // アスペクト比に基づいてobject-fitを決定
   const calculateObjectFit = (mediaWidth: number, mediaHeight: number) => {

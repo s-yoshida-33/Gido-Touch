@@ -1398,15 +1398,28 @@ ipcMain.handle('wsp:get-right-top-video-asset', async () => {
 
 /**
  * Get media directory path.
- * Uses resources/media if packaged, otherwise userData/media for development.
+ * In production: uses resources/media (read-only, bundled with app)
+ * In development: tries project root/media first, falls back to userData/media
  */
 function getMediaDirectory() {
   if (app.isPackaged) {
     // In production, use resources directory (read-only, bundled with app)
     return path.join(process.resourcesPath, 'media');
   } else {
-    // In development, use userData directory (writable)
-    return path.join(app.getPath('userData'), 'media');
+    // In development, try project root/media first (for convenience during development)
+    const projectMediaDir = path.join(__dirname, '../media');
+    if (fs.existsSync(projectMediaDir)) {
+      logger.debug('Using project root media directory for development', {
+        path: projectMediaDir,
+      });
+      return projectMediaDir;
+    }
+    // Fallback to userData/media if project root/media doesn't exist
+    const userDataMediaDir = path.join(app.getPath('userData'), 'media');
+    logger.debug('Using userData media directory for development', {
+      path: userDataMediaDir,
+    });
+    return userDataMediaDir;
   }
 }
 
