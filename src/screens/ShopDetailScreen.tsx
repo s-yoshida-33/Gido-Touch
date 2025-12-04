@@ -287,6 +287,208 @@ function normalizeFloor(value: string): string {
 }
 
 /**
+ * Map component with pins that correctly calculates position based on actual image display size
+ */
+const MapWithPinsComponent: React.FC<{
+  mapImage: string;
+  normalizedFloor: string;
+  shopPosition?: Shop["position"];
+  shopName: string;
+}> = ({ mapImage, normalizedFloor, shopPosition, shopName }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const [imageInfo, setImageInfo] = useState<{ 
+    naturalWidth: number; 
+    naturalHeight: number; 
+    displayWidth: number; 
+    displayHeight: number; 
+    offsetX: number; 
+    offsetY: number;
+    containerWidth: number;
+    containerHeight: number;
+  } | null>(null);
+
+  // 画像の読み込みとリサイズ時に実際の表示サイズを計算
+  useEffect(() => {
+    const updateImageInfo = () => {
+      // requestAnimationFrameで次のフレームで実行して、レイアウトが確定してから計算
+      requestAnimationFrame(() => {
+        if (!containerRef.current || !imageRef.current) return;
+
+        const container = containerRef.current;
+        const img = imageRef.current;
+
+        // 画像の自然なサイズ
+        const naturalWidth = img.naturalWidth || 0;
+        const naturalHeight = img.naturalHeight || 0;
+
+        if (naturalWidth === 0 || naturalHeight === 0) return;
+
+        // コンテナと画像の実際の表示サイズ（getBoundingClientRectで正確なサイズを取得）
+        const containerRect = container.getBoundingClientRect();
+        const imgRect = img.getBoundingClientRect();
+        const displayWidth = imgRect.width;
+        const displayHeight = imgRect.height;
+        
+        // コンテナの実際のサイズ（TransformComponentのスケールやパンの影響を受けたサイズ）
+        const containerWidth = containerRect.width;
+        const containerHeight = containerRect.height;
+
+        // 画像の表示位置（コンテナからの相対位置）
+        const offsetX = imgRect.left - containerRect.left;
+        const offsetY = imgRect.top - containerRect.top;
+
+        if (displayWidth > 0 && displayHeight > 0) {
+          setImageInfo({ 
+            naturalWidth, 
+            naturalHeight, 
+            displayWidth, 
+            displayHeight, 
+            offsetX, 
+            offsetY,
+            containerWidth,
+            containerHeight
+          });
+        }
+      });
+    };
+
+    // 画像の読み込み完了時に計算
+    const handleImageLoad = () => {
+      // 画像読み込み後、少し遅延させてから計算（レイアウト確定を待つ）
+      setTimeout(updateImageInfo, 0);
+    };
+
+    if (imageRef.current) {
+      if (imageRef.current.complete) {
+        handleImageLoad();
+      } else {
+        imageRef.current.addEventListener("load", handleImageLoad);
+      }
+    }
+
+    // リサイズ時にも再計算
+    window.addEventListener("resize", updateImageInfo);
+    const resizeObserver = new ResizeObserver(() => {
+      updateImageInfo();
+    });
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+    if (imageRef.current) {
+      resizeObserver.observe(imageRef.current);
+    }
+
+    return () => {
+      if (imageRef.current) {
+        imageRef.current.removeEventListener("load", handleImageLoad);
+      }
+      window.removeEventListener("resize", updateImageInfo);
+      resizeObserver.disconnect();
+    };
+  }, [mapImage]);
+
+  if (!shopPosition || shopPosition.floor !== normalizedFloor) {
+    return (
+      <div
+        ref={containerRef}
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "100%",
+        }}
+      >
+        <img
+          ref={imageRef}
+          src={mapImage}
+          alt={`${normalizedFloor} map`}
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+          }}
+        />
+      </div>
+    );
+  }
+
+  // 後方互換性: 0～1の値の場合は100倍に変換
+  const normalizedPosition = {
+    ...shopPosition,
+    x: shopPosition.x <= 1 ? shopPosition.x * 100 : shopPosition.x,
+    y: shopPosition.y <= 1 ? shopPosition.y * 100 : shopPosition.y,
+  };
+
+  // マップ画像の自然なサイズに対する相対座標を、実際の表示サイズに変換
+  let pinPosition = normalizedPosition;
+  if (imageInfo) {
+    // コンテナの実際のサイズを使用（TransformComponentのスケールやパンの影響を受けたサイズ）
+    const containerWidth = imageInfo.containerWidth;
+    const containerHeight = imageInfo.containerHeight;
+    
+    // マップ画像の自然なサイズに対する相対座標（0-100%）を、実際の表示サイズに変換
+    const xPercent = normalizedPosition.x / 100;
+    const yPercent = normalizedPosition.y / 100;
+    
+    // マップ画像の自然なサイズ内での位置
+    const xInNaturalImage = xPercent * imageInfo.naturalWidth;
+    const yInNaturalImage = yPercent * imageInfo.naturalHeight;
+    
+    // 実際の表示サイズにスケール
+    const scaleX = imageInfo.displayWidth / imageInfo.naturalWidth;
+    const scaleY = imageInfo.displayHeight / imageInfo.naturalHeight;
+    const xInDisplayImage = xInNaturalImage * scaleX;
+    const yInDisplayImage = yInNaturalImage * scaleY;
+    
+    // コンテナ内での位置（オフセットを加算）
+    const xInContainer = imageInfo.offsetX + xInDisplayImage;
+    const yInContainer = imageInfo.offsetY + yInDisplayImage;
+    
+    // パーセンテージに変換
+    // コンテナの実際のサイズに対する相対位置として計算
+    const xPercentInContainer = (xInContainer / containerWidth) * 100;
+    const yPercentInContainer = (yInContainer / containerHeight) * 100;
+
+    pinPosition = {
+      ...normalizedPosition,
+      x: xPercentInContainer,
+      y: yPercentInContainer,
+    };
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+      }}
+    >
+      <img
+        ref={imageRef}
+        src={mapImage}
+        alt={`${normalizedFloor} map`}
+        draggable={false}
+        onDragStart={(e) => e.preventDefault()}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+        }}
+      />
+      {/* ショップ位置ピン */}
+      <ShopPin
+        position={pinPosition}
+        shopName={shopName}
+      />
+    </div>
+  );
+};
+
+/**
  * Shop name display component that scales text to fit width (same as ShopListScreen)
  */
 const ShopNameDisplay: React.FC<{ name: string; width: string; fontSize: string }> = ({ name, width, fontSize }) => {
@@ -527,38 +729,12 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                   justifyContent: "center",
                 }}
               >
-                <div
-                  style={{
-                    position: "relative",
-                    width: "100%",
-                    height: "100%",
-                  }}
-                >
-                  <img
-                    src={mapImage}
-                    alt={`${normalizedFloor} map`}
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                    }}
-                  />
-                  {/* ショップ位置ピン */}
-                  {shop.position &&
-                    shop.position.floor === normalizedFloor && (
-                      <ShopPin
-                        position={{
-                          ...shop.position,
-                          // 0～100の値を0.0～1.0に変換（後方互換性のため）
-                          x: shop.position.x <= 1 ? shop.position.x * 100 : shop.position.x,
-                          y: shop.position.y <= 1 ? shop.position.y * 100 : shop.position.y,
-                        }}
-                        shopName={shop.name}
-                      />
-                    )}
-                </div>
+                <MapWithPinsComponent
+                  mapImage={mapImage}
+                  normalizedFloor={normalizedFloor}
+                  shopPosition={shop.position}
+                  shopName={shop.name}
+                />
               </TransformComponent>
             </TransformWrapper>
             {/* Zoom controls - positioned at bottom-left */}

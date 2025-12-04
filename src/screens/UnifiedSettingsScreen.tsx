@@ -49,10 +49,8 @@ const ShopPositionPreview: React.FC<{
   floor: FloorId;
   shopPositions: ShopPositionSettings;
   shops: Shop[];
-  onMapClick: (x: number, y: number) => void;
-  onPinDrag?: (shopId: string, x: number, y: number) => void;
   selectedShopId: string | null;
-}> = ({ floor, shopPositions, shops, onMapClick, onPinDrag, selectedShopId }) => {
+}> = ({ floor, shopPositions, shops, selectedShopId }) => {
   // 安全に値を取得
   const safeShopPositions = shopPositions || { positions: {} };
   const safeShops = shops || [];
@@ -61,78 +59,132 @@ const ShopPositionPreview: React.FC<{
 
   // 安全にpositionsを取得
   const positions = safeShopPositions.positions || {};
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
+
+  // マップ画像の自然なサイズと実際の表示サイズを取得するためのref
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const imageRef = React.useRef<HTMLImageElement>(null);
+  const [imageInfo, setImageInfo] = React.useState<{ 
+    naturalWidth: number; 
+    naturalHeight: number; 
+    displayWidth: number; 
+    displayHeight: number; 
+    offsetX: number; 
+    offsetY: number;
+    containerWidth: number;
+    containerHeight: number;
+  } | null>(null);
+
+  // 画像の読み込みとリサイズ時に実際の表示サイズを計算
+  React.useEffect(() => {
+    const updateImageInfo = () => {
+      // requestAnimationFrameで次のフレームで実行して、レイアウトが確定してから計算
+      requestAnimationFrame(() => {
+        if (!containerRef.current || !imageRef.current) return;
+
+        const container = containerRef.current;
+        const img = imageRef.current;
+
+        // 画像の自然なサイズ
+        const naturalWidth = img.naturalWidth || 0;
+        const naturalHeight = img.naturalHeight || 0;
+
+        if (naturalWidth === 0 || naturalHeight === 0) return;
+
+        // コンテナと画像の実際の表示サイズ（getBoundingClientRectで正確なサイズを取得）
+        const containerRect = container.getBoundingClientRect();
+        const imgRect = img.getBoundingClientRect();
+        const displayWidth = imgRect.width;
+        const displayHeight = imgRect.height;
+        
+        // コンテナの実際のサイズ（TransformComponentのスケールやパンの影響を受けたサイズ）
+        const containerWidth = containerRect.width;
+        const containerHeight = containerRect.height;
+
+        // 画像の表示位置（コンテナからの相対位置）
+        const offsetX = imgRect.left - containerRect.left;
+        const offsetY = imgRect.top - containerRect.top;
+
+        if (displayWidth > 0 && displayHeight > 0) {
+          setImageInfo({ 
+            naturalWidth, 
+            naturalHeight, 
+            displayWidth, 
+            displayHeight, 
+            offsetX, 
+            offsetY,
+            containerWidth,
+            containerHeight
+          });
+        }
+      });
+    };
+
+    // 画像の読み込み完了時に計算
+    const handleImageLoad = () => {
+      // 画像読み込み後、少し遅延させてから計算（レイアウト確定を待つ）
+      setTimeout(updateImageInfo, 0);
+    };
+
+    if (imageRef.current) {
+      if (imageRef.current.complete) {
+        handleImageLoad();
+      } else {
+        imageRef.current.addEventListener("load", handleImageLoad);
+      }
+    }
+
+    // リサイズ時にも再計算
+    window.addEventListener("resize", updateImageInfo);
+    const resizeObserver = new ResizeObserver(() => {
+      updateImageInfo();
+    });
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+    if (imageRef.current) {
+      resizeObserver.observe(imageRef.current);
+    }
+
+    return () => {
+      if (imageRef.current) {
+        imageRef.current.removeEventListener("load", handleImageLoad);
+      }
+      window.removeEventListener("resize", updateImageInfo);
+      resizeObserver.disconnect();
+    };
+  }, [mapImage]);
 
   return (
     <div
+      ref={containerRef}
       style={{
+        position: "relative",
         width: "100%",
         height: "100%",
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#FFFFFF",
       }}
     >
-      <div
-        ref={containerRef}
-        onMouseDown={(e) => {
-          // ピンがクリックされた場合は処理しない
-          if ((e.target as HTMLElement).closest('[data-shop-pin]')) {
-            return;
-          }
-          if (!selectedShopId) {
-            return;
-          }
-          // マウスダウン時に位置を設定（ドラッグ開始）
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = (e.clientX - rect.left) / rect.width;
-          const y = (e.clientY - rect.top) / rect.height;
-          console.log("ShopPositionPreview - onMouseDown:", { x, y, selectedShopId });
-          // 0.0～1.0の形式で渡す（後で100倍される）
-          onMapClick(x, y);
-        }}
-        onClick={(e) => {
-          // ピンがクリックされた場合は処理しない
-          if ((e.target as HTMLElement).closest('[data-shop-pin]')) {
-            return;
-          }
-          if (!selectedShopId) {
-            console.log("ShopPositionPreview - onClick: selectedShopId is null");
-            return;
-          }
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = (e.clientX - rect.left) / rect.width;
-          const y = (e.clientY - rect.top) / rect.height;
-          console.log("ShopPositionPreview - onClick:", { x, y, selectedShopId });
-          // 0.0～1.0の形式で渡す（後で100倍される）
-          onMapClick(x, y);
-        }}
+      <img
+        ref={imageRef}
+        src={mapImage}
+        alt={`${normalizedFloor} map`}
+        draggable={false}
+        onDragStart={(e) => e.preventDefault()}
         style={{
-          position: "relative",
           width: "100%",
           height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: selectedShopId ? "crosshair" : "default",
+          objectFit: "contain",
         }}
-      >
-        <img
-          src={mapImage}
-          alt={`${normalizedFloor} map`}
-          draggable={false}
-          onDragStart={(e) => e.preventDefault()}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            pointerEvents: "none",
-          }}
-        />
-        {/* ショップ位置ピン */}
-        {Object.entries(positions).map(([shopId, position]) => {
+      />
+      {/* ショップ位置ピン */}
+      {imageInfo && Object.entries(positions)
+        .filter(([shopId]) => {
+          // 選択中のショップのピンのみを表示
+          if (selectedShopId) {
+            return shopId === selectedShopId;
+          }
+          return false;
+        })
+        .map(([shopId, position]) => {
           if (!position || !position.floor || position.floor !== normalizedFloor) return null;
           const shop = safeShops.find((s) => (s.shopId || s.number) === shopId);
           if (!shop || !shop.name) return null;
@@ -144,22 +196,50 @@ const ShopPositionPreview: React.FC<{
             y: position.y <= 1 ? position.y * 100 : position.y,
           };
 
+          // コンテナの実際のサイズを使用（TransformComponentのスケールやパンの影響を受けたサイズ）
+          const containerWidth = imageInfo.containerWidth;
+          const containerHeight = imageInfo.containerHeight;
+          
+          // マップ画像の自然なサイズに対する相対座標（0-100%）を、実際の表示サイズに変換
+          // 位置はマップ画像の自然なサイズに対する相対座標として保存されている
+          const xPercent = normalizedPosition.x / 100;
+          const yPercent = normalizedPosition.y / 100;
+          
+          // マップ画像の自然なサイズ内での位置
+          // X/Y=100のときは、マップ画像の右下角（naturalWidth, naturalHeight）を指す
+          const xInNaturalImage = xPercent * imageInfo.naturalWidth;
+          const yInNaturalImage = yPercent * imageInfo.naturalHeight;
+          
+          // 実際の表示サイズにスケール
+          const scaleX = imageInfo.displayWidth / imageInfo.naturalWidth;
+          const scaleY = imageInfo.displayHeight / imageInfo.naturalHeight;
+          const xInDisplayImage = xInNaturalImage * scaleX;
+          const yInDisplayImage = yInNaturalImage * scaleY;
+          
+          // コンテナ内での位置（オフセットを加算）
+          // X/Y=100のときは、マップ画像の表示領域の右下角に来る
+          const xInContainer = imageInfo.offsetX + xInDisplayImage;
+          const yInContainer = imageInfo.offsetY + yInDisplayImage;
+          
+          // パーセンテージに変換
+          // コンテナの実際のサイズに対する相対位置として計算
+          const xPercentInContainer = (xInContainer / containerWidth) * 100;
+          const yPercentInContainer = (yInContainer / containerHeight) * 100;
+
           return (
-            <div key={shopId} data-shop-pin style={{ pointerEvents: "none" }}>
+            <div key={shopId} style={{ pointerEvents: "none" }}>
               <ShopPin
-                position={normalizedPosition}
+                position={{
+                  ...normalizedPosition,
+                  x: xPercentInContainer,
+                  y: yPercentInContainer,
+                }}
                 shopName={shop.name}
                 isSelected={selectedShopId === shopId}
-                onDrag={onPinDrag ? (x, y) => {
-                  console.log("ShopPositionPreview - onPinDrag:", { shopId, x, y });
-                  onPinDrag(shopId, x, y);
-                } : undefined}
-                containerRef={containerRef}
               />
             </div>
           );
         })}
-      </div>
     </div>
   );
 };
@@ -204,7 +284,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [imageSettings, setImageSettings] = useState<ImageSettings>(initialImageSettings);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings>(initialShopPositions);
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
-  const [mapClickHandler, setMapClickHandler] = useState<((x: number, y: number) => void) | null>(null);
 
   // Transform wrapper ref for programmatic control
   const transformRef = useRef<{
@@ -230,6 +309,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setFloorLayout(initialFloorLayout);
         setLocationIconSettings(initialLocationIconSettings);
         setImageSettings(initialImageSettings);
+        setShopPositions(initialShopPositions);
         setErrors({});
         // Reset transform when opening settings
         if (transformRef.current) {
@@ -241,7 +321,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings]);
+  }, [initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions]);
 
   // Sync with external changes when screen is closed
   useEffect(() => {
@@ -250,8 +330,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setFloorLayout(initialFloorLayout);
       setLocationIconSettings(initialLocationIconSettings);
       setImageSettings(initialImageSettings);
+      setShopPositions(initialShopPositions);
     }
-  }, [visible, initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings]);
+  }, [visible, initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions]);
 
   const handleClose = () => {
     setVisible(false);
@@ -264,6 +345,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setFloorLayout(initialFloorLayout);
     setLocationIconSettings(initialLocationIconSettings);
     setImageSettings(initialImageSettings);
+    setShopPositions(initialShopPositions);
     setErrors({});
     // Reset transform
     if (transformRef.current) {
@@ -551,7 +633,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 disabled: true,
               }}
               panning={{
-                disabled: activeTab === "shopPosition" && selectedShopId !== null,
+                disabled: false,
               }}
               onInit={(ref) => {
                 transformRef.current = ref;
@@ -562,29 +644,26 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 width: "100%",
                 height: "100%",
               }}
-              contentStyle={{
-                width: `${window.screen.width >= 3840 ? 3840 : 1920}px`,
-                height: `${window.screen.height >= 2160 ? 2160 : 1080}px`,
-              }}
+              contentStyle={
+                activeTab === "shopPosition"
+                  ? {
+                      width: "1700px",
+                      height: "1580px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }
+                  : {
+                      width: `${window.screen.width >= 3840 ? 3840 : 1920}px`,
+                      height: `${window.screen.height >= 2160 ? 2160 : 1080}px`,
+                    }
+              }
             >
               {activeTab === "shopPosition" ? (
                 <ShopPositionPreview
                   floor={floor}
                   shopPositions={shopPositions}
                   shops={shops}
-                  onMapClick={(x, y) => {
-                    if (mapClickHandler) {
-                      mapClickHandler(x, y);
-                    } else {
-                      console.log("ShopPositionPreview - mapClickHandler is null");
-                    }
-                  }}
-                  onPinDrag={(shopId, x, y) => {
-                    if (mapClickHandler && selectedShopId === shopId) {
-                      // x, yは0.0～1.0の形式で渡される
-                      mapClickHandler(x, y);
-                    }
-                  }}
                   selectedShopId={selectedShopId}
                 />
               ) : (
@@ -716,7 +795,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onChangeShopPositions={setShopPositions}
               shops={shops}
               onSelectedShopIdChange={setSelectedShopId}
-              onMapClickHandlerChange={setMapClickHandler}
             />
           )}
         </div>

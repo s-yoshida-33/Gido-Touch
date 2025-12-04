@@ -1,4 +1,5 @@
 // src/types/shop.ts
+import type { ShadowConfig, AnimationConfig } from "./locationIcon";
 
 export type FloorId = string;
 
@@ -8,6 +9,16 @@ export interface ShopPosition {
   y: number;
   // 階数（複数階対応）
   floor: FloorId;
+  // 表示/非表示（デフォルト: true）
+  enabled?: boolean;
+  // サイズ（px、デフォルト: 60）
+  size?: number;
+  // 回転（0-360度、デフォルト: 0）
+  rotation?: number;
+  // シャドウ設定（オプショナル）
+  shadow?: ShadowConfig;
+  // アニメーション設定（オプショナル）
+  animation?: AnimationConfig;
 }
 
 export interface Shop {

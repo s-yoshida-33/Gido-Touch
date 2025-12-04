@@ -3,6 +3,7 @@ import React, { useState, useCallback, useEffect, useMemo } from "react";
 import type { FloorId } from "../types/floorLayout";
 import type { ShopPositionSettings, ShopPosition } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
+import type { ShadowConfig, AnimationConfig, AnimationType } from "../types/locationIcon";
 import { ShopPin } from "./ShopPin";
 import food1FMap from "../assets/food-1F-map.svg";
 import food2FMap from "../assets/food-2F-map.svg";
@@ -39,15 +40,43 @@ const clampPercent = (value: number) => {
   return Math.round(clamped * 10) / 10;
 };
 
+const clampRotation = (value: number) => {
+  const v = Number.isNaN(value) ? 0 : value;
+  if (v < 0) return 0;
+  if (v > 360) return 360;
+  return v;
+};
+
+// デフォルトのShopPositionを作成
+const createDefaultShopPosition = (floor: FloorId): ShopPosition => ({
+  x: 50.0,
+  y: 50.0,
+  floor,
+  enabled: true,
+  size: 60,
+  rotation: 0,
+  shadow: {
+    enabled: false,
+    offsetX: 0,
+    offsetY: 0,
+    blur: 0,
+    opacity: 0,
+  },
+  animation: {
+    enabled: false,
+    type: "floating",
+    duration: 2.2,
+    amplitude: 18,
+  },
+});
+
 export interface ShopPositionSettingsTabProps {
   floor: FloorId;
   onChangeFloor: (floor: FloorId) => void;
   shopPositions: ShopPositionSettings;
   onChangeShopPositions: React.Dispatch<React.SetStateAction<ShopPositionSettings>>;
   shops: Shop[];
-  onMapClick?: (x: number, y: number) => void;
   onSelectedShopIdChange?: (shopId: string | null) => void;
-  onMapClickHandlerChange?: (handler: (x: number, y: number) => void) => void;
 }
 
 export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = ({
@@ -56,14 +85,11 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
   shopPositions,
   onChangeShopPositions,
   shops,
-  onMapClick,
   onSelectedShopIdChange,
-  onMapClickHandlerChange,
 }) => {
   const floors: FloorId[] = ["1F", "2F", "3F", "4F"];
   const [selectedFloor, setSelectedFloor] = useState<FloorId>(floor);
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
 
   // Update preview floor when selected floor changes
   useEffect(() => {
@@ -80,25 +106,6 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
         return normalizedShopFloor === normalizedSelectedFloor;
       });
     });
-    // デバッグ用ログ
-    console.log("ShopPositionSettingsTab - floorShops:", {
-      selectedFloor,
-      normalizedSelectedFloor,
-      totalShops: shops.length,
-      filteredCount: filtered.length,
-      shops: shops.map((s) => ({
-        name: s.name,
-        shopId: s.shopId,
-        number: s.number,
-        floors: s.floors,
-      })),
-      filtered: filtered.map((s) => ({
-        name: s.name,
-        shopId: s.shopId,
-        number: s.number,
-        floors: s.floors,
-      })),
-    });
     return filtered;
   }, [shops, normalizedSelectedFloor]);
 
@@ -114,58 +121,29 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
     [onChangeShopPositions]
   );
 
-  // マップ上をクリック/ドラッグで位置設定
-  const handleMapClick = useCallback((x: number, y: number) => {
-    if (!selectedShopId) {
-      console.log("ShopPositionSettingsTab - handleMapClick: selectedShopId is null");
-      return;
-    }
-
-    // 相対座標を0～100に変換（0.1単位）
-    const clampedX = clampPercent(x * 100);
-    const clampedY = clampPercent(y * 100);
-
-    console.log("ShopPositionSettingsTab - handleMapClick:", {
-      selectedShopId,
-      x: clampedX,
-      y: clampedY,
-      floor: selectedFloor,
-    });
-
-    updateShopPosition(selectedShopId, {
-      x: clampedX,
-      y: clampedY,
-      floor: selectedFloor,
-    });
-  }, [selectedShopId, selectedFloor, updateShopPosition]);
-
-  // 親コンポーネントにselectedShopIdとhandleMapClickを通知
+  // 親コンポーネントにselectedShopIdを通知
   useEffect(() => {
     if (onSelectedShopIdChange) {
       onSelectedShopIdChange(selectedShopId);
     }
   }, [selectedShopId, onSelectedShopIdChange]);
 
-  useEffect(() => {
-    if (onMapClickHandlerChange) {
-      onMapClickHandlerChange(handleMapClick);
-    }
-  }, [handleMapClick, onMapClickHandlerChange]);
-
-  const selectedShop = selectedShopId
-    ? shops.find((s) => (s.shopId || s.number) === selectedShopId)
-    : null;
-
-  // 選択中のショップの位置情報を取得（未設定の場合は中央をデフォルトとして使用）
+  // 選択中のショップの位置情報を取得（未設定の場合はデフォルト値を使用）
   const selectedShopPosition = selectedShopId
-    ? shopPositions.positions[selectedShopId] || {
-        x: 50.0,
-        y: 50.0,
-        floor: selectedFloor,
-      }
+    ? (() => {
+        const existing = shopPositions.positions[selectedShopId];
+        if (!existing) {
+          return createDefaultShopPosition(selectedFloor);
+        }
+        // 既存の位置をマージ（デフォルト値で不足しているフィールドを補完）
+        return {
+          ...createDefaultShopPosition(selectedFloor),
+          ...existing,
+          shadow: existing.shadow || createDefaultShopPosition(selectedFloor).shadow!,
+          animation: existing.animation || createDefaultShopPosition(selectedFloor).animation!,
+        };
+      })()
     : null;
-
-  const mapImage = getMapImage(selectedFloor);
 
   // デバッグ用ログ
   useEffect(() => {
@@ -179,6 +157,45 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
       })),
     });
   }, [shops]);
+
+  const updatePositionField = useCallback(
+    (field: keyof ShopPosition, value: any) => {
+      if (!selectedShopId || !selectedShopPosition) return;
+      updateShopPosition(selectedShopId, {
+        ...selectedShopPosition,
+        [field]: value,
+      });
+    },
+    [selectedShopId, selectedShopPosition, updateShopPosition]
+  );
+
+  const updateShadowField = useCallback(
+    (field: keyof ShadowConfig, value: any) => {
+      if (!selectedShopId || !selectedShopPosition) return;
+      updateShopPosition(selectedShopId, {
+        ...selectedShopPosition,
+        shadow: {
+          ...(selectedShopPosition.shadow || createDefaultShopPosition(selectedFloor).shadow!),
+          [field]: value,
+        },
+      });
+    },
+    [selectedShopId, selectedShopPosition, selectedFloor, updateShopPosition]
+  );
+
+  const updateAnimationField = useCallback(
+    (field: keyof AnimationConfig, value: any) => {
+      if (!selectedShopId || !selectedShopPosition) return;
+      updateShopPosition(selectedShopId, {
+        ...selectedShopPosition,
+        animation: {
+          ...(selectedShopPosition.animation || createDefaultShopPosition(selectedFloor).animation!),
+          [field]: value,
+        },
+      });
+    },
+    [selectedShopId, selectedShopPosition, selectedFloor, updateShopPosition]
+  );
 
   return (
     <div>
@@ -273,13 +290,9 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
               const newShopId = e.target.value || null;
               setSelectedShopId(newShopId);
               
-              // ショップを選択したときに、位置が未設定の場合は中央（50.0, 50.0）をデフォルトとして設定
+              // ショップを選択したときに、位置が未設定の場合はデフォルト値を設定
               if (newShopId && !shopPositions.positions[newShopId]) {
-                updateShopPosition(newShopId, {
-                  x: 50.0,
-                  y: 50.0,
-                  floor: selectedFloor,
-                });
+                updateShopPosition(newShopId, createDefaultShopPosition(selectedFloor));
               }
             }}
             style={{
@@ -329,8 +342,8 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
           </select>
         </div>
 
-        {/* Position Inputs */}
-        {selectedShopId && (
+        {/* Position Settings */}
+        {selectedShopId && selectedShopPosition && (
           <fieldset
             style={{
               border: "1px solid rgba(255,255,255,0.1)",
@@ -347,10 +360,22 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                 fontSize: 14,
               }}
             >
-              位置調整
+              位置・表示設定
             </legend>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Enabled */}
+              <label style={{ display: "flex", alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={selectedShopPosition.enabled ?? true}
+                  onChange={(e) => updatePositionField("enabled", e.target.checked)}
+                  style={{ marginRight: 10, width: 18, height: 18, accentColor: "#007aff" }}
+                />
+                <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 14 }}>表示</span>
+              </label>
+
+              {/* Position */}
               <div>
                 <div
                   style={{
@@ -368,13 +393,9 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                     min={0}
                     max={100}
                     step={0.1}
-                    value={selectedShopPosition?.x ?? 50.0}
+                    value={selectedShopPosition.x ?? 50.0}
                     onChange={(e) =>
-                      updateShopPosition(selectedShopId, {
-                        x: clampPercent(Number(e.target.value)),
-                        y: selectedShopPosition?.y ?? 50.0,
-                        floor: selectedShopPosition?.floor ?? selectedFloor,
-                      })
+                      updatePositionField("x", clampPercent(Number(e.target.value)))
                     }
                     style={{
                       flex: 1,
@@ -386,13 +407,9 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                     min={0}
                     max={100}
                     step={0.1}
-                    value={selectedShopPosition?.x ?? 50.0}
+                    value={selectedShopPosition.x ?? 50.0}
                     onChange={(e) =>
-                      updateShopPosition(selectedShopId, {
-                        x: clampPercent(Number(e.target.value)),
-                        y: selectedShopPosition?.y ?? 50.0,
-                        floor: selectedShopPosition?.floor ?? selectedFloor,
-                      })
+                      updatePositionField("x", clampPercent(Number(e.target.value)))
                     }
                     style={{
                       width: 70,
@@ -424,13 +441,9 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                     min={0}
                     max={100}
                     step={0.1}
-                    value={selectedShopPosition?.y ?? 50.0}
+                    value={selectedShopPosition.y ?? 50.0}
                     onChange={(e) =>
-                      updateShopPosition(selectedShopId, {
-                        x: selectedShopPosition?.x ?? 50.0,
-                        y: clampPercent(Number(e.target.value)),
-                        floor: selectedShopPosition?.floor ?? selectedFloor,
-                      })
+                      updatePositionField("y", clampPercent(Number(e.target.value)))
                     }
                     style={{
                       flex: 1,
@@ -442,13 +455,9 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                     min={0}
                     max={100}
                     step={0.1}
-                    value={selectedShopPosition?.y ?? 50.0}
+                    value={selectedShopPosition.y ?? 50.0}
                     onChange={(e) =>
-                      updateShopPosition(selectedShopId, {
-                        x: selectedShopPosition?.x ?? 50.0,
-                        y: clampPercent(Number(e.target.value)),
-                        floor: selectedShopPosition?.floor ?? selectedFloor,
-                      })
+                      updatePositionField("y", clampPercent(Number(e.target.value)))
                     }
                     style={{
                       width: 70,
@@ -462,35 +471,310 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                   />
                 </div>
               </div>
+
+              {/* Size & rotation */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 16,
+                  marginTop: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ minWidth: 150 }}>
+                  <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>サイズ (px)</div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={512}
+                    step={0.1}
+                    value={selectedShopPosition.size ?? 60}
+                    onChange={(e) =>
+                      updatePositionField("size", Math.max(1, Math.min(512, Number(e.target.value) || 60)))
+                    }
+                    style={{
+                      width: 100,
+                      backgroundColor: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: 6,
+                      padding: "6px 8px",
+                      color: "#ffffff",
+                      fontSize: 13,
+                    }}
+                  />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>回転 (°)</div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <input
+                      type="range"
+                      min={0}
+                      max={360}
+                      value={selectedShopPosition.rotation ?? 0}
+                      onChange={(e) =>
+                        updatePositionField("rotation", clampRotation(Number(e.target.value)))
+                      }
+                      style={{
+                        flex: 1,
+                        accentColor: "#007aff",
+                      }}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={360}
+                      value={selectedShopPosition.rotation ?? 0}
+                      onChange={(e) =>
+                        updatePositionField("rotation", clampRotation(Number(e.target.value)))
+                      }
+                      style={{
+                        width: 70,
+                        backgroundColor: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: 6,
+                        padding: "6px 8px",
+                        color: "#ffffff",
+                        fontSize: 13,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Shadow settings */}
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                <label style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedShopPosition.shadow?.enabled ?? false}
+                    onChange={(e) => updateShadowField("enabled", e.target.checked)}
+                    style={{ marginRight: 10, width: 18, height: 18, accentColor: "#007aff" }}
+                  />
+                  <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 14, fontWeight: 500 }}>シャドウ</span>
+                </label>
+
+                {selectedShopPosition.shadow?.enabled && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>オフセットX (px)</div>
+                      <input
+                        type="number"
+                        min={-20}
+                        max={20}
+                        step={0.1}
+                        value={selectedShopPosition.shadow?.offsetX ?? 0}
+                        onChange={(e) => updateShadowField("offsetX", Number(e.target.value) || 0)}
+                        style={{
+                          width: "100%",
+                          backgroundColor: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: 6,
+                          padding: "6px 8px",
+                          color: "#ffffff",
+                          fontSize: 13,
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>オフセットY (px)</div>
+                      <input
+                        type="number"
+                        min={-20}
+                        max={20}
+                        step={0.1}
+                        value={selectedShopPosition.shadow?.offsetY ?? 0}
+                        onChange={(e) => updateShadowField("offsetY", Number(e.target.value) || 0)}
+                        style={{
+                          width: "100%",
+                          backgroundColor: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: 6,
+                          padding: "6px 8px",
+                          color: "#ffffff",
+                          fontSize: 13,
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>ぼかし (px)</div>
+                      <input
+                        type="number"
+                        min={0}
+                        max={20}
+                        step={0.1}
+                        value={selectedShopPosition.shadow?.blur ?? 0}
+                        onChange={(e) =>
+                          updateShadowField("blur", Math.max(0, Math.min(20, Number(e.target.value) || 0)))
+                        }
+                        style={{
+                          width: "100%",
+                          backgroundColor: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: 6,
+                          padding: "6px 8px",
+                          color: "#ffffff",
+                          fontSize: 13,
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>不透明度 (0-1)</div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={selectedShopPosition.shadow?.opacity ?? 0}
+                          onChange={(e) =>
+                            updateShadowField("opacity", Math.max(0, Math.min(1, Number(e.target.value) || 0)))
+                          }
+                          style={{
+                            flex: 1,
+                            accentColor: "#007aff",
+                          }}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={selectedShopPosition.shadow?.opacity ?? 0}
+                          onChange={(e) =>
+                            updateShadowField("opacity", Math.max(0, Math.min(1, Number(e.target.value) || 0)))
+                          }
+                          style={{
+                            width: 70,
+                            backgroundColor: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: 6,
+                            padding: "6px 8px",
+                            color: "#ffffff",
+                            fontSize: 13,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Animation settings */}
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                <label style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedShopPosition.animation?.enabled ?? false}
+                    onChange={(e) => updateAnimationField("enabled", e.target.checked)}
+                    style={{ marginRight: 10, width: 18, height: 18, accentColor: "#007aff" }}
+                  />
+                  <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 14, fontWeight: 500 }}>アニメーション</span>
+                </label>
+
+                {selectedShopPosition.animation?.enabled && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>タイプ</div>
+                      <select
+                        value={selectedShopPosition.animation?.type ?? "floating"}
+                        onChange={(e) => updateAnimationField("type", e.target.value as AnimationType)}
+                        style={{
+                          width: "100%",
+                          backgroundColor: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: 6,
+                          padding: "6px 8px",
+                          color: "#ffffff",
+                          fontSize: 13,
+                        }}
+                      >
+                        <option value="floating" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
+                          フローティング
+                        </option>
+                        <option value="pulse" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
+                          パルス
+                        </option>
+                        <option value="bounce" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
+                          バウンス
+                        </option>
+                        <option value="none" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
+                          なし
+                        </option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>期間 (秒)</div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <input
+                          type="range"
+                          min={0.5}
+                          max={5}
+                          step={0.1}
+                          value={selectedShopPosition.animation?.duration ?? 2.2}
+                          onChange={(e) =>
+                            updateAnimationField("duration", Math.max(0.5, Math.min(5, Number(e.target.value) || 2.2)))
+                          }
+                          style={{
+                            flex: 1,
+                            accentColor: "#007aff",
+                          }}
+                        />
+                        <input
+                          type="number"
+                          min={0.5}
+                          max={5}
+                          step={0.1}
+                          value={selectedShopPosition.animation?.duration ?? 2.2}
+                          onChange={(e) =>
+                            updateAnimationField("duration", Math.max(0.5, Math.min(5, Number(e.target.value) || 2.2)))
+                          }
+                          style={{
+                            width: 70,
+                            backgroundColor: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: 6,
+                            padding: "6px 8px",
+                            color: "#ffffff",
+                            fontSize: 13,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅 (px)</div>
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        step={1}
+                        value={selectedShopPosition.animation?.amplitude ?? 18}
+                        onChange={(e) =>
+                          updateAnimationField("amplitude", Math.max(1, Math.min(50, Number(e.target.value) || 18)))
+                        }
+                        style={{
+                          width: "100%",
+                          backgroundColor: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: 6,
+                          padding: "6px 8px",
+                          color: "#ffffff",
+                          fontSize: 13,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </fieldset>
         )}
-
-        {/* Instructions */}
-        <div
-          style={{
-            padding: 12,
-            backgroundColor: "rgba(0, 122, 255, 0.1)",
-            border: "1px solid rgba(0, 122, 255, 0.3)",
-            borderRadius: 8,
-            fontSize: 12,
-            color: "rgba(255, 255, 255, 0.8)",
-            lineHeight: 1.5,
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>
-            使い方:
-          </div>
-          <div>
-            1. フロアとショップを選択
-            <br />
-            2. プレビューエリアのマップ上をクリックして位置を設定
-            <br />
-            3. スライダーまたは数値入力で微調整
-          </div>
-        </div>
       </div>
     </div>
   );
 };
-
