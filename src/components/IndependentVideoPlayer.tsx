@@ -93,15 +93,20 @@ const IndependentVideoPlayer: React.FC = () => {
     if (isVideo && videoRef.current) {
       const video = videoRef.current;
       video.src = currentFile;
-      video.loop = false; // We handle looping manually
+      // If only one file, use native loop. Otherwise handle looping manually
+      video.loop = mediaFiles.length === 1;
       video.autoplay = true;
       
-      // When video ends, move to next file
+      // When video ends, move to next file (only if multiple files)
       const handleEnded = () => {
-        setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
+        if (mediaFiles.length > 1) {
+          setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
+        }
       };
       
-      video.addEventListener('ended', handleEnded);
+      if (mediaFiles.length > 1) {
+        video.addEventListener('ended', handleEnded);
+      }
       
       logInfo('video', 'Playing video from local directory', {
         index: currentIndex,
@@ -110,13 +115,15 @@ const IndependentVideoPlayer: React.FC = () => {
       });
 
       return () => {
-        video.removeEventListener('ended', handleEnded);
+        if (mediaFiles.length > 1) {
+          video.removeEventListener('ended', handleEnded);
+        }
       };
     } else if (isImage && imgRef.current) {
       const img = imgRef.current;
       img.src = currentFile;
       
-      // For images, show for 5 seconds then move to next
+      // For images, show for 5 seconds then move to next (or loop if only one)
       const timer = setTimeout(() => {
         setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
       }, 5000);
@@ -187,6 +194,7 @@ const IndependentVideoPlayer: React.FC = () => {
           position: 'relative',
           backgroundColor: '#000000',
           overflow: 'hidden',
+          borderRadius: '30px',
         }}
       >
         {isVideo && (

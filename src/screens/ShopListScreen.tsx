@@ -874,6 +874,7 @@ const ShopListScreen: React.FC = () => {
             marginBottom: "0px",
             boxSizing: "border-box",
             overflow: "hidden",
+            borderRadius: "30px",
             alignSelf: "flex-start",
           }}
         >
