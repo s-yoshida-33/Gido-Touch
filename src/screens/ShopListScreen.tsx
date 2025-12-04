@@ -9,13 +9,15 @@ import button3F from "../assets/button-3F.svg";
 import button1FHighlight from "../assets/button-1F-highlight.svg";
 import button2FHighlight from "../assets/button-2F-highlight.svg";
 import button3FHighlight from "../assets/button-3F-highlight.svg";
-import selectLanguage from "../assets/select-language.svg";
+import selectLanguageSelectedEn from "../assets/select-language-selected-en.svg";
+import selectLanguageSelectedJp from "../assets/select-language-selected-jp.svg";
 import openTime from "../assets/open-time.svg";
 import prev from "../assets/button-prev.svg";
 import next from "../assets/button-next.svg";
 import { fetchShops } from "../repositories/shopRepository";
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
+import { LanguageSelectModal } from "../components/LanguageSelectModal";
 
 /**
  * Build image path using shop_id if photo is relative or filename only
@@ -291,6 +293,23 @@ const ShopListScreen: React.FC = () => {
   // Scroll position state for navigation buttons
   const [scrollPercentage, setScrollPercentage] = useState(0);
   const [canScroll, setCanScroll] = useState(false);
+
+  // Language select modal state
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
+  const languageButtonRef = useRef<HTMLDivElement>(null);
+  
+  // Get selected language from localStorage (default to Japanese)
+  const getSelectedLanguage = (): "ja" | "en" => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      const saved = localStorage.getItem("gido-selected-language");
+      if (saved === "en" || saved === "ja") {
+        return saved;
+      }
+    }
+    return "ja"; // Default to Japanese
+  };
+  
+  const [selectedLanguage, setSelectedLanguage] = useState<"ja" | "en">(() => getSelectedLanguage());
 
   // Fetch shops from API
   useEffect(() => {
@@ -1183,15 +1202,63 @@ const ShopListScreen: React.FC = () => {
               }}
             />
             <div style={{ flex: 1 }} />
-            <img
-              src={selectLanguage}
-              alt="Select Language"
-              draggable={false}
-              onDragStart={(e) => e.preventDefault()}
+            <div
+              ref={languageButtonRef}
+              onClick={() => setIsLanguageModalOpen(true)}
               style={{
+                position: "relative",
+                cursor: "pointer",
                 display: "block",
               }}
-            />
+            >
+              {/* Japanese selected image */}
+              <img
+                src={selectLanguageSelectedJp}
+                alt="Select Language"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  opacity: selectedLanguage === "ja" ? 1 : 0,
+                  transition: "opacity 0.3s ease-in-out",
+                  pointerEvents: "none",
+                }}
+              />
+              {/* English selected image */}
+              <img
+                src={selectLanguageSelectedEn}
+                alt="Select Language"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  opacity: selectedLanguage === "en" ? 1 : 0,
+                  transition: "opacity 0.3s ease-in-out",
+                  pointerEvents: "none",
+                }}
+              />
+              {/* Placeholder to maintain size */}
+              <img
+                src={selectLanguageSelectedEn}
+                alt=""
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  display: "block",
+                  visibility: "hidden",
+                  width: "100%",
+                  height: "auto",
+                }}
+              />
+            </div>
           </div>
           </div>
 
@@ -1223,6 +1290,14 @@ const ShopListScreen: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Language Select Modal */}
+      <LanguageSelectModal
+        isOpen={isLanguageModalOpen}
+        onClose={() => setIsLanguageModalOpen(false)}
+        buttonRef={languageButtonRef}
+        onLanguageChange={(lang) => setSelectedLanguage(lang)}
+      />
     </div>
   );
 };
