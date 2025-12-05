@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import type { FloorId } from "../types/floorLayout";
-import type { LocationIconSettings, LocationIconSettingsPerFloor, IconPositionConfig, AnimationType } from "../types/locationIcon";
+import type { LocationIconSettingsPerFloor, IconPositionConfig, AnimationType } from "../types/locationIcon";
 import { getLocationIconSettingsForFloor } from "../config";
 
 export interface LocationSettingsTabProps {

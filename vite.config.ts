@@ -11,4 +11,20 @@ export default defineConfig({
       "/file": { target: "http://localhost:8080", changeOrigin: true },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React関連を別チャンクに
+          'react-vendor': ['react', 'react-dom'],
+          // アニメーションライブラリを別チャンクに
+          'framer-motion': ['framer-motion'],
+          // ズーム・パンライブラリを別チャンクに
+          'zoom-pan-pinch': ['react-zoom-pan-pinch'],
+        },
+      },
+    },
+    // チャンクサイズの警告制限を調整（オプション）
+    chunkSizeWarningLimit: 1000,
+  },
 });

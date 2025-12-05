@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect, useMemo } from "react";
 import type { FloorId } from "../types/floorLayout";
 import type { ShopPositionSettings, ShopPosition } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
-import type { ShadowConfig, AnimationConfig, AnimationType, LocationIconSettings, LocationIconSettingsPerFloor, IconPositionConfig } from "../types/locationIcon";
+import type { ShadowConfig, AnimationConfig, AnimationType, LocationIconSettingsPerFloor, IconPositionConfig } from "../types/locationIcon";
 import { getLocationIconSettingsForFloor } from "../config";
 
 function normalizeFloor(value: string): string {

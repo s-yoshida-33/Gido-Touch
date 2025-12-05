@@ -6,7 +6,6 @@ import UnifiedSettingsScreen from "./screens/UnifiedSettingsScreen";
 import {
   DEFAULT_LOCATION_ICON_SETTINGS,
   DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR,
-  getLocationIconSettingsForFloor,
 } from "./config";
 import type { LocationIconSettings, LocationIconSettingsPerFloor } from "./types/locationIcon";
 import type { ImageSettings } from "./types/imageSettings";
@@ -92,7 +91,7 @@ const App: React.FC = () => {
           } else {
             // New format: LocationIconSettingsPerFloor
             const perFloorSettings: LocationIconSettingsPerFloor = { ...DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR };
-            Object.entries(saved as LocationIconSettingsPerFloor).forEach(([floorId, settings]) => {
+            Object.entries(saved as unknown as LocationIconSettingsPerFloor).forEach(([floorId, settings]) => {
               perFloorSettings[floorId] = {
                 speechBubble: {
                   ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
@@ -192,7 +191,7 @@ const App: React.FC = () => {
           } else {
             // New format: LocationIconSettingsPerFloor
             const perFloorSettings: LocationIconSettingsPerFloor = { ...DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR };
-            Object.entries(updated as LocationIconSettingsPerFloor).forEach(([floorId, settings]) => {
+            Object.entries(updated as unknown as LocationIconSettingsPerFloor).forEach(([floorId, settings]) => {
               perFloorSettings[floorId] = {
                 speechBubble: {
                   ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
@@ -247,9 +246,9 @@ const App: React.FC = () => {
     // Persist to Electron settings.json
     if (window.electronAPI?.saveLocationIconSettings) {
       const saved =
-        (await window.electronAPI.saveLocationIconSettings(settings as any)) ??
+        (await window.electronAPI.saveLocationIconSettings(settings as unknown as LocationIconSettings)) ??
         settings;
-      setLocationSettings(saved as LocationIconSettingsPerFloor);
+      setLocationSettings(saved as unknown as LocationIconSettingsPerFloor);
     } else {
       // Fallback: no Electron available (dev in browser)
       setLocationSettings(settings);
