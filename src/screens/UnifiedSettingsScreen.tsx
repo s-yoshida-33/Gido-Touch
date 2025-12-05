@@ -1,5 +1,5 @@
 // src/screens/UnifiedSettingsScreen.tsx
-import React, { useEffect, useState, useRef, useCallback, useLayoutEffect } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import GidoApp from "./GidoApp";
 import type { LocationIconSettings } from "../types/locationIcon";
@@ -7,249 +7,12 @@ import type { FloorId, FloorLayout } from "../types/floorLayout";
 import { LocationSettingsTab } from "../components/LocationSettingsTab";
 import { ImageSettingsTab } from "../components/ImageSettingsTab";
 import { ShopPositionSettingsTab } from "../components/ShopPositionSettingsTab";
-import { ShopPin } from "../components/ShopPin";
 import iconSvg from "../assets/icon.svg";
 import type { ImageSettings } from "../types/imageSettings";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
-import food1FMap from "../assets/food-1F-map.svg";
-import food2FMap from "../assets/food-2F-map.svg";
-import food3FMap from "../assets/food-3F-map.svg";
-import food4FMap from "../assets/food-4F-map.svg";
 
 type TabType = "location" | "image" | "shopPosition";
-
-function normalizeFloor(value: string): string {
-  const normalized = value.toUpperCase().trim();
-  if (normalized.match(/^[0-9]+F$/)) {
-    return normalized;
-  }
-  return "1F";
-}
-
-function getMapImage(floor: FloorId): string {
-  const normalized = normalizeFloor(floor);
-  switch (normalized) {
-    case "1F":
-      return food1FMap;
-    case "2F":
-      return food2FMap;
-    case "3F":
-      return food3FMap;
-    case "4F":
-      return food4FMap;
-    default:
-      return food1FMap;
-  }
-}
-
-// ShopPositionPreview コンポーネントの修正版
-// UnifiedSettingsScreen.tsx の該当部分を以下に置き換えてください
-
-const ShopPositionPreview: React.FC<{
-  floor: FloorId;
-  shopPositions: ShopPositionSettings;
-  shops: Shop[];
-  selectedShopId: string | null;
-  transformState?: {
-    scale: number;
-    positionX: number;
-    positionY: number;
-  };
-}> = ({ floor, shopPositions, shops, selectedShopId, transformState }) => {
-  // 安全に値を取得
-  const safeShopPositions = shopPositions || { positions: {} };
-  const safeShops = shops || [];
-  const mapImage = getMapImage(floor);
-  const normalizedFloor = normalizeFloor(floor);
-
-  // 安全にpositionsを取得
-  const positions = safeShopPositions.positions || {};
-
-  // マップ画像の自然なサイズと実際の表示サイズを取得するためのref
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const imageRef = React.useRef<HTMLImageElement>(null);
-  const [imageInfo, setImageInfo] = React.useState<{ 
-    naturalWidth: number; 
-    naturalHeight: number; 
-    displayWidth: number; 
-    displayHeight: number; 
-    offsetX: number; 
-    offsetY: number;
-    containerWidth: number;
-    containerHeight: number;
-  } | null>(null);
-
-  // 画像の読み込みとリサイズ時に実際の表示サイズを計算
-  React.useEffect(() => {
-    const updateImageInfo = () => {
-      // requestAnimationFrameで次のフレームで実行して、レイアウトが確定してから計算
-      requestAnimationFrame(() => {
-        if (!containerRef.current || !imageRef.current) return;
-
-        const container = containerRef.current;
-        const img = imageRef.current;
-
-        // 画像の自然なサイズ
-        const naturalWidth = img.naturalWidth || 0;
-        const naturalHeight = img.naturalHeight || 0;
-
-        if (naturalWidth === 0 || naturalHeight === 0) return;
-
-        // コンテナと画像の実際の表示サイズ（getBoundingClientRectで正確なサイズを取得）
-        const containerRect = container.getBoundingClientRect();
-        const imgRect = img.getBoundingClientRect();
-        
-        // TransformWrapperのスケールを考慮しない、元の画像サイズ
-        // object-fit: containなので、アスペクト比を保って収まるサイズ
-        const containerWidth = containerRect.width;
-        const containerHeight = containerRect.height;
-        
-        // 画像の実際のレンダリングサイズを計算
-        // TransformWrapperのスケールを除外した元のサイズ
-        const scale = transformState?.scale || 1;
-        const displayWidth = imgRect.width / scale;
-        const displayHeight = imgRect.height / scale;
-        
-        // 画像の表示位置（コンテナからの相対位置）
-        // TransformWrapperによる移動も考慮
-        const offsetX = (imgRect.left - containerRect.left) / scale;
-        const offsetY = (imgRect.top - containerRect.top) / scale;
-
-        if (displayWidth > 0 && displayHeight > 0) {
-          setImageInfo({ 
-            naturalWidth, 
-            naturalHeight, 
-            displayWidth, 
-            displayHeight, 
-            offsetX, 
-            offsetY,
-            containerWidth,
-            containerHeight
-          });
-        }
-      });
-    };
-
-    // 画像の読み込み完了時に計算
-    const handleImageLoad = () => {
-      // 画像読み込み後、少し遅延させてから計算（レイアウト確定を待つ）
-      setTimeout(updateImageInfo, 100);
-    };
-
-    if (imageRef.current) {
-      if (imageRef.current.complete) {
-        handleImageLoad();
-      } else {
-        imageRef.current.addEventListener("load", handleImageLoad);
-      }
-    }
-
-    // リサイズ時にも再計算
-    window.addEventListener("resize", updateImageInfo);
-    const resizeObserver = new ResizeObserver(() => {
-      updateImageInfo();
-    });
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    if (imageRef.current) {
-      resizeObserver.observe(imageRef.current);
-    }
-
-    // TransformWrapperの状態変更時にも再計算（ズームやパンによる画像位置の変化を検知）
-    if (transformState) {
-      updateImageInfo();
-    }
-
-    return () => {
-      if (imageRef.current) {
-        imageRef.current.removeEventListener("load", handleImageLoad);
-      }
-      window.removeEventListener("resize", updateImageInfo);
-      resizeObserver.disconnect();
-    };
-  }, [mapImage, transformState]);
-
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        position: "relative",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        overflow: "visible",
-        width: "100%",
-        height: "100%",
-      }}
-    >
-      <img
-        ref={imageRef}
-        src={mapImage}
-        alt={`${normalizedFloor} map`}
-        draggable={false}
-        onDragStart={(e) => e.preventDefault()}
-        style={{
-          maxWidth: "100%",
-          maxHeight: "100%",
-          objectFit: "contain",
-        }}
-      />
-      {/* ショップ位置ピン - マップ画像の表示サイズを基準に絶対ピクセル座標で配置 */}
-      {imageInfo && Object.entries(positions)
-        .filter(([shopId]) => {
-          // 選択中のショップのピンのみを表示
-          if (selectedShopId) {
-            return shopId === selectedShopId;
-          }
-          return false;
-        })
-        .map(([shopId, position]) => {
-          if (!position || !position.floor || position.floor !== normalizedFloor) return null;
-          const shop = safeShops.find((s) => (s.shopId || s.number) === shopId);
-          if (!shop || !shop.name) return null;
-          
-          // 後方互換性: 0～1の値の場合は100倍に変換
-          const normalizedPosition = {
-            ...position,
-            x: position.x <= 1 ? position.x * 100 : position.x,
-            y: position.y <= 1 ? position.y * 100 : position.y,
-          };
-
-          // マップ画像の表示サイズを基準に絶対ピクセル座標を計算
-          const xPercent = normalizedPosition.x / 100;
-          const yPercent = normalizedPosition.y / 100;
-          
-          // ピンの位置を計算（TransformWrapperのスケールを考慮）
-          const scale = transformState?.scale || 1;
-          
-          // 画像内での位置（スケール前の座標）
-          const xInImage = xPercent * imageInfo.displayWidth;
-          const yInImage = yPercent * imageInfo.displayHeight;
-          
-          // コンテナ内での絶対座標（スケールとオフセットを適用）
-          const pixelX = (imageInfo.offsetX + xInImage) * scale;
-          const pixelY = (imageInfo.offsetY + yInImage) * scale;
-
-          return (
-            <ShopPin
-              key={shopId}
-              position={normalizedPosition}
-              usePixelPosition={true}
-              pixelX={pixelX}
-              pixelY={pixelY}
-              shopName={shop.name}
-              isSelected={selectedShopId === shopId}
-              shopLogo={shop.shopLogo}
-              shopId={shop.shopId || shop.number}
-              transformScale={scale} // スケール値を渡す
-            />
-          );
-        })}
-    </div>
-  );
-};
 
 interface UnifiedSettingsScreenProps {
   floor: FloorId;
@@ -309,42 +72,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   // Current scale state to control panning (詳細モーダルと同じ仕様)
   const [currentScale, setCurrentScale] = useState(1);
   
-  // Transform state for ShopPositionPreview (ズームやパンの状態をピン位置計算に反映)
-  const [transformState, setTransformState] = useState<{
-    scale: number;
-    positionX: number;
-    positionY: number;
-  } | undefined>(undefined);
-  
-  // 中央位置を計算する関数
-  // マップ画像を左上に配置した状態で、マップ画像の中央がビューポートの中央に来るように位置を計算
-  const calculateCenterPosition = useCallback(() => {
-    if (!previewContainerRef.current) return { x: 0, y: 0, scale: 1.0 };
-    
-    const containerRect = previewContainerRef.current.getBoundingClientRect();
-    const containerWidth = containerRect.width;
-    const containerHeight = containerRect.height;
-    
-    // ショップ位置タブのコンテンツサイズ（1700×1580）
-    const contentWidth = 1700;
-    const contentHeight = 1580;
-    
-    // 初期スケールを100%（1.0）に設定
-    const newScale = 1.0;
-    
-    // ビューポートの中央位置
-    const viewportCenterX = containerWidth / 2;
-    const viewportCenterY = containerHeight / 2;
-    
-    // マップ画像の中央がビューポート中央に来るように移動させるための位置 (x, y)
-    // 必要な移動量 = ビューポート中央 - (マップ中央 * スケール)
-    const centerX = viewportCenterX - (contentWidth / 2) * newScale;
-    const centerY = viewportCenterY - (contentHeight / 2) * newScale;
-    
-    return { x: centerX, y: centerY, scale: newScale };
-  }, []);
-
-  // 他のタブ（3840×2160）の中央位置を計算する関数
+  // 中央位置を計算する関数（すべてのタブで同じロジックを使用）
   const calculateOtherTabCenterPosition = useCallback(() => {
     if (!previewContainerRef.current) return { x: 0, y: 0, scale: 0.6 };
     
@@ -366,42 +94,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // アクティブなタブに応じて中央位置を計算する関数
   const calculateCenterPositionForActiveTab = useCallback(() => {
-    if (activeTab === "shopPosition") {
-      return calculateCenterPosition();
-    } else {
-      return calculateOtherTabCenterPosition();
-    }
-  }, [activeTab, calculateCenterPosition, calculateOtherTabCenterPosition]);
+    return calculateOtherTabCenterPosition();
+  }, [calculateOtherTabCenterPosition]);
 
-  // ショップ位置タブが選択されたときに中央に配置（アニメーションなし）
-  useLayoutEffect(() => {
-    if (activeTab === "shopPosition" && transformRef.current && previewContainerRef.current) {
-      // レイアウト確定後に中央に配置
-      const timer = setTimeout(() => {
-        if (transformRef.current && previewContainerRef.current) {
-          const { x, y, scale } = calculateCenterPosition();
-          // アニメーションなしで直接位置を設定
-          transformRef.current.setTransform(x, y, scale);
-        }
-      }, 0);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab, calculateCenterPosition]);
-  
-  // TransformWrapperが初期化されたときに中央に配置
-  useEffect(() => {
-    if (activeTab === "shopPosition" && transformRef.current && previewContainerRef.current) {
-      // 少し遅延させてから中央に配置（TransformWrapperの初期化を待つ）
-      const timer = setTimeout(() => {
-        if (transformRef.current && previewContainerRef.current) {
-          const { x, y, scale } = calculateCenterPosition();
-          // アニメーションなしで直接位置を設定
-          transformRef.current.setTransform(x, y, scale);
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab, calculateCenterPosition]);
 
   // Load initial values when screen opens
   useEffect(() => {
@@ -648,7 +343,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             {[
               { id: "location" as TabType, label: "現在地" },
               { id: "image" as TabType, label: "画像" },
-              { id: "shopPosition" as TabType, label: "ショップ位置" },
+              { id: "shopPosition" as TabType, label: "座標設定" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -707,19 +402,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onInit={(ref) => {
                 transformRef.current = ref;
                 setCurrentScale(ref.state.scale);
-                setTransformState({
-                  scale: ref.state.scale,
-                  positionX: ref.state.positionX,
-                  positionY: ref.state.positionY,
-                });
               }}
               onTransformed={(ref) => {
                 setCurrentScale(ref.state.scale);
-                setTransformState({
-                  scale: ref.state.scale,
-                  positionX: ref.state.positionX,
-                  positionY: ref.state.positionY,
-                });
               }}
             >
             <TransformComponent
@@ -727,37 +412,21 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 width: "100%",
                 height: "100%",
               }}
-              contentStyle={
-                activeTab === "shopPosition"
-                  ? {
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }
-                  : {
-                      width: `${window.screen.width >= 3840 ? 3840 : 1920}px`,
-                      height: `${window.screen.height >= 2160 ? 2160 : 1080}px`,
-                    }
-              }
+              contentStyle={{
+                width: `${window.screen.width >= 3840 ? 3840 : 1920}px`,
+                height: `${window.screen.height >= 2160 ? 2160 : 1080}px`,
+              }}
             >
-              {activeTab === "shopPosition" ? (
-                <ShopPositionPreview
-                  floor={floor}
-                  shopPositions={shopPositions}
-                  shops={shops}
-                  selectedShopId={selectedShopId}
-                  transformState={transformState}
-                />
-              ) : (
-                <GidoApp
-                  locationIconSettings={locationIconSettings}
-                  previewFloor={floor}
-                  previewFloorLayout={floorLayout}
-                  imageSettings={imageSettings}
-                />
-              )}
+              <GidoApp
+                locationIconSettings={locationIconSettings}
+                previewFloor={floor}
+                previewFloorLayout={floorLayout}
+                imageSettings={imageSettings}
+                shopPositions={activeTab === "shopPosition" ? shopPositions : undefined}
+                shops={activeTab === "shopPosition" ? shops : undefined}
+                selectedShopId={activeTab === "shopPosition" ? selectedShopId : undefined}
+                showOnlyMap={activeTab === "shopPosition"}
+              />
             </TransformComponent>
           </TransformWrapper>
           </div>
@@ -864,6 +533,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onChangeShopPositions={setShopPositions}
               shops={shops}
               onSelectedShopIdChange={setSelectedShopId}
+              locationIconSettings={locationIconSettings}
+              onChangeLocationIconSettings={setLocationIconSettings}
             />
           )}
         </div>

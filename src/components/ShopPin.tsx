@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import type { ShopPosition } from "../types/shop";
 import type { AnimationConfig } from "../types/locationIcon";
-import speechBubbleIcon from "../assets/speech-bubble.svg";
+import speechBubbleIcon from "../assets/shop-location.svg";
 
 interface ShopPinProps {
   position: ShopPosition;
