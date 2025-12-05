@@ -11,7 +11,7 @@ export interface ShadowConfig {
   opacity: number;
 }
 
-export type AnimationType = "floating" | "pulse" | "bounce" | "none";
+export type AnimationType = "floating" | "pulse" | "bounce" | "blink" | "none";
 
 export interface AnimationConfig {
   enabled: boolean;
@@ -21,6 +21,12 @@ export interface AnimationConfig {
   duration: number;
   // Animation amplitude (movement distance in px, for floating)
   amplitude: number;
+  // Ripple color for blink animation (RGB/HEX, default: "#FFFFFF")
+  rippleColor?: string;
+  // Ripple size multiplier for blink animation (default: 1.5)
+  rippleSize?: number;
+  // Ripple center size (initial scale, default: 0.95)
+  rippleCenterSize?: number;
 }
 
 export interface IconPositionConfig {

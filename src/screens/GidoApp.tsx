@@ -231,7 +231,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
       style={{
         width: "100vw",
         height: "100vh",
-        overflow: "hidden",
+        overflow: "visible",
         fontFamily: "'Rounded Mplus 1c', sans-serif",
         fontWeight: 700,
       }}
@@ -251,6 +251,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
+            overflow: "visible",
           }}
         >
           <img

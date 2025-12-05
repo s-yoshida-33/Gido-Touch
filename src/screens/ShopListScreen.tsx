@@ -294,6 +294,10 @@ const ShopListScreen: React.FC = () => {
   const [scrollPercentage, setScrollPercentage] = useState(0);
   const [canScroll, setCanScroll] = useState(false);
 
+  // Idle timeout state (30 seconds for testing)
+  const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds
+  const lastActivityTimeRef = useRef<number>(Date.now());
+
   // Language select modal state
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const languageButtonRef = useRef<HTMLDivElement>(null);
@@ -306,10 +310,37 @@ const ShopListScreen: React.FC = () => {
         return saved;
       }
     }
+    // Default to Japanese and save to localStorage
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem("gido-selected-language", "ja");
+    }
     return "ja"; // Default to Japanese
   };
   
-  const [selectedLanguage, setSelectedLanguage] = useState<"ja" | "en">(() => getSelectedLanguage());
+  const [selectedLanguage, setSelectedLanguageState] = useState<"ja" | "en">(() => getSelectedLanguage());
+  
+  // Wrapper to save to localStorage when language changes
+  const setSelectedLanguage = (lang: "ja" | "en") => {
+    setSelectedLanguageState(lang);
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem("gido-selected-language", lang);
+    }
+  };
+
+  // Initialize language to Japanese on mount (force reset to Japanese)
+  useEffect(() => {
+    // Always set to Japanese on mount to ensure default is Japanese
+    if (typeof window !== "undefined" && window.localStorage) {
+      const saved = localStorage.getItem("gido-selected-language");
+      // If language is not Japanese, reset to Japanese
+      if (saved !== "ja") {
+        setSelectedLanguage("ja");
+      } else if (selectedLanguage !== "ja") {
+        // Sync state if localStorage is Japanese but state is not
+        setSelectedLanguageState("ja");
+      }
+    }
+  }, []); // Run only on mount
 
   // Fetch shops from API
   useEffect(() => {
@@ -402,6 +433,71 @@ const ShopListScreen: React.FC = () => {
       if (unsubscribe) unsubscribe();
     };
   }, []);
+
+  // Idle timeout: Refresh to default shop list after 30 seconds of inactivity
+  // Always active - any touch/activity resets the timer
+  useEffect(() => {
+    // Always reset activity time on mount
+    lastActivityTimeRef.current = Date.now();
+
+    // Throttle activity handler to avoid too frequent updates
+    let throttleTimeout: number | null = null;
+    const handleActivity = () => {
+      if (throttleTimeout === null) {
+        lastActivityTimeRef.current = Date.now();
+        throttleTimeout = window.setTimeout(() => {
+          throttleTimeout = null;
+        }, 1000); // Throttle to once per second
+      }
+    };
+
+    // Listen to various user activities (including scroll)
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click', 'keydown', 'wheel'];
+    events.forEach((event) => {
+      window.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    // Also listen to scroll events on the scroll container
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleActivity, { passive: true });
+    }
+
+    // Check idle timeout every second
+    const checkInterval = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastActivity = now - lastActivityTimeRef.current;
+
+      if (timeSinceLastActivity >= IDLE_TIMEOUT_MS) {
+        // 30 seconds of inactivity - refresh to default state
+        setSelectedShop(null);
+        setSelectedFloor(null);
+        setSelectedLanguage("ja"); // Reset to default Japanese (also saves to localStorage)
+        setIsLanguageModalOpen(false);
+        
+        // Reset scroll position to top with smooth animation (same as scrollToStart)
+        if (scrollContainerRef.current) {
+          smoothScrollTo(0, 800);
+        }
+        
+        // Reset activity time after refresh
+        lastActivityTimeRef.current = Date.now();
+      }
+    }, 1000); // Check every second
+
+    return () => {
+      events.forEach((event) => {
+        window.removeEventListener(event, handleActivity);
+      });
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleActivity);
+      }
+      if (throttleTimeout !== null) {
+        clearTimeout(throttleTimeout);
+      }
+      clearInterval(checkInterval);
+    };
+  }, []); // Always active, no dependencies
 
   // Filter shops by selected floor
   const filteredShops = React.useMemo(() => {
@@ -917,9 +1013,26 @@ const ShopListScreen: React.FC = () => {
         </div>
 
         {/* Shop detail modal */}
-        {selectedShop && (
-          <ShopDetailScreen shop={selectedShop} onClose={() => setSelectedShop(null)} />
-        )}
+        <AnimatePresence>
+          {selectedShop && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeInOut" }}
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 1000,
+              }}
+            >
+              <ShopDetailScreen shop={selectedShop} onClose={() => setSelectedShop(null)} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Action space (right side) */}

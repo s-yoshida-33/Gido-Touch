@@ -423,41 +423,24 @@ const MapWithPinsComponent: React.FC<{
     y: shopPosition.y <= 1 ? shopPosition.y * 100 : shopPosition.y,
   };
 
-  // マップ画像の自然なサイズに対する相対座標を、実際の表示サイズに変換
-  let pinPosition = normalizedPosition;
+  // ピクセル座標を計算（imageInfoが存在する場合）
+  let usePixel = false;
+  let pixelX: number | undefined = undefined;
+  let pixelY: number | undefined = undefined;
+  
   if (imageInfo) {
-    // コンテナの実際のサイズを使用（TransformComponentのスケールやパンの影響を受けたサイズ）
-    const containerWidth = imageInfo.containerWidth;
-    const containerHeight = imageInfo.containerHeight;
-    
-    // マップ画像の自然なサイズに対する相対座標（0-100%）を、実際の表示サイズに変換
+    // マップ画像の表示サイズを基準に絶対ピクセル座標を計算
     const xPercent = normalizedPosition.x / 100;
     const yPercent = normalizedPosition.y / 100;
     
-    // マップ画像の自然なサイズ内での位置
-    const xInNaturalImage = xPercent * imageInfo.naturalWidth;
-    const yInNaturalImage = yPercent * imageInfo.naturalHeight;
+    // 1. ピンの相対位置 (0-100%) を、現在のマップ画像の表示サイズ (displayWidth/Height) に変換
+    const xInDisplayImage = xPercent * imageInfo.displayWidth;
+    const yInDisplayImage = yPercent * imageInfo.displayHeight;
     
-    // 実際の表示サイズにスケール
-    const scaleX = imageInfo.displayWidth / imageInfo.naturalWidth;
-    const scaleY = imageInfo.displayHeight / imageInfo.naturalHeight;
-    const xInDisplayImage = xInNaturalImage * scaleX;
-    const yInDisplayImage = yInNaturalImage * scaleY;
-    
-    // コンテナ内での位置（オフセットを加算）
-    const xInContainer = imageInfo.offsetX + xInDisplayImage;
-    const yInContainer = imageInfo.offsetY + yInDisplayImage;
-    
-    // パーセンテージに変換
-    // コンテナの実際のサイズに対する相対位置として計算
-    const xPercentInContainer = (xInContainer / containerWidth) * 100;
-    const yPercentInContainer = (yInContainer / containerHeight) * 100;
-
-    pinPosition = {
-      ...normalizedPosition,
-      x: xPercentInContainer,
-      y: yPercentInContainer,
-    };
+    // 2. コンテナ内の絶対ピクセル座標を計算（オフセットを加算）
+    pixelX = imageInfo.offsetX + xInDisplayImage;
+    pixelY = imageInfo.offsetY + yInDisplayImage;
+    usePixel = true;
   }
 
   return (
@@ -481,9 +464,12 @@ const MapWithPinsComponent: React.FC<{
           objectFit: "contain",
         }}
       />
-      {/* ショップ位置ピン */}
+      {/* ショップ位置ピン - ピクセル座標で配置 */}
       <ShopPin
-        position={pinPosition}
+        position={normalizedPosition}
+        usePixelPosition={usePixel}
+        pixelX={pixelX}
+        pixelY={pixelY}
         shopName={shopName}
         shopLogo={shopLogo}
         shopId={shopId}
@@ -755,7 +741,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 gap: "0px",
                 borderRadius: "50px",
                 overflow: "hidden",
-                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)",
+                boxShadow: "0 0px 12px rgba(0, 0, 0, 0.3)",
               }}
             >
               {/* Zoom in button */}
@@ -936,7 +922,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 style={{
                   position: "relative",
                   cursor: "pointer",
-                  boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)",
+                  boxShadow: "0 0px 12px rgba(0, 0, 0, 0.3)",
                   borderRadius: "50px",
                   overflow: "hidden",
                 }}
@@ -1052,7 +1038,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                   width: "200px",
                   height: "200px",
                   borderRadius: "20px",
-                  border: "1px solid #D9D9D9",
+                  border: "2px solid #D9D9D9",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

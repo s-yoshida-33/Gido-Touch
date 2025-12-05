@@ -4,11 +4,6 @@ import type { FloorId } from "../types/floorLayout";
 import type { ShopPositionSettings, ShopPosition } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
 import type { ShadowConfig, AnimationConfig, AnimationType } from "../types/locationIcon";
-import { ShopPin } from "./ShopPin";
-import food1FMap from "../assets/food-1F-map.svg";
-import food2FMap from "../assets/food-2F-map.svg";
-import food3FMap from "../assets/food-3F-map.svg";
-import food4FMap from "../assets/food-4F-map.svg";
 
 function normalizeFloor(value: string): string {
   const normalized = value.toUpperCase().trim();
@@ -16,22 +11,6 @@ function normalizeFloor(value: string): string {
     return normalized;
   }
   return "1F";
-}
-
-function getMapImage(floor: FloorId): string {
-  const normalized = normalizeFloor(floor);
-  switch (normalized) {
-    case "1F":
-      return food1FMap;
-    case "2F":
-      return food2FMap;
-    case "3F":
-      return food3FMap;
-    case "4F":
-      return food4FMap;
-    default:
-      return food1FMap;
-  }
 }
 
 const clampPercent = (value: number) => {
@@ -701,6 +680,9 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                         <option value="bounce" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
                           バウンス
                         </option>
+                        <option value="blink" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
+                          点滅
+                        </option>
                         <option value="none" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
                           なし
                         </option>
@@ -768,6 +750,141 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                         }}
                       />
                     </div>
+
+                    {/* 波紋アニメーション（blink）用の設定 */}
+                    {selectedShopPosition.animation?.type === "blink" && (
+                      <>
+                        <div>
+                          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋の色 (RGB/HEX)</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                            <span
+                              style={{
+                                backgroundColor: "rgba(255,255,255,0.05)",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                borderRight: "none",
+                                borderTopLeftRadius: 6,
+                                borderBottomLeftRadius: 6,
+                                padding: "6px 8px",
+                                color: "#ffffff",
+                                fontSize: 13,
+                                userSelect: "none",
+                              }}
+                            >
+                              #
+                            </span>
+                            <input
+                              type="text"
+                              value={(selectedShopPosition.animation?.rippleColor || "#FFFFFF").replace(/^#/, "")}
+                              onChange={(e) => {
+                                const colorValue = e.target.value.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
+                                // #を自動的に追加
+                                updateAnimationField("rippleColor", `#${colorValue}`);
+                              }}
+                              onBlur={(e) => {
+                                // フォーカスが外れたときにバリデーション
+                                const colorValue = e.target.value.trim().replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
+                                if (colorValue === "" || (colorValue.length !== 3 && colorValue.length !== 6)) {
+                                  updateAnimationField("rippleColor", "#FFFFFF");
+                                } else {
+                                  updateAnimationField("rippleColor", `#${colorValue}`);
+                                }
+                              }}
+                              placeholder="FFFFFF"
+                              maxLength={6}
+                              style={{
+                                flex: 1,
+                                backgroundColor: "rgba(255,255,255,0.05)",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                borderLeft: "none",
+                                borderTopRightRadius: 6,
+                                borderBottomRightRadius: 6,
+                                padding: "6px 8px",
+                                color: "#ffffff",
+                                fontSize: 13,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋のサイズ (倍率)</div>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                            <input
+                              type="range"
+                              min={1.0}
+                              max={3.0}
+                              step={0.1}
+                              value={selectedShopPosition.animation?.rippleSize ?? 1.5}
+                              onChange={(e) =>
+                                updateAnimationField("rippleSize", Math.max(1.0, Math.min(3.0, Number(e.target.value) || 1.5)))
+                              }
+                              style={{
+                                flex: 1,
+                                accentColor: "#007aff",
+                              }}
+                            />
+                            <input
+                              type="number"
+                              min={1.0}
+                              max={3.0}
+                              step={0.1}
+                              value={selectedShopPosition.animation?.rippleSize ?? 1.5}
+                              onChange={(e) =>
+                                updateAnimationField("rippleSize", Math.max(1.0, Math.min(3.0, Number(e.target.value) || 1.5)))
+                              }
+                              style={{
+                                width: 70,
+                                backgroundColor: "rgba(255,255,255,0.05)",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                borderRadius: 6,
+                                padding: "6px 8px",
+                                color: "#ffffff",
+                                fontSize: 13,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋の中心サイズ (倍率)</div>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                            <input
+                              type="range"
+                              min={0.1}
+                              max={1.5}
+                              step={0.05}
+                              value={selectedShopPosition.animation?.rippleCenterSize ?? 0.95}
+                              onChange={(e) =>
+                                updateAnimationField("rippleCenterSize", Math.max(0.1, Math.min(1.5, Number(e.target.value) || 0.95)))
+                              }
+                              style={{
+                                flex: 1,
+                                accentColor: "#007aff",
+                              }}
+                            />
+                            <input
+                              type="number"
+                              min={0.1}
+                              max={1.5}
+                              step={0.05}
+                              value={selectedShopPosition.animation?.rippleCenterSize ?? 0.95}
+                              onChange={(e) =>
+                                updateAnimationField("rippleCenterSize", Math.max(0.1, Math.min(1.5, Number(e.target.value) || 0.95)))
+                              }
+                              style={{
+                                width: 70,
+                                backgroundColor: "rgba(255,255,255,0.05)",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                borderRadius: 6,
+                                padding: "6px 8px",
+                                color: "#ffffff",
+                                fontSize: 13,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

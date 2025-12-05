@@ -40,7 +40,11 @@ function buildShadowStyle(shadow: IconPositionConfig['shadow']): React.CSSProper
   };
 }
 
-function buildAnimationProps(animation?: AnimationConfig) {
+function buildAnimationProps(animation?: AnimationConfig): {
+  initial: any;
+  animate: any;
+  transition?: any;
+} {
   if (!animation || !animation.enabled || animation.type === "none") {
     return {
       initial: { x: 0, y: 0, scale: 1 },
@@ -86,6 +90,22 @@ function buildAnimationProps(animation?: AnimationConfig) {
           duration,
           repeat: Infinity,
           ease: "easeOut" as const,
+        },
+      };
+    case "blink":
+      return {
+        initial: { backgroundColor: "rgba(255, 255, 255, 0)" },
+        animate: {
+          backgroundColor: [
+            "rgba(255, 255, 255, 0)",
+            "rgba(255, 255, 255, 0.5)",
+            "rgba(255, 255, 255, 0)",
+          ],
+        },
+        transition: {
+          duration,
+          repeat: Infinity,
+          ease: "easeInOut" as const,
         },
       };
     default:
