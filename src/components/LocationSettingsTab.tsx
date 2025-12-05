@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback } from "react";
 import type { FloorId } from "../types/floorLayout";
-import type { LocationIconSettings, IconPositionConfig, AnimationType } from "../types/locationIcon";
+import type { LocationIconSettings, LocationIconSettingsPerFloor, IconPositionConfig, AnimationType } from "../types/locationIcon";
+import { getLocationIconSettingsForFloor } from "../config";
 
 export interface LocationSettingsTabProps {
   floor: FloorId;
   onChangeFloor: (floor: FloorId) => void;
-  locationIconSettings: LocationIconSettings;
-  onChangeLocationIconSettings: React.Dispatch<React.SetStateAction<LocationIconSettings>>;
+  locationIconSettings: LocationIconSettingsPerFloor;
+  onChangeLocationIconSettings: React.Dispatch<React.SetStateAction<LocationIconSettingsPerFloor>>;
 }
 
 const clampPercent = (value: number) =>
@@ -746,15 +747,20 @@ export const LocationSettingsTab: React.FC<LocationSettingsTabProps> = ({
     onChangeFloor(selectedFloor);
   }, [selectedFloor, onChangeFloor]);
 
+  const currentFloorSettings = getLocationIconSettingsForFloor(locationIconSettings, selectedFloor);
+
   const handleIconConfigChange = useCallback((
     iconKey: "speechBubble" | "location",
     next: IconPositionConfig
   ) => {
     onChangeLocationIconSettings((prev) => ({
       ...prev,
-      [iconKey]: next,
+      [selectedFloor]: {
+        ...currentFloorSettings,
+        [iconKey]: next,
+      },
     }));
-  }, [onChangeLocationIconSettings]);
+  }, [onChangeLocationIconSettings, selectedFloor, currentFloorSettings]);
 
   return (
     <div>
@@ -812,15 +818,16 @@ export const LocationSettingsTab: React.FC<LocationSettingsTabProps> = ({
         </div>
 
         <IconConfigSection
-          label="SpeechBubble.svg 設定"
-          config={locationIconSettings.speechBubble}
+          label={`user-location.svg 設定 (${selectedFloor})`}
+          config={currentFloorSettings.speechBubble}
           onChange={(next) => handleIconConfigChange("speechBubble", next)}
           showAnimation={true}
         />
         <IconConfigSection
-          label="Location.svg 設定"
-          config={locationIconSettings.location}
+          label={`location.svg 設定 (${selectedFloor})`}
+          config={currentFloorSettings.location}
           onChange={(next) => handleIconConfigChange("location", next)}
+          showAnimation={true}
         />
       </div>
     </div>

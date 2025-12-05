@@ -5,8 +5,10 @@ import VersionInfoScreen from "./screens/VersionInfoScreen";
 import UnifiedSettingsScreen from "./screens/UnifiedSettingsScreen";
 import {
   DEFAULT_LOCATION_ICON_SETTINGS,
+  DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR,
+  getLocationIconSettingsForFloor,
 } from "./config";
-import type { LocationIconSettings } from "./types/locationIcon";
+import type { LocationIconSettings, LocationIconSettingsPerFloor } from "./types/locationIcon";
 import type { ImageSettings } from "./types/imageSettings";
 import { DEFAULT_IMAGE_SETTINGS } from "./types/imageSettings";
 import type { ShopPositionSettings } from "./types/shopPosition";
@@ -39,8 +41,8 @@ const DEFAULT_FLOOR_LAYOUT: FloorLayout = {
 };
 
 const App: React.FC = () => {
-  const [locationSettings, setLocationSettings] = useState<LocationIconSettings>(
-    DEFAULT_LOCATION_ICON_SETTINGS
+  const [locationSettings, setLocationSettings] = useState<LocationIconSettingsPerFloor>(
+    DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR
   );
 
   // Floor and floor layout state for unified settings
@@ -63,21 +65,50 @@ const App: React.FC = () => {
       if (api.getLocationIconSettings) {
         const saved = await api.getLocationIconSettings();
         if (saved) {
-          // Ensure shadow and animation config exists for backward compatibility
-          const mergedSettings: LocationIconSettings = {
-            speechBubble: {
-              ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
-              ...saved.speechBubble,
-              shadow: saved.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
-              animation: saved.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
-            },
-            location: {
-              ...DEFAULT_LOCATION_ICON_SETTINGS.location,
-              ...saved.location,
-              shadow: saved.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
-            },
-          };
-          setLocationSettings(mergedSettings);
+          // Check if saved is per-floor format or old single format
+          if ('speechBubble' in saved && 'location' in saved && !('1F' in saved)) {
+            // Old format: single LocationIconSettings - convert to per-floor format
+            const mergedSettings: LocationIconSettings = {
+              speechBubble: {
+                ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
+                ...saved.speechBubble,
+                shadow: saved.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
+                animation: saved.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
+              },
+              location: {
+                ...DEFAULT_LOCATION_ICON_SETTINGS.location,
+                ...saved.location,
+                shadow: saved.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
+              },
+            };
+            // Convert to per-floor format
+            const perFloorSettings: LocationIconSettingsPerFloor = {
+              "1F": mergedSettings,
+              "2F": mergedSettings,
+              "3F": mergedSettings,
+              "4F": mergedSettings,
+            };
+            setLocationSettings(perFloorSettings);
+          } else {
+            // New format: LocationIconSettingsPerFloor
+            const perFloorSettings: LocationIconSettingsPerFloor = { ...DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR };
+            Object.entries(saved as LocationIconSettingsPerFloor).forEach(([floorId, settings]) => {
+              perFloorSettings[floorId] = {
+                speechBubble: {
+                  ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
+                  ...settings.speechBubble,
+                  shadow: settings.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
+                  animation: settings.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
+                },
+                location: {
+                  ...DEFAULT_LOCATION_ICON_SETTINGS.location,
+                  ...settings.location,
+                  shadow: settings.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
+                },
+              };
+            });
+            setLocationSettings(perFloorSettings);
+          }
         }
       }
 
@@ -134,21 +165,50 @@ const App: React.FC = () => {
     if (api) {
       if (api.onLocationIconSettingsUpdated) {
         unsubscribeUpdated = api.onLocationIconSettingsUpdated((updated) => {
-          // Ensure shadow and animation config exists for backward compatibility
-          const mergedSettings: LocationIconSettings = {
-            speechBubble: {
-              ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
-              ...updated.speechBubble,
-              shadow: updated.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
-              animation: updated.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
-            },
-            location: {
-              ...DEFAULT_LOCATION_ICON_SETTINGS.location,
-              ...updated.location,
-              shadow: updated.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
-            },
-          };
-          setLocationSettings(mergedSettings);
+          // Check if updated is per-floor format or old single format
+          if ('speechBubble' in updated && 'location' in updated && !('1F' in updated)) {
+            // Old format: single LocationIconSettings - convert to per-floor format
+            const mergedSettings: LocationIconSettings = {
+              speechBubble: {
+                ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
+                ...updated.speechBubble,
+                shadow: updated.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
+                animation: updated.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
+              },
+              location: {
+                ...DEFAULT_LOCATION_ICON_SETTINGS.location,
+                ...updated.location,
+                shadow: updated.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
+              },
+            };
+            // Convert to per-floor format
+            const perFloorSettings: LocationIconSettingsPerFloor = {
+              "1F": mergedSettings,
+              "2F": mergedSettings,
+              "3F": mergedSettings,
+              "4F": mergedSettings,
+            };
+            setLocationSettings(perFloorSettings);
+          } else {
+            // New format: LocationIconSettingsPerFloor
+            const perFloorSettings: LocationIconSettingsPerFloor = { ...DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR };
+            Object.entries(updated as LocationIconSettingsPerFloor).forEach(([floorId, settings]) => {
+              perFloorSettings[floorId] = {
+                speechBubble: {
+                  ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
+                  ...settings.speechBubble,
+                  shadow: settings.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
+                  animation: settings.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
+                },
+                location: {
+                  ...DEFAULT_LOCATION_ICON_SETTINGS.location,
+                  ...settings.location,
+                  shadow: settings.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
+                },
+              };
+            });
+            setLocationSettings(perFloorSettings);
+          }
         });
       }
 
@@ -183,13 +243,13 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleSaveLocationSettings = async (settings: LocationIconSettings) => {
+  const handleSaveLocationSettings = async (settings: LocationIconSettingsPerFloor) => {
     // Persist to Electron settings.json
     if (window.electronAPI?.saveLocationIconSettings) {
       const saved =
-        (await window.electronAPI.saveLocationIconSettings(settings)) ??
+        (await window.electronAPI.saveLocationIconSettings(settings as any)) ??
         settings;
-      setLocationSettings(saved);
+      setLocationSettings(saved as LocationIconSettingsPerFloor);
     } else {
       // Fallback: no Electron available (dev in browser)
       setLocationSettings(settings);

@@ -433,9 +433,21 @@ const MapWithPinsComponent: React.FC<{
     const xPercent = normalizedPosition.x / 100;
     const yPercent = normalizedPosition.y / 100;
     
+    // ピンのサイズを取得（デフォルト80px）
+    const pinSize = normalizedPosition.size ?? 80;
+    // ピンの半径（translate(-50%, -50%)で中央揃えしているため、半径分を考慮）
+    const pinRadius = pinSize / 2;
+    
     // 1. ピンの相対位置 (0-100%) を、現在のマップ画像の表示サイズ (displayWidth/Height) に変換
-    const xInDisplayImage = xPercent * imageInfo.displayWidth;
-    const yInDisplayImage = yPercent * imageInfo.displayHeight;
+    // ピンのサイズを考慮して、ピンの端がマップの端に来るように調整
+    // 0%の場合はピンの左端がマップの左端、100%の場合はピンの右端がマップの右端に来るように
+    // マップ画像内での有効範囲を計算（ピンの半径分を考慮）
+    const effectiveWidth = imageInfo.displayWidth - pinSize;
+    const effectiveHeight = imageInfo.displayHeight - pinSize;
+    
+    // 有効範囲内での位置を計算
+    const xInDisplayImage = (xPercent * effectiveWidth) + pinRadius;
+    const yInDisplayImage = (yPercent * effectiveHeight) + pinRadius;
     
     // 2. コンテナ内の絶対ピクセル座標を計算（オフセットを加算）
     pixelX = imageInfo.offsetX + xInDisplayImage;

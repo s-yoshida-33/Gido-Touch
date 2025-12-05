@@ -1,5 +1,6 @@
 // src/config/index.ts
-import type { LocationIconSettings } from '../types/locationIcon';
+import type { LocationIconSettings, LocationIconSettingsPerFloor } from '../types/locationIcon';
+import type { FloorId } from '../types/floorLayout';
 
 // Global app configuration (do not use Japanese in comments to avoid encoding issues)
 export const APP_CONFIG = {
@@ -124,6 +125,25 @@ export const DEFAULT_LOCATION_ICON_SETTINGS: LocationIconSettings = {
     },
   },
 };
+
+// Default location icon settings per floor (each floor can have individual settings)
+export const DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR: LocationIconSettingsPerFloor = {
+  "1F": DEFAULT_LOCATION_ICON_SETTINGS,
+  "2F": DEFAULT_LOCATION_ICON_SETTINGS,
+  "3F": DEFAULT_LOCATION_ICON_SETTINGS,
+  "4F": DEFAULT_LOCATION_ICON_SETTINGS,
+};
+
+// Helper function to get location icon settings for a specific floor
+export function getLocationIconSettingsForFloor(
+  settingsPerFloor: LocationIconSettingsPerFloor | undefined,
+  floor: FloorId
+): LocationIconSettings {
+  if (!settingsPerFloor) {
+    return DEFAULT_LOCATION_ICON_SETTINGS;
+  }
+  return settingsPerFloor[floor] || DEFAULT_LOCATION_ICON_SETTINGS;
+}
 
 export const FLOOR_COLUMN_COUNT: Record<string, number> = {
   "1F": 3,

@@ -48,4 +48,7 @@ export interface IconPositionConfig {
     speechBubble: IconPositionConfig;
     location: IconPositionConfig;
   }
+
+  // Location icon settings per floor
+  export type LocationIconSettingsPerFloor = Record<string, LocationIconSettings>;
   

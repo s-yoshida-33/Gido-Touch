@@ -2,7 +2,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import GidoApp from "./GidoApp";
-import type { LocationIconSettings } from "../types/locationIcon";
+import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
+import { getLocationIconSettingsForFloor, DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR } from "../config";
 import type { FloorId, FloorLayout } from "../types/floorLayout";
 import { LocationSettingsTab } from "../components/LocationSettingsTab";
 import { ImageSettingsTab } from "../components/ImageSettingsTab";
@@ -18,8 +19,8 @@ interface UnifiedSettingsScreenProps {
   floor: FloorId;
   onSaveFloor: (floor: FloorId) => Promise<void> | void;
   floorLayout: FloorLayout;
-  locationIconSettings: LocationIconSettings;
-  onSaveLocationIconSettings: (settings: LocationIconSettings) => Promise<void> | void;
+  locationIconSettings: LocationIconSettingsPerFloor;
+  onSaveLocationIconSettings: (settings: LocationIconSettingsPerFloor) => Promise<void> | void;
   imageSettings: ImageSettings;
   onSaveImageSettings: (settings: ImageSettings) => Promise<void> | void;
   shopPositions: ShopPositionSettings;
@@ -47,7 +48,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   // Local state for editing (preserved when switching tabs)
   const [floor, setFloor] = useState<FloorId>(initialFloor);
   const [locationIconSettings, setLocationIconSettings] =
-    useState<LocationIconSettings>(initialLocationIconSettings);
+    useState<LocationIconSettingsPerFloor>(initialLocationIconSettings || DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR);
   const [imageSettings, setImageSettings] = useState<ImageSettings>(initialImageSettings);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings>(initialShopPositions);
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
@@ -167,13 +168,15 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (activeTab === "location") {
-      // Validate location icon settings
-      if (locationIconSettings.speechBubble.size <= 0 || locationIconSettings.speechBubble.size > 512) {
-        newErrors["location.speechBubble.size"] = "サイズは1〜512の範囲で入力してください";
-      }
-      if (locationIconSettings.location.size <= 0 || locationIconSettings.location.size > 512) {
-        newErrors["location.location.size"] = "サイズは1〜512の範囲で入力してください";
-      }
+      // Validate location icon settings for all floors
+      Object.entries(locationIconSettings).forEach(([floorId, settings]) => {
+        if (settings.speechBubble.size <= 0 || settings.speechBubble.size > 512) {
+          newErrors[`location.${floorId}.speechBubble.size`] = `${floorId}のSpeechBubbleサイズは1〜512の範囲で入力してください`;
+        }
+        if (settings.location.size <= 0 || settings.location.size > 512) {
+          newErrors[`location.${floorId}.location.size`] = `${floorId}のLocationサイズは1〜512の範囲で入力してください`;
+        }
+      });
     }
 
     setErrors(newErrors);
@@ -418,7 +421,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               }}
             >
               <GidoApp
-                locationIconSettings={locationIconSettings}
+                locationIconSettings={getLocationIconSettingsForFloor(locationIconSettings, floor)}
                 previewFloor={floor}
                 previewFloorLayout={floorLayout}
                 imageSettings={imageSettings}

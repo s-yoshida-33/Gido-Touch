@@ -3,7 +3,8 @@ import React, { useState, useCallback, useEffect, useMemo } from "react";
 import type { FloorId } from "../types/floorLayout";
 import type { ShopPositionSettings, ShopPosition } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
-import type { ShadowConfig, AnimationConfig, AnimationType, LocationIconSettings, IconPositionConfig } from "../types/locationIcon";
+import type { ShadowConfig, AnimationConfig, AnimationType, LocationIconSettings, LocationIconSettingsPerFloor, IconPositionConfig } from "../types/locationIcon";
+import { getLocationIconSettingsForFloor } from "../config";
 
 function normalizeFloor(value: string): string {
   const normalized = value.toUpperCase().trim();
@@ -773,9 +774,9 @@ export interface ShopPositionSettingsTabProps {
   onChangeShopPositions: React.Dispatch<React.SetStateAction<ShopPositionSettings>>;
   shops: Shop[];
   onSelectedShopIdChange?: (shopId: string | null) => void;
-  // Location icon settings (for current location icon configuration)
-  locationIconSettings?: LocationIconSettings;
-  onChangeLocationIconSettings?: React.Dispatch<React.SetStateAction<LocationIconSettings>>;
+  // Location icon settings (for current location icon configuration) - per floor
+  locationIconSettings?: LocationIconSettingsPerFloor;
+  onChangeLocationIconSettings?: React.Dispatch<React.SetStateAction<LocationIconSettingsPerFloor>>;
 }
 
 export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = ({
@@ -1043,34 +1044,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
           </select>
         </div>
 
-        {/* Location Icon Settings */}
-        {locationIconSettings && onChangeLocationIconSettings && (
-          <>
-            <IconConfigSection
-              label="SpeechBubble.svg 設定"
-              config={locationIconSettings.speechBubble}
-              onChange={(next) => {
-                onChangeLocationIconSettings((prev) => ({
-                  ...prev,
-                  speechBubble: next,
-                }));
-              }}
-              showAnimation={true}
-            />
-            <IconConfigSection
-              label="Location.svg 設定"
-              config={locationIconSettings.location}
-              onChange={(next) => {
-                onChangeLocationIconSettings((prev) => ({
-                  ...prev,
-                  location: next,
-                }));
-              }}
-            />
-          </>
-        )}
-
-        {/* Position Settings */}
+        {/* Position Settings - shown when shop is selected */}
         {selectedShopId && selectedShopPosition && (
           <fieldset
             style={{
@@ -1640,6 +1614,43 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
             </div>
           </fieldset>
         )}
+
+        {/* Location Icon Settings - per floor */}
+        {locationIconSettings && onChangeLocationIconSettings && (() => {
+          const currentFloorSettings = getLocationIconSettingsForFloor(locationIconSettings, selectedFloor);
+          return (
+            <>
+              <IconConfigSection
+                label={`user-location.svg 設定 (${selectedFloor})`}
+                config={currentFloorSettings.speechBubble}
+                onChange={(next) => {
+                  onChangeLocationIconSettings((prev) => ({
+                    ...prev,
+                    [selectedFloor]: {
+                      ...currentFloorSettings,
+                      speechBubble: next,
+                    },
+                  }));
+                }}
+                showAnimation={true}
+              />
+              <IconConfigSection
+                label={`location.svg 設定 (${selectedFloor})`}
+                config={currentFloorSettings.location}
+                onChange={(next) => {
+                  onChangeLocationIconSettings((prev) => ({
+                    ...prev,
+                    [selectedFloor]: {
+                      ...currentFloorSettings,
+                      location: next,
+                    },
+                  }));
+                }}
+                showAnimation={true}
+              />
+            </>
+          );
+        })()}
       </div>
     </div>
   );
