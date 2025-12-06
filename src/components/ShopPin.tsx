@@ -294,6 +294,7 @@ export const ShopPin: React.FC<ShopPinProps> = ({
               background-color: ${rippleColor};
               pointer-events: none;
               z-index: 0;
+              opacity: 0;
             }
           `}</style>
           <div
