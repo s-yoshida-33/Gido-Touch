@@ -53,8 +53,7 @@ function buildAnimationProps(fixedAmplitude: number, animation?: AnimationConfig
         initial: { scale: 1, backgroundColor: "rgba(255, 255, 255, 0)" },
         animate: {
           scale: [1, 1.1, 1],
-          backgroundColor: "rgba(255, 255, 255, 0)",
-        },
+          backgroundColor: "rgba(255, 255, 255, 0)" },
         transition: {
           duration,
           repeat: Infinity,
@@ -66,8 +65,7 @@ function buildAnimationProps(fixedAmplitude: number, animation?: AnimationConfig
         initial: { y: 0, backgroundColor: "rgba(255, 255, 255, 0)" },
         animate: {
           y: [0, -fixedAmplitude, 0],
-          backgroundColor: "rgba(255, 255, 255, 0)",
-        },
+          backgroundColor: "rgba(255, 255, 255, 0)" },
         transition: {
           duration,
           repeat: Infinity,
@@ -92,13 +90,16 @@ function buildAnimationProps(fixedAmplitude: number, animation?: AnimationConfig
   }
 }
 
+// Helper to build image path
 function buildImagePath(photo: string | undefined, shopId: string | undefined): string {
   if (!photo) return "";
   
+  // Handle windows absolute paths
   if (photo.match(/^[A-Za-z]:[\\/]/)) {
     return photo.replace(/\\/g, "/");
   }
   
+  // Handle protocols
   if (photo.startsWith("file://") || 
       photo.startsWith("http://") || 
       photo.startsWith("https://") ||
@@ -106,11 +107,13 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
     return photo;
   }
   
+  // Handle absolute paths (Unix-like)
   if (photo.startsWith("/") || photo.startsWith("\\")) {
     if (photo.startsWith("\\\\")) return photo;
     if (photo.startsWith("/")) return photo;
   }
   
+  // Handle relative paths with shopId
   if (shopId) {
     if (photo.includes(`shop/${shopId}/`) || photo.includes(`shop\\${shopId}\\`) ||
         photo.includes(`files/shop/${shopId}/`) || photo.includes(`files\\shop\\${shopId}\\`)) {
@@ -120,6 +123,7 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
     const normalizedPhoto = photo.replace(/\\/g, "/");
     const cleanPhoto = normalizedPhoto.startsWith("/") ? normalizedPhoto.slice(1) : normalizedPhoto;
     
+    // If it's just a filename like "logo.png"
     if (!cleanPhoto.includes("/")) {
       return `files/shop/${shopId}/${cleanPhoto}`;
     }
@@ -133,6 +137,7 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
   return photo;
 }
 
+// Convert path to file URL
 function toFileUrl(filePath: string): string {
   if (!filePath) return "";
   
@@ -153,7 +158,8 @@ function toFileUrl(filePath: string): string {
     return `file://${normalized}`;
   }
   
-  return `file:///${normalized}`;
+  // Fallback for relative paths
+  return filePath;
 }
 
 export const ShopPin: React.FC<ShopPinProps> = ({ 
@@ -179,7 +185,9 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   const [logoLoading, setLogoLoading] = useState(true);
   
   useEffect(() => {
+    // Determine logo path: use prop or fallback to standard location
     const logoPath = shopLogo || (shopId ? `files/shop/${shopId}/shop_logo.png` : undefined);
+    
     if (!logoPath) {
       setLogoLoading(false);
       return;
@@ -207,6 +215,7 @@ export const ShopPin: React.FC<ShopPinProps> = ({
         }
       }
 
+      // Fallback for non-electron or failed IPC
       const fileUrl = toFileUrl(imagePath);
       setLogoUrl(fileUrl);
       setLogoLoading(false);
@@ -242,25 +251,29 @@ export const ShopPin: React.FC<ShopPinProps> = ({
       : "drop-shadow(0 0 8px rgba(0, 122, 255, 0.8))";
   }
 
+  // Pin image (speech bubble)
   const imageStyle: React.CSSProperties = {
     width: `${size}px`,
     height: "auto",
     display: "block",
     transform: `rotate(${rotation}deg)`,
     transformOrigin: "center bottom",
+    position: "relative",
+    zIndex: 1, // Base layer
   };
   
-  const fixedLogoSize = size * 0.8;
+  // Logo image overlay
+  const fixedLogoSize = size * 0.55; // Adjusted size to fit in the speech bubble
   const logoStyle: React.CSSProperties = {
     position: "absolute",
-    top: "calc(50% - 6px)",
+    top: `calc(50% - ${fixedLogoSize / 2 + 6}px)`, // Adjusted vertical position
     left: "50%",
     transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
     width: `${fixedLogoSize}px`,
     height: `${fixedLogoSize}px`,
     objectFit: "contain",
     pointerEvents: "none",
-    zIndex: 1,
+    zIndex: 2, // Layer on top of the pin
   };
 
   const rippleColor = animation?.rippleColor || "#FFFFFF";
@@ -305,7 +318,7 @@ export const ShopPin: React.FC<ShopPinProps> = ({
               borderRadius: "50%",
               backgroundColor: rippleColor,
               pointerEvents: "none",
-              zIndex: -1,
+              zIndex: 0, // Behind the pin
               opacity: 0,
             }}
           />
@@ -321,12 +334,14 @@ export const ShopPin: React.FC<ShopPinProps> = ({
               borderRadius: "50%",
               backgroundColor: rippleColor,
               pointerEvents: "none",
-              zIndex: -1,
+              zIndex: 0,
               opacity: 0,
             }}
           />
         </>
       )}
+      
+      {/* Pin Image */}
       <img
         src={speechBubbleIcon}
         alt={shopName}
@@ -334,6 +349,8 @@ export const ShopPin: React.FC<ShopPinProps> = ({
         onDragStart={(e) => e.preventDefault()}
         style={imageStyle}
       />
+      
+      {/* Logo Image Overlay */}
       {logoUrl && !logoLoading && (
         <img
           src={logoUrl}
@@ -344,6 +361,7 @@ export const ShopPin: React.FC<ShopPinProps> = ({
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             target.style.display = "none";
+            console.warn(`Failed to load shop logo for ${shopName}: ${logoUrl}`);
           }}
         />
       )}

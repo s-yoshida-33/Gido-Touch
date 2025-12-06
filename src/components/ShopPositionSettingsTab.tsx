@@ -22,7 +22,7 @@ function normalizeFloor(value: string): string {
 
 const clampPercent = (value: number) => {
   const clamped = Math.min(100, Math.max(0, Number.isNaN(value) ? 0 : value));
-  // 0.1単位に丸める
+  // Round to 1 decimal place
   return Math.round(clamped * 10) / 10;
 };
 
@@ -36,7 +36,7 @@ const clampRotation = (value: number) => {
 const clampPercentForLocation = (value: number) =>
   Math.min(100, Math.max(0, Number.isNaN(value) ? 0 : value));
 
-// IconConfigSection: 現在地アイコン等の設定用コンポーネント
+// IconConfigSection: Component for current location icon settings
 const IconConfigSection: React.FC<{
   label: string;
   config: IconPositionConfig;
@@ -150,7 +150,7 @@ const IconConfigSection: React.FC<{
         </div>
       </div>
       
-      {/* 簡易的なサイズ・回転設定（必要に応じて追加） */}
+      {/* Basic size and rotation settings */}
       <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
          <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>サイズ (px)</div>
@@ -172,7 +172,7 @@ const IconConfigSection: React.FC<{
          </div>
       </div>
 
-      {/* Animation settings (only if requested) */}
+      {/* Animation settings */}
       {showAnimation && (
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
           <label style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
@@ -197,7 +197,7 @@ const IconConfigSection: React.FC<{
   );
 };
 
-// デフォルトのShopPositionを作成
+// Create default ShopPosition
 const createDefaultShopPosition = (floor: FloorId): ShopPosition => ({
   x: 50.0,
   y: 50.0,
@@ -246,11 +246,11 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
   const [selectedFloor, setSelectedFloor] = useState<FloorId>(floor);
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
 
-  // ズーム状態の管理
+  // Zoom state management
   const [currentScale, setCurrentScale] = useState(1);
   const transformRef = useRef<any>(null);
   
-  // 画像サイズ計測用のRefとState
+  // Ref and state for measuring map image dimensions
   const mapImageRef = useRef<HTMLImageElement>(null);
   const [mapDimensions, setMapDimensions] = useState<{ width: number; height: number } | null>(null);
 
@@ -259,7 +259,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
     onChangeFloor(selectedFloor);
   }, [selectedFloor, onChangeFloor]);
 
-  // 現在の階のショップのみフィルタ（階の正規化を考慮）
+  // Filter shops for current floor
   const normalizedSelectedFloor = normalizeFloor(selectedFloor);
   const floorShops = useMemo(() => {
     const filtered = shops.filter((shop) => {
@@ -284,21 +284,20 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
     [onChangeShopPositions]
   );
 
-  // 親コンポーネントにselectedShopIdを通知
+  // Notify parent component of selectedShopId
   useEffect(() => {
     if (onSelectedShopIdChange) {
       onSelectedShopIdChange(selectedShopId);
     }
   }, [selectedShopId, onSelectedShopIdChange]);
 
-  // 選択中のショップの位置情報を取得（未設定の場合はデフォルト値を使用）
+  // Get position info for selected shop
   const selectedShopPosition = selectedShopId
     ? (() => {
         const existing = shopPositions.positions[selectedShopId];
         if (!existing) {
           return createDefaultShopPosition(selectedFloor);
         }
-        // 既存の位置をマージ（デフォルト値で不足しているフィールドを補完）
         return {
           ...createDefaultShopPosition(selectedFloor),
           ...existing,
@@ -371,18 +370,18 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
   const handleMapClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!selectedShopId || !selectedShopPosition || !mapDimensions) return;
 
-    // クリックされた要素（画像コンテナ）の矩形情報を取得
+    // Get rectangle of clicked element (image container)
     const rect = e.currentTarget.getBoundingClientRect();
     
-    // 画像内の相対座標(px)を計算 (ズームされていても rect は現在の表示サイズを返す)
+    // Calculate relative pixel coordinates within the image
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    // パーセンテージに変換
+    // Convert to percentage
     const xPercent = clampPercent((clickX / rect.width) * 100);
     const yPercent = clampPercent((clickY / rect.height) * 100);
 
-    // 位置更新
+    // Update position
     updateShopPosition(selectedShopId, {
       ...selectedShopPosition,
       x: xPercent,
@@ -437,7 +436,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
             value={selectedFloor}
             onChange={(e) => {
               setSelectedFloor(e.target.value as FloorId);
-              setSelectedShopId(null); // 階を変更したらショップ選択をリセット
+              setSelectedShopId(null); // Reset shop selection on floor change
             }}
             style={{
               width: "100%",
@@ -483,7 +482,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
               const newShopId = e.target.value || null;
               setSelectedShopId(newShopId);
               
-              // ショップを選択したときに、位置が未設定の場合はデフォルト値を設定
+              // Set default position if shop is selected but has no position set
               if (newShopId && !shopPositions.positions[newShopId]) {
                 updateShopPosition(newShopId, createDefaultShopPosition(selectedFloor));
               }
@@ -535,11 +534,11 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
           </select>
         </div>
 
-        {/* Central Map Preview - Interaction enabled */}
+        {/* Central Map Preview */}
         <div 
           style={{ 
             width: "100%", 
-            height: "600px", // Sufficient height
+            height: "600px",
             backgroundColor: "#333", 
             borderRadius: 12,
             overflow: "hidden",
@@ -605,6 +604,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                     shopName={shops.find(s => s.shopId === selectedShopId)?.name || ""}
                     isSelected={true}
                     shopId={selectedShopId}
+                    shopLogo={shops.find(s => s.shopId === selectedShopId)?.shopLogo}
                     transformScale={currentScale}
                   />
                 )}
@@ -619,6 +619,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                          shopName={shop.name}
                          transformScale={currentScale}
                          shopId={shop.shopId}
+                         shopLogo={shop.shopLogo}
                        />
                      </div>
                    );
@@ -923,7 +924,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                        </div>
                     </div>
 
-                    {/* 波紋アニメーション（blink）用の設定 */}
+                    {/* Ripple animation settings */}
                     {selectedShopPosition.animation?.type === "blink" && (
                       <>
                         <div>
