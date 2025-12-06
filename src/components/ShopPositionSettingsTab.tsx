@@ -1,10 +1,16 @@
 // src/components/ShopPositionSettingsTab.tsx
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import type { FloorId } from "../types/floorLayout";
 import type { ShopPositionSettings, ShopPosition } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
 import type { ShadowConfig, AnimationConfig, AnimationType, LocationIconSettingsPerFloor, IconPositionConfig } from "../types/locationIcon";
 import { getLocationIconSettingsForFloor } from "../config";
+import { ShopPin } from "./ShopPin";
+import food1FMap from "../assets/food-1F-map.svg";
+import food2FMap from "../assets/food-2F-map.svg";
+import food3FMap from "../assets/food-3F-map.svg";
+import food4FMap from "../assets/food-4F-map.svg";
 
 function normalizeFloor(value: string): string {
   const normalized = value.toUpperCase().trim();
@@ -30,7 +36,7 @@ const clampRotation = (value: number) => {
 const clampPercentForLocation = (value: number) =>
   Math.min(100, Math.max(0, Number.isNaN(value) ? 0 : value));
 
-// IconConfigSection component for location icon settings (same as LocationSettingsTab but with blink animation)
+// IconConfigSection: 現在地アイコン等の設定用コンポーネント
 const IconConfigSection: React.FC<{
   label: string;
   config: IconPositionConfig;
@@ -143,234 +149,30 @@ const IconConfigSection: React.FC<{
           </div>
         </div>
       </div>
-
-      {/* Size & rotation */}
-      <div
-        style={{
-          display: "flex",
-          gap: 16,
-          marginTop: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ minWidth: 150 }}>
-          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>サイズ (px)</div>
-          <input
-            type="number"
-            min={1}
-            max={512}
-            step={0.1}
-            value={config.size}
-            onChange={(e) =>
-              update({
-                size: Math.max(1, Math.min(512, Number(e.target.value) || 1)),
-              })
-            }
-            style={{
-              width: 100,
-              backgroundColor: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 6,
-              padding: "6px 8px",
-              color: "#ffffff",
-              fontSize: 13,
-            }}
-          />
-        </div>
-
-        <div style={{ flex: 1, minWidth: 180 }}>
-          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>回転 (°)</div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <input
-              type="range"
-              min={0}
-              max={360}
-              value={config.rotation}
-              onChange={(e) =>
-                update({ rotation: clampRotation(Number(e.target.value)) })
-              }
-              style={{
-                flex: 1,
-                accentColor: "#007aff",
-              }}
-            />
+      
+      {/* 簡易的なサイズ・回転設定（必要に応じて追加） */}
+      <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
+         <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>サイズ (px)</div>
             <input
               type="number"
-              min={0}
-              max={360}
-              value={config.rotation}
-              onChange={(e) =>
-                update({ rotation: clampRotation(Number(e.target.value)) })
-              }
-              style={{
-                width: 70,
-                backgroundColor: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 6,
-                padding: "6px 8px",
-                color: "#ffffff",
-                fontSize: 13,
-              }}
+              value={config.size}
+              onChange={(e) => update({ size: Number(e.target.value) })}
+              style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
             />
-          </div>
-        </div>
+         </div>
+         <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>回転 (°)</div>
+            <input
+              type="number"
+              value={config.rotation}
+              onChange={(e) => update({ rotation: clampRotation(Number(e.target.value)) })}
+              style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
+            />
+         </div>
       </div>
 
-      {/* Shadow settings */}
-      <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-        <label style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-          <input
-            type="checkbox"
-            checked={config.shadow.enabled}
-            onChange={(e) =>
-              update({
-                shadow: { ...config.shadow, enabled: e.target.checked },
-              })
-            }
-            style={{ marginRight: 10, width: 18, height: 18, accentColor: "#007aff" }}
-          />
-          <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 14, fontWeight: 500 }}>シャドウ</span>
-        </label>
-
-        {config.shadow.enabled && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>オフセットX (px)</div>
-              <input
-                type="number"
-                min={-20}
-                max={20}
-                step={0.1}
-                value={config.shadow.offsetX}
-                onChange={(e) =>
-                  update({
-                    shadow: {
-                      ...config.shadow,
-                      offsetX: Number(e.target.value) || 0,
-                    },
-                  })
-                }
-                style={{
-                  width: "100%",
-                  backgroundColor: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 6,
-                  padding: "6px 8px",
-                  color: "#ffffff",
-                  fontSize: 13,
-                }}
-              />
-            </div>
-
-            <div>
-              <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>オフセットY (px)</div>
-              <input
-                type="number"
-                min={-20}
-                max={20}
-                step={0.1}
-                value={config.shadow.offsetY}
-                onChange={(e) =>
-                  update({
-                    shadow: {
-                      ...config.shadow,
-                      offsetY: Number(e.target.value) || 0,
-                    },
-                  })
-                }
-                style={{
-                  width: "100%",
-                  backgroundColor: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 6,
-                  padding: "6px 8px",
-                  color: "#ffffff",
-                  fontSize: 13,
-                }}
-              />
-            </div>
-
-            <div>
-              <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>ぼかし (px)</div>
-              <input
-                type="number"
-                min={0}
-                max={20}
-                step={0.1}
-                value={config.shadow.blur}
-                onChange={(e) =>
-                  update({
-                    shadow: {
-                      ...config.shadow,
-                      blur: Math.max(0, Math.min(20, Number(e.target.value) || 0)),
-                    },
-                  })
-                }
-                style={{
-                  width: "100%",
-                  backgroundColor: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 6,
-                  padding: "6px 8px",
-                  color: "#ffffff",
-                  fontSize: 13,
-                }}
-              />
-            </div>
-
-            <div>
-              <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>不透明度 (0-1)</div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={config.shadow.opacity}
-                  onChange={(e) =>
-                    update({
-                      shadow: {
-                        ...config.shadow,
-                        opacity: Math.max(0, Math.min(1, Number(e.target.value) || 0)),
-                      },
-                    })
-                  }
-                  style={{
-                    flex: 1,
-                    accentColor: "#007aff",
-                  }}
-                />
-                <input
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={config.shadow.opacity}
-                  onChange={(e) =>
-                    update({
-                      shadow: {
-                        ...config.shadow,
-                        opacity: Math.max(0, Math.min(1, Number(e.target.value) || 0)),
-                      },
-                    })
-                  }
-                  style={{
-                    width: 70,
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 6,
-                    padding: "6px 8px",
-                    color: "#ffffff",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Animation settings (only for speech bubble) */}
+      {/* Animation settings (only if requested) */}
       {showAnimation && (
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
           <label style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
@@ -380,12 +182,7 @@ const IconConfigSection: React.FC<{
               onChange={(e) =>
                 update({
                   animation: {
-                    ...(config.animation ?? {
-                      enabled: false,
-                      type: "floating",
-                      duration: 2.2,
-                      amplitude: 18,
-                    }),
+                    ...(config.animation ?? { enabled: false, type: "floating", duration: 2.2, amplitude: 18 }),
                     enabled: e.target.checked,
                   },
                 })
@@ -394,350 +191,6 @@ const IconConfigSection: React.FC<{
             />
             <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 14, fontWeight: 500 }}>アニメーション</span>
           </label>
-
-          {config.animation?.enabled && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>タイプ</div>
-                <select
-                  value={config.animation?.type ?? "floating"}
-                  onChange={(e) =>
-                    update({
-                      animation: {
-                        ...(config.animation ?? {
-                          enabled: true,
-                          type: "floating",
-                          duration: 2.2,
-                          amplitude: 18,
-                        }),
-                        type: e.target.value as AnimationType,
-                      },
-                    })
-                  }
-                  style={{
-                    width: "100%",
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 6,
-                    padding: "6px 8px",
-                    color: "#ffffff",
-                    fontSize: 13,
-                  }}
-                >
-                  <option value="floating" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
-                    フローティング
-                  </option>
-                  <option value="pulse" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
-                    パルス
-                  </option>
-                  <option value="bounce" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
-                    バウンス
-                  </option>
-                  <option value="blink" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
-                    点滅
-                  </option>
-                  <option value="none" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
-                    なし
-                  </option>
-                </select>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>期間 (秒)</div>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <input
-                    type="range"
-                    min={0.5}
-                    max={5}
-                    step={0.1}
-                    value={config.animation?.duration ?? 2.2}
-                    onChange={(e) =>
-                      update({
-                        animation: {
-                          ...(config.animation ?? {
-                            enabled: true,
-                            type: "floating",
-                            duration: 2.2,
-                            amplitude: 18,
-                          }),
-                          duration: Math.max(0.5, Math.min(5, Number(e.target.value) || 2.2)),
-                        },
-                      })
-                    }
-                    style={{
-                      flex: 1,
-                      accentColor: "#007aff",
-                    }}
-                  />
-                  <input
-                    type="number"
-                    min={0.5}
-                    max={5}
-                    step={0.1}
-                    value={config.animation?.duration ?? 2.2}
-                    onChange={(e) =>
-                      update({
-                        animation: {
-                          ...(config.animation ?? {
-                            enabled: true,
-                            type: "floating",
-                            duration: 2.2,
-                            amplitude: 18,
-                          }),
-                          duration: Math.max(0.5, Math.min(5, Number(e.target.value) || 2.2)),
-                        },
-                      })
-                    }
-                    style={{
-                      width: 70,
-                      backgroundColor: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: 6,
-                      padding: "6px 8px",
-                      color: "#ffffff",
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅 (px)</div>
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  step={1}
-                  value={config.animation?.amplitude ?? 18}
-                  onChange={(e) =>
-                    update({
-                      animation: {
-                        ...(config.animation ?? {
-                          enabled: true,
-                          type: "floating",
-                          duration: 2.2,
-                          amplitude: 18,
-                        }),
-                        amplitude: Math.max(1, Math.min(50, Number(e.target.value) || 18)),
-                      },
-                    })
-                  }
-                  style={{
-                    width: "100%",
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 6,
-                    padding: "6px 8px",
-                    color: "#ffffff",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-
-              {/* 波紋アニメーション（blink）用の設定 */}
-              {config.animation?.type === "blink" && (
-                <>
-                  <div>
-                    <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋の色 (RGB/HEX)</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-                      <span
-                        style={{
-                          backgroundColor: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderRight: "none",
-                          borderTopLeftRadius: 6,
-                          borderBottomLeftRadius: 6,
-                          padding: "6px 8px",
-                          color: "#ffffff",
-                          fontSize: 13,
-                          userSelect: "none",
-                        }}
-                      >
-                        #
-                      </span>
-                      <input
-                        type="text"
-                        value={(config.animation?.rippleColor || "#FFFFFF").replace(/^#/, "")}
-                        onChange={(e) => {
-                          const colorValue = e.target.value.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
-                          update({
-                            animation: {
-                              ...(config.animation ?? {
-                                enabled: true,
-                                type: "blink",
-                                duration: 2.2,
-                                amplitude: 18,
-                              }),
-                              rippleColor: `#${colorValue}`,
-                            },
-                          });
-                        }}
-                        onBlur={(e) => {
-                          const colorValue = e.target.value.trim().replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
-                          if (colorValue === "" || (colorValue.length !== 3 && colorValue.length !== 6)) {
-                            update({
-                              animation: {
-                                ...(config.animation ?? {
-                                  enabled: true,
-                                  type: "blink",
-                                  duration: 2.2,
-                                  amplitude: 18,
-                                }),
-                                rippleColor: "#FFFFFF",
-                              },
-                            });
-                          } else {
-                            update({
-                              animation: {
-                                ...(config.animation ?? {
-                                  enabled: true,
-                                  type: "blink",
-                                  duration: 2.2,
-                                  amplitude: 18,
-                                }),
-                                rippleColor: `#${colorValue}`,
-                              },
-                            });
-                          }
-                        }}
-                        placeholder="FFFFFF"
-                        maxLength={6}
-                        style={{
-                          flex: 1,
-                          backgroundColor: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderLeft: "none",
-                          borderTopRightRadius: 6,
-                          borderBottomRightRadius: 6,
-                          padding: "6px 8px",
-                          color: "#ffffff",
-                          fontSize: 13,
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋のサイズ (倍率)</div>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <input
-                        type="range"
-                        min={1.0}
-                        max={3.0}
-                        step={0.1}
-                        value={config.animation?.rippleSize ?? 1.5}
-                        onChange={(e) =>
-                          update({
-                            animation: {
-                              ...(config.animation ?? {
-                                enabled: true,
-                                type: "blink",
-                                duration: 2.2,
-                                amplitude: 18,
-                              }),
-                              rippleSize: Math.max(1.0, Math.min(3.0, Number(e.target.value) || 1.5)),
-                            },
-                          })
-                        }
-                        style={{
-                          flex: 1,
-                          accentColor: "#007aff",
-                        }}
-                      />
-                      <input
-                        type="number"
-                        min={1.0}
-                        max={3.0}
-                        step={0.1}
-                        value={config.animation?.rippleSize ?? 1.5}
-                        onChange={(e) =>
-                          update({
-                            animation: {
-                              ...(config.animation ?? {
-                                enabled: true,
-                                type: "blink",
-                                duration: 2.2,
-                                amplitude: 18,
-                              }),
-                              rippleSize: Math.max(1.0, Math.min(3.0, Number(e.target.value) || 1.5)),
-                            },
-                          })
-                        }
-                        style={{
-                          width: 70,
-                          backgroundColor: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderRadius: 6,
-                          padding: "6px 8px",
-                          color: "#ffffff",
-                          fontSize: 13,
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋の中心サイズ (倍率)</div>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <input
-                        type="range"
-                        min={0.1}
-                        max={1.5}
-                        step={0.05}
-                        value={config.animation?.rippleCenterSize ?? 0.95}
-                        onChange={(e) =>
-                          update({
-                            animation: {
-                              ...(config.animation ?? {
-                                enabled: true,
-                                type: "blink",
-                                duration: 2.2,
-                                amplitude: 18,
-                              }),
-                              rippleCenterSize: Math.max(0.1, Math.min(1.5, Number(e.target.value) || 0.95)),
-                            },
-                          })
-                        }
-                        style={{
-                          flex: 1,
-                          accentColor: "#007aff",
-                        }}
-                      />
-                      <input
-                        type="number"
-                        min={0.1}
-                        max={1.5}
-                        step={0.05}
-                        value={config.animation?.rippleCenterSize ?? 0.95}
-                        onChange={(e) =>
-                          update({
-                            animation: {
-                              ...(config.animation ?? {
-                                enabled: true,
-                                type: "blink",
-                                duration: 2.2,
-                                amplitude: 18,
-                              }),
-                              rippleCenterSize: Math.max(0.1, Math.min(1.5, Number(e.target.value) || 0.95)),
-                            },
-                          })
-                        }
-                        style={{
-                          width: 70,
-                          backgroundColor: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderRadius: 6,
-                          padding: "6px 8px",
-                          color: "#ffffff",
-                          fontSize: 13,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
         </div>
       )}
     </fieldset>
@@ -793,6 +246,14 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
   const [selectedFloor, setSelectedFloor] = useState<FloorId>(floor);
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
 
+  // ズーム状態の管理
+  const [currentScale, setCurrentScale] = useState(1);
+  const transformRef = useRef<any>(null);
+  
+  // 画像サイズ計測用のRefとState
+  const mapImageRef = useRef<HTMLImageElement>(null);
+  const [mapDimensions, setMapDimensions] = useState<{ width: number; height: number } | null>(null);
+
   // Update preview floor when selected floor changes
   useEffect(() => {
     onChangeFloor(selectedFloor);
@@ -847,19 +308,6 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
       })()
     : null;
 
-  // デバッグ用ログ
-  useEffect(() => {
-    console.log("ShopPositionSettingsTab - shops:", {
-      shopsCount: shops.length,
-      shops: shops.map((s) => ({
-        name: s.name,
-        shopId: s.shopId,
-        number: s.number,
-        floors: s.floors,
-      })),
-    });
-  }, [shops]);
-
   const updatePositionField = useCallback(
     (field: keyof ShopPosition, value: any) => {
       if (!selectedShopId || !selectedShopPosition) return;
@@ -898,6 +346,49 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
     },
     [selectedShopId, selectedShopPosition, selectedFloor, updateShopPosition]
   );
+
+  const getMapImage = (f: string) => {
+    switch (normalizeFloor(f)) {
+      case "1F": return food1FMap;
+      case "2F": return food2FMap;
+      case "3F": return food3FMap;
+      case "4F": return food4FMap;
+      default: return food1FMap;
+    }
+  };
+
+  const mapImage = getMapImage(selectedFloor);
+
+  const handleImageLoad = () => {
+    if (mapImageRef.current) {
+      setMapDimensions({
+        width: mapImageRef.current.naturalWidth,
+        height: mapImageRef.current.naturalHeight,
+      });
+    }
+  };
+
+  const handleMapClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!selectedShopId || !selectedShopPosition || !mapDimensions) return;
+
+    // クリックされた要素（画像コンテナ）の矩形情報を取得
+    const rect = e.currentTarget.getBoundingClientRect();
+    
+    // 画像内の相対座標(px)を計算 (ズームされていても rect は現在の表示サイズを返す)
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    // パーセンテージに変換
+    const xPercent = clampPercent((clickX / rect.width) * 100);
+    const yPercent = clampPercent((clickY / rect.height) * 100);
+
+    // 位置更新
+    updateShopPosition(selectedShopId, {
+      ...selectedShopPosition,
+      x: xPercent,
+      y: yPercent,
+    });
+  }, [selectedShopId, selectedShopPosition, mapDimensions, updateShopPosition]);
 
   return (
     <div>
@@ -1044,6 +535,102 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
           </select>
         </div>
 
+        {/* Central Map Preview - Interaction enabled */}
+        <div 
+          style={{ 
+            width: "100%", 
+            height: "600px", // Sufficient height
+            backgroundColor: "#333", 
+            borderRadius: 12,
+            overflow: "hidden",
+            marginTop: 20,
+            position: "relative",
+            border: "1px solid rgba(255,255,255,0.1)"
+          }}
+        >
+          <TransformWrapper
+            initialScale={1}
+            minScale={1}
+            maxScale={4}
+            centerOnInit={true}
+            wheel={{ step: 0.1 }}
+            onTransformed={(ref) => setCurrentScale(ref.state.scale)}
+            onInit={(ref) => {
+               transformRef.current = ref;
+               setCurrentScale(ref.state.scale);
+            }}
+          >
+            <TransformComponent
+              wrapperStyle={{ width: "100%", height: "100%" }}
+              contentStyle={{ 
+                width: "100%", 
+                height: "100%", 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center" 
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  width: mapDimensions ? undefined : "100%",
+                  aspectRatio: mapDimensions ? `${mapDimensions.width} / ${mapDimensions.height}` : undefined,
+                  height: mapDimensions ? "100%" : undefined,
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  boxShadow: "0 0 20px rgba(0,0,0,0.5)",
+                  cursor: selectedShopId ? "crosshair" : "grab"
+                }}
+                onClick={selectedShopId ? handleMapClick : undefined}
+              >
+                <img
+                  ref={mapImageRef}
+                  src={mapImage}
+                  onLoad={handleImageLoad}
+                  alt="Map"
+                  draggable={false}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    userSelect: "none",
+                    pointerEvents: "none"
+                  }}
+                />
+                
+                {selectedShopId && selectedShopPosition && (
+                  <ShopPin
+                    position={selectedShopPosition}
+                    shopName={shops.find(s => s.shopId === selectedShopId)?.name || ""}
+                    isSelected={true}
+                    shopId={selectedShopId}
+                    transformScale={currentScale}
+                  />
+                )}
+                
+                {shops.filter(s => s.shopId !== selectedShopId && normalizeFloor(s.floors?.[0] || "") === normalizeFloor(selectedFloor)).map(shop => {
+                   const pos = shopPositions.positions[shop.shopId || shop.number];
+                   if (!pos) return null;
+                   return (
+                     <div key={shop.shopId} style={{ opacity: 0.5 }}>
+                       <ShopPin
+                         position={pos}
+                         shopName={shop.name}
+                         transformScale={currentScale}
+                         shopId={shop.shopId}
+                       />
+                     </div>
+                   );
+                })}
+              </div>
+            </TransformComponent>
+          </TransformWrapper>
+          <div style={{ position: "absolute", bottom: 10, left: 10, padding: "4px 8px", backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 4, fontSize: 12, color: "#fff", pointerEvents: "none" }}>
+            マップをクリックして位置を設定（ホイールでズーム）
+          </div>
+        </div>
+
         {/* Position Settings - shown when shop is selected */}
         {selectedShopId && selectedShopPosition && (
           <fieldset
@@ -1079,14 +666,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
 
               {/* Position */}
               <div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    marginBottom: 6,
-                    color: "rgba(255,255,255,0.7)",
-                    fontWeight: 500,
-                  }}
-                >
+                <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>
                   X位置 (0.0〜100.0)
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -1099,10 +679,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                     onChange={(e) =>
                       updatePositionField("x", clampPercent(Number(e.target.value)))
                     }
-                    style={{
-                      flex: 1,
-                      accentColor: "#007aff",
-                    }}
+                    style={{ flex: 1, accentColor: "#007aff" }}
                   />
                   <input
                     type="number"
@@ -1127,14 +704,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
               </div>
 
               <div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    marginBottom: 6,
-                    color: "rgba(255,255,255,0.7)",
-                    fontWeight: 500,
-                  }}
-                >
+                <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>
                   Y位置 (0.0〜100.0)
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -1147,10 +717,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                     onChange={(e) =>
                       updatePositionField("y", clampPercent(Number(e.target.value)))
                     }
-                    style={{
-                      flex: 1,
-                      accentColor: "#007aff",
-                    }}
+                    style={{ flex: 1, accentColor: "#007aff" }}
                   />
                   <input
                     type="number"
@@ -1175,14 +742,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
               </div>
 
               {/* Size & rotation */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 16,
-                  marginTop: 12,
-                  flexWrap: "wrap",
-                }}
-              >
+              <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}>
                 <div style={{ minWidth: 150 }}>
                   <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>サイズ (px)</div>
                   <input
@@ -1217,10 +777,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                       onChange={(e) =>
                         updatePositionField("rotation", clampRotation(Number(e.target.value)))
                       }
-                      style={{
-                        flex: 1,
-                        accentColor: "#007aff",
-                      }}
+                      style={{ flex: 1, accentColor: "#007aff" }}
                     />
                     <input
                       type="number"
@@ -1258,106 +815,47 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
 
                 {selectedShopPosition.shadow?.enabled && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>オフセットX (px)</div>
-                      <input
-                        type="number"
-                        min={-20}
-                        max={20}
-                        step={0.1}
-                        value={selectedShopPosition.shadow?.offsetX ?? 0}
-                        onChange={(e) => updateShadowField("offsetX", Number(e.target.value) || 0)}
-                        style={{
-                          width: "100%",
-                          backgroundColor: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderRadius: 6,
-                          padding: "6px 8px",
-                          color: "#ffffff",
-                          fontSize: 13,
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>オフセットY (px)</div>
-                      <input
-                        type="number"
-                        min={-20}
-                        max={20}
-                        step={0.1}
-                        value={selectedShopPosition.shadow?.offsetY ?? 0}
-                        onChange={(e) => updateShadowField("offsetY", Number(e.target.value) || 0)}
-                        style={{
-                          width: "100%",
-                          backgroundColor: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderRadius: 6,
-                          padding: "6px 8px",
-                          color: "#ffffff",
-                          fontSize: 13,
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>ぼかし (px)</div>
-                      <input
-                        type="number"
-                        min={0}
-                        max={20}
-                        step={0.1}
-                        value={selectedShopPosition.shadow?.blur ?? 0}
-                        onChange={(e) =>
-                          updateShadowField("blur", Math.max(0, Math.min(20, Number(e.target.value) || 0)))
-                        }
-                        style={{
-                          width: "100%",
-                          backgroundColor: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderRadius: 6,
-                          padding: "6px 8px",
-                          color: "#ffffff",
-                          fontSize: 13,
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>不透明度 (0-1)</div>
-                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>オフセットX</div>
                         <input
-                          type="range"
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          value={selectedShopPosition.shadow?.opacity ?? 0}
-                          onChange={(e) =>
-                            updateShadowField("opacity", Math.max(0, Math.min(1, Number(e.target.value) || 0)))
-                          }
-                          style={{
-                            flex: 1,
-                            accentColor: "#007aff",
-                          }}
+                          type="number"
+                          value={selectedShopPosition.shadow?.offsetX ?? 0}
+                          onChange={(e) => updateShadowField("offsetX", Number(e.target.value) || 0)}
+                          style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
                         />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>オフセットY</div>
+                        <input
+                          type="number"
+                          value={selectedShopPosition.shadow?.offsetY ?? 0}
+                          onChange={(e) => updateShadowField("offsetY", Number(e.target.value) || 0)}
+                          style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>ぼかし</div>
+                        <input
+                          type="number"
+                          min={0}
+                          value={selectedShopPosition.shadow?.blur ?? 0}
+                          onChange={(e) => updateShadowField("blur", Math.max(0, Number(e.target.value) || 0))}
+                          style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>不透明度</div>
                         <input
                           type="number"
                           min={0}
                           max={1}
-                          step={0.01}
+                          step={0.1}
                           value={selectedShopPosition.shadow?.opacity ?? 0}
-                          onChange={(e) =>
-                            updateShadowField("opacity", Math.max(0, Math.min(1, Number(e.target.value) || 0)))
-                          }
-                          style={{
-                            width: 70,
-                            backgroundColor: "rgba(255,255,255,0.05)",
-                            border: "1px solid rgba(255,255,255,0.1)",
-                            borderRadius: 6,
-                            padding: "6px 8px",
-                            color: "#ffffff",
-                            fontSize: 13,
-                          }}
+                          onChange={(e) => updateShadowField("opacity", Math.max(0, Math.min(1, Number(e.target.value) || 0)))}
+                          style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
                         />
                       </div>
                     </div>
@@ -1394,84 +892,35 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                           fontSize: 13,
                         }}
                       >
-                        <option value="floating" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
-                          フローティング
-                        </option>
-                        <option value="pulse" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
-                          パルス
-                        </option>
-                        <option value="bounce" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
-                          バウンス
-                        </option>
-                        <option value="blink" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
-                          点滅
-                        </option>
-                        <option value="none" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>
-                          なし
-                        </option>
+                        <option value="floating" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>フローティング</option>
+                        <option value="pulse" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>パルス</option>
+                        <option value="bounce" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>バウンス</option>
+                        <option value="blink" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>点滅・波紋</option>
+                        <option value="none" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>なし</option>
                       </select>
                     </div>
 
-                    <div>
-                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>期間 (秒)</div>
-                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        <input
-                          type="range"
-                          min={0.5}
-                          max={5}
-                          step={0.1}
-                          value={selectedShopPosition.animation?.duration ?? 2.2}
-                          onChange={(e) =>
-                            updateAnimationField("duration", Math.max(0.5, Math.min(5, Number(e.target.value) || 2.2)))
-                          }
-                          style={{
-                            flex: 1,
-                            accentColor: "#007aff",
-                          }}
-                        />
-                        <input
-                          type="number"
-                          min={0.5}
-                          max={5}
-                          step={0.1}
-                          value={selectedShopPosition.animation?.duration ?? 2.2}
-                          onChange={(e) =>
-                            updateAnimationField("duration", Math.max(0.5, Math.min(5, Number(e.target.value) || 2.2)))
-                          }
-                          style={{
-                            width: 70,
-                            backgroundColor: "rgba(255,255,255,0.05)",
-                            border: "1px solid rgba(255,255,255,0.1)",
-                            borderRadius: 6,
-                            padding: "6px 8px",
-                            color: "#ffffff",
-                            fontSize: 13,
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅 (px)</div>
-                      <input
-                        type="number"
-                        min={1}
-                        max={50}
-                        step={1}
-                        value={selectedShopPosition.animation?.amplitude ?? 18}
-                        onChange={(e) =>
-                          updateAnimationField("amplitude", Math.max(1, Math.min(50, Number(e.target.value) || 18)))
-                        }
-                        style={{
-                          width: "100%",
-                          backgroundColor: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderRadius: 6,
-                          padding: "6px 8px",
-                          color: "#ffffff",
-                          fontSize: 13,
-                        }}
-                      />
+                    <div style={{ display: "flex", gap: 10 }}>
+                       <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>期間 (秒)</div>
+                          <input
+                            type="number"
+                            min={0.1}
+                            step={0.1}
+                            value={selectedShopPosition.animation?.duration ?? 2.2}
+                            onChange={(e) => updateAnimationField("duration", Math.max(0.1, Number(e.target.value) || 2.2))}
+                            style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
+                          />
+                       </div>
+                       <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅</div>
+                          <input
+                            type="number"
+                            value={selectedShopPosition.animation?.amplitude ?? 18}
+                            onChange={(e) => updateAnimationField("amplitude", Number(e.target.value) || 0)}
+                            style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
+                          />
+                       </div>
                     </div>
 
                     {/* 波紋アニメーション（blink）用の設定 */}
@@ -1480,129 +929,42 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                         <div>
                           <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋の色 (RGB/HEX)</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-                            <span
-                              style={{
-                                backgroundColor: "rgba(255,255,255,0.05)",
-                                border: "1px solid rgba(255,255,255,0.1)",
-                                borderRight: "none",
-                                borderTopLeftRadius: 6,
-                                borderBottomLeftRadius: 6,
-                                padding: "6px 8px",
-                                color: "#ffffff",
-                                fontSize: 13,
-                                userSelect: "none",
-                              }}
-                            >
-                              #
-                            </span>
+                            <span style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRight: "none", borderTopLeftRadius: 6, borderBottomLeftRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13, userSelect: "none" }}>#</span>
                             <input
                               type="text"
                               value={(selectedShopPosition.animation?.rippleColor || "#FFFFFF").replace(/^#/, "")}
                               onChange={(e) => {
                                 const colorValue = e.target.value.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
-                                // #を自動的に追加
                                 updateAnimationField("rippleColor", `#${colorValue}`);
-                              }}
-                              onBlur={(e) => {
-                                // フォーカスが外れたときにバリデーション
-                                const colorValue = e.target.value.trim().replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
-                                if (colorValue === "" || (colorValue.length !== 3 && colorValue.length !== 6)) {
-                                  updateAnimationField("rippleColor", "#FFFFFF");
-                                } else {
-                                  updateAnimationField("rippleColor", `#${colorValue}`);
-                                }
                               }}
                               placeholder="FFFFFF"
                               maxLength={6}
-                              style={{
-                                flex: 1,
-                                backgroundColor: "rgba(255,255,255,0.05)",
-                                border: "1px solid rgba(255,255,255,0.1)",
-                                borderLeft: "none",
-                                borderTopRightRadius: 6,
-                                borderBottomRightRadius: 6,
-                                padding: "6px 8px",
-                                color: "#ffffff",
-                                fontSize: 13,
-                              }}
+                              style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderLeft: "none", borderTopRightRadius: 6, borderBottomRightRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
                             />
                           </div>
                         </div>
-
-                        <div>
-                          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋のサイズ (倍率)</div>
-                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                            <input
-                              type="range"
-                              min={1.0}
-                              max={3.0}
-                              step={0.1}
-                              value={selectedShopPosition.animation?.rippleSize ?? 1.5}
-                              onChange={(e) =>
-                                updateAnimationField("rippleSize", Math.max(1.0, Math.min(3.0, Number(e.target.value) || 1.5)))
-                              }
-                              style={{
-                                flex: 1,
-                                accentColor: "#007aff",
-                              }}
-                            />
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋サイズ (倍率)</div>
                             <input
                               type="number"
-                              min={1.0}
-                              max={3.0}
+                              min={1}
                               step={0.1}
                               value={selectedShopPosition.animation?.rippleSize ?? 1.5}
-                              onChange={(e) =>
-                                updateAnimationField("rippleSize", Math.max(1.0, Math.min(3.0, Number(e.target.value) || 1.5)))
-                              }
-                              style={{
-                                width: 70,
-                                backgroundColor: "rgba(255,255,255,0.05)",
-                                border: "1px solid rgba(255,255,255,0.1)",
-                                borderRadius: 6,
-                                padding: "6px 8px",
-                                color: "#ffffff",
-                                fontSize: 13,
-                              }}
+                              onChange={(e) => updateAnimationField("rippleSize", Math.max(1, Number(e.target.value) || 1.5))}
+                              style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
                             />
                           </div>
-                        </div>
-
-                        <div>
-                          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋の中心サイズ (倍率)</div>
-                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                            <input
-                              type="range"
-                              min={0.1}
-                              max={1.5}
-                              step={0.05}
-                              value={selectedShopPosition.animation?.rippleCenterSize ?? 0.95}
-                              onChange={(e) =>
-                                updateAnimationField("rippleCenterSize", Math.max(0.1, Math.min(1.5, Number(e.target.value) || 0.95)))
-                              }
-                              style={{
-                                flex: 1,
-                                accentColor: "#007aff",
-                              }}
-                            />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>中心サイズ (倍率)</div>
                             <input
                               type="number"
                               min={0.1}
-                              max={1.5}
+                              max={2}
                               step={0.05}
                               value={selectedShopPosition.animation?.rippleCenterSize ?? 0.95}
-                              onChange={(e) =>
-                                updateAnimationField("rippleCenterSize", Math.max(0.1, Math.min(1.5, Number(e.target.value) || 0.95)))
-                              }
-                              style={{
-                                width: 70,
-                                backgroundColor: "rgba(255,255,255,0.05)",
-                                border: "1px solid rgba(255,255,255,0.1)",
-                                borderRadius: 6,
-                                padding: "6px 8px",
-                                color: "#ffffff",
-                                fontSize: 13,
-                              }}
+                              onChange={(e) => updateAnimationField("rippleCenterSize", Math.max(0.1, Number(e.target.value) || 0.95))}
+                              style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
                             />
                           </div>
                         </div>
@@ -1619,9 +981,12 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
         {locationIconSettings && onChangeLocationIconSettings && (() => {
           const currentFloorSettings = getLocationIconSettingsForFloor(locationIconSettings, selectedFloor);
           return (
-            <>
+            <div style={{ marginTop: 24 }}>
+              <h4 style={{ color: "#ffffff", fontSize: 16, fontWeight: 600, marginBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 8 }}>
+                現在地アイコン設定 ({selectedFloor})
+              </h4>
               <IconConfigSection
-                label={`user-location.svg 設定 (${selectedFloor})`}
+                label="現在地 (Speech Bubble)"
                 config={currentFloorSettings.speechBubble}
                 onChange={(next) => {
                   onChangeLocationIconSettings((prev) => ({
@@ -1635,7 +1000,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                 showAnimation={true}
               />
               <IconConfigSection
-                label={`location.svg 設定 (${selectedFloor})`}
+                label="現在地 (Location Pin)"
                 config={currentFloorSettings.location}
                 onChange={(next) => {
                   onChangeLocationIconSettings((prev) => ({
@@ -1648,7 +1013,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                 }}
                 showAnimation={true}
               />
-            </>
+            </div>
           );
         })()}
       </div>

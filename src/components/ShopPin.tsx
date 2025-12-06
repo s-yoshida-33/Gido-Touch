@@ -11,13 +11,8 @@ interface ShopPinProps {
   isSelected?: boolean;
   shopLogo?: string;
   shopId?: string;
-  // ピクセル座標での配置を使用するかどうか
-  usePixelPosition?: boolean;
-  // ピクセル座標（usePixelPositionがtrueの場合）
-  pixelX?: number;
-  pixelY?: number;
-  // TransformWrapperのスケールを打ち消すためのスケール値
   transformScale?: number;
+  style?: React.CSSProperties;
 }
 
 function buildShadowStyle(shadow?: ShopPosition['shadow']): React.CSSProperties {
@@ -97,11 +92,8 @@ function buildAnimationProps(fixedAmplitude: number, animation?: AnimationConfig
   }
 }
 
-// ロゴ画像を読み込むヘルパー関数
 function buildImagePath(photo: string | undefined, shopId: string | undefined): string {
-  if (!photo) {
-    return "";
-  }
+  if (!photo) return "";
   
   if (photo.match(/^[A-Za-z]:[\\/]/)) {
     return photo.replace(/\\/g, "/");
@@ -115,12 +107,8 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
   }
   
   if (photo.startsWith("/") || photo.startsWith("\\")) {
-    if (photo.startsWith("\\\\")) {
-      return photo;
-    }
-    if (photo.startsWith("/")) {
-      return photo;
-    }
+    if (photo.startsWith("\\\\")) return photo;
+    if (photo.startsWith("/")) return photo;
   }
   
   if (shopId) {
@@ -174,12 +162,9 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   isSelected = false,
   shopLogo,
   shopId,
-  usePixelPosition = false,
-  pixelX,
-  pixelY,
   transformScale = 1,
+  style
 }) => {
-  // 表示が無効の場合は何も表示しない
   if (position.enabled === false) {
     return null;
   }
@@ -190,7 +175,6 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   const animation = position.animation;
   const fixedAmplitude = animation?.amplitude ? animation.amplitude : 0;
   
-  // ロゴ画像の読み込み
   const [logoUrl, setLogoUrl] = useState<string>("");
   const [logoLoading, setLogoLoading] = useState(true);
   
@@ -231,38 +215,27 @@ export const ShopPin: React.FC<ShopPinProps> = ({
     loadLogo();
   }, [shopLogo, shopId]);
 
-  // アニメーション設定に基づくキー（再マウント用）
   const animationKey = animation
     ? `${animation.enabled}-${animation.type}-${animation.duration}-${animation.amplitude}-${animation.rippleColor || ""}-${animation.rippleSize || ""}`
     : "no-animation";
 
-  // TransformComponentの内側に配置されているため、スケールは自動的に適用される
-  // ただし、ピンのサイズは固定したいので、逆スケールを適用
-  const inverseScale = 1 / transformScale;
+  // Calculate inverse scale to maintain visual size during zoom
+  const inverseScale = 1 / Math.max(transformScale, 0.1);
 
-  // 基本のラッパースタイル
   const baseWrapperStyle: React.CSSProperties = {
     position: "absolute",
-    ...(usePixelPosition && pixelX !== undefined && pixelY !== undefined
-      ? {
-          // ピクセル座標を直接使用
-          left: `${pixelX}px`,
-          top: `${pixelY}px`,
-        }
-      : {
-          left: `${position.x}%`,
-          top: `${position.y}%`,
-        }),
-    // ピンのサイズを固定するため、TransformWrapperのスケールを打ち消す
-    // translate(-50%, -50%)でピンの中心を座標に合わせる
+    left: `${position.x}%`,
+    top: `${position.y}%`,
+    width: 0,
+    height: 0,
     transform: `translate(-50%, -50%) scale(${inverseScale})`,
     transformOrigin: "center center",
     pointerEvents: "none",
     zIndex: isSelected ? 101 : 100,
     ...buildShadowStyle(shadow),
+    ...style,
   };
 
-  // 選択中の場合は追加のシャドウを適用
   if (isSelected) {
     baseWrapperStyle.filter = baseWrapperStyle.filter
       ? `${baseWrapperStyle.filter}, drop-shadow(0 0 8px rgba(0, 122, 255, 0.8))`
@@ -277,7 +250,6 @@ export const ShopPin: React.FC<ShopPinProps> = ({
     transformOrigin: "center bottom",
   };
   
-  // ロゴのサイズ（アイコンサイズの約80%）
   const fixedLogoSize = size * 0.8;
   const logoStyle: React.CSSProperties = {
     position: "absolute",
@@ -291,16 +263,13 @@ export const ShopPin: React.FC<ShopPinProps> = ({
     zIndex: 1,
   };
 
-  // 波紋アニメーション用の色とサイズ
   const rippleColor = animation?.rippleColor || "#FFFFFF";
   const rippleSize = animation?.rippleSize || 1.5;
   const rippleCenterSize = animation?.rippleCenterSize ?? 0.95;
   const isBlinkAnimation = animation?.enabled && animation.type === "blink";
 
-  // コンテンツの共通部分を関数化
   const renderContent = () => (
     <>
-      {/* 波紋アニメーション（blinkタイプの場合） */}
       {isBlinkAnimation && (
         <>
           <style>{`
@@ -381,7 +350,6 @@ export const ShopPin: React.FC<ShopPinProps> = ({
     </>
   );
 
-  // アニメーションが有効な場合はmotion.divを使用
   if (animation?.enabled && animation.type !== "none") {
     const animationProps = buildAnimationProps(fixedAmplitude, animation);
     
@@ -403,7 +371,6 @@ export const ShopPin: React.FC<ShopPinProps> = ({
     );
   }
 
-  // アニメーションが無効な場合は通常のdivを使用
   return (
     <div style={baseWrapperStyle}>
       <div style={{ position: "relative", display: "inline-block" }}>

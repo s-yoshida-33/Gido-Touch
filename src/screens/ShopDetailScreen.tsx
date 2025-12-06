@@ -22,95 +22,34 @@ import iconTel from "../assets/icon-tel.svg";
 import type { Shop } from "../types/shop";
 import { ShopPin } from "../components/ShopPin";
 
-/**
- * Build image path using shop_id if photo is relative or filename only
- * Expected full path format: C:\Users\...\AppData\Roaming\TTI\BridgeWebPopper\files\shop\{shop_id}\photo2.png
- */
 function buildImagePath(photo: string | undefined, shopId: string | undefined): string {
-  if (!photo) {
-    if (shopId) {
-      return "";
-    }
-    return "";
-  }
-  
-  // If already a full path (contains drive letter like C:\), normalize and return
-  if (photo.match(/^[A-Za-z]:[\\/]/)) {
-    // Normalize mixed slashes to forward slashes for consistency
-    // Keep the drive letter format (C:/ instead of C:\) for better compatibility
-    return photo.replace(/\\/g, "/");
-  }
-  
-  // If already a URL (file://, http://, https://, or data:), return as is
-  if (photo.startsWith("file://") || 
-      photo.startsWith("http://") || 
-      photo.startsWith("https://") ||
-      photo.startsWith("data:")) {
-    return photo;
-  }
-  
-  // If starts with absolute path markers (/, \), might be absolute path
+  if (!photo) return "";
+  if (photo.match(/^[A-Za-z]:[\\/]/)) return photo.replace(/\\/g, "/");
+  if (photo.startsWith("file://") || photo.startsWith("http://") || photo.startsWith("https://") || photo.startsWith("data:")) return photo;
   if (photo.startsWith("/") || photo.startsWith("\\")) {
-    if (photo.startsWith("\\\\")) {
-      return photo;
-    }
-    if (photo.startsWith("/")) {
-      return photo;
-    }
+    if (photo.startsWith("\\\\")) return photo;
+    if (photo.startsWith("/")) return photo;
   }
-  
-  // If shop_id is available and photo is relative or filename only, build path
   if (shopId) {
-    if (photo.includes(`shop/${shopId}/`) || photo.includes(`shop\\${shopId}\\`) ||
-        photo.includes(`files/shop/${shopId}/`) || photo.includes(`files\\shop\\${shopId}\\`)) {
-      return photo;
-    }
-    
-    const normalizedPhoto = photo.replace(/\\/g, "/");
-    const cleanPhoto = normalizedPhoto.startsWith("/") ? normalizedPhoto.slice(1) : normalizedPhoto;
-    
-    if (!cleanPhoto.includes("/")) {
-      return `files/shop/${shopId}/${cleanPhoto}`;
-    }
-    
-    if (cleanPhoto.startsWith("files/shop/")) {
-      return cleanPhoto;
-    }
-    return `files/shop/${shopId}/${cleanPhoto}`;
+    if (photo.includes(`shop/${shopId}/`) || photo.includes(`shop\\${shopId}\\`)) return photo;
+    const normalized = photo.replace(/\\/g, "/");
+    const clean = normalized.startsWith("/") ? normalized.slice(1) : normalized;
+    if (!clean.includes("/")) return `files/shop/${shopId}/${clean}`;
+    if (clean.startsWith("files/shop/")) return clean;
+    return `files/shop/${shopId}/${clean}`;
   }
-  
   return photo;
 }
 
-/**
- * Convert a local file path to a file:// URL for Electron
- */
 function toFileUrl(filePath: string): string {
   if (!filePath) return "";
-  
-  if (filePath.startsWith("file://") || 
-      filePath.startsWith("http://") || 
-      filePath.startsWith("https://") ||
-      filePath.startsWith("data:")) {
-    return filePath;
-  }
-  
+  if (filePath.startsWith("file://") || filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:")) return filePath;
   const normalized = filePath.replace(/\\/g, "/");
-  
-  if (normalized.match(/^[A-Za-z]:\//)) {
-    return `file:///${normalized}`;
-  }
-  
-  if (normalized.startsWith("/")) {
-    return `file://${normalized}`;
-  }
-  
+  if (normalized.match(/^[A-Za-z]:\//)) return `file:///${normalized}`;
+  if (normalized.startsWith("/")) return `file://${normalized}`;
   return `file:///${normalized}`;
 }
 
-/**
- * Shop logo component that loads logo images via Electron IPC or falls back to file:// URL
- */
 const ShopLogoImage: React.FC<{ photo: string | undefined; shopId: string | undefined }> = ({ photo, shopId }) => {
   const [imageUrl, setImageUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
@@ -122,173 +61,81 @@ const ShopLogoImage: React.FC<{ photo: string | undefined; shopId: string | unde
       setHasError(true);
       return;
     }
-
     const loadImage = async () => {
-      console.log("ShopLogoImage - Original photo:", photo, "shopId:", shopId);
       const imagePath = buildImagePath(photo, shopId);
-      console.log("ShopLogoImage - Built image path:", imagePath);
       if (!imagePath) {
         setIsLoading(false);
         setHasError(true);
         return;
       }
-
       const electronAPI = window.electronAPI;
       if (electronAPI && electronAPI.getShopImage) {
         try {
-          // For Windows paths, convert to forward slashes for IPC
           const normalizedPath = imagePath.replace(/\\/g, "/");
-          console.log("ShopLogoImage - Normalized path for IPC:", normalizedPath);
           const dataUrl = await electronAPI.getShopImage(normalizedPath);
           if (dataUrl) {
-            console.log("ShopLogoImage - Successfully loaded via IPC");
             setImageUrl(dataUrl);
             setIsLoading(false);
             setHasError(false);
             return;
-          } else {
-            console.log("ShopLogoImage - IPC returned null/undefined");
           }
         } catch (error) {
-          console.error("Failed to load logo via IPC:", error, "Path:", imagePath);
+          console.error(error);
           setHasError(true);
         }
       }
-
       const fileUrl = toFileUrl(imagePath);
-      console.log("ShopLogoImage - File URL:", fileUrl);
       setImageUrl(fileUrl);
       setIsLoading(false);
     };
-
     loadImage();
   }, [photo, shopId]);
 
-  if (hasError || (!imageUrl && !isLoading) || imageUrl === "") {
-    return null; // Don't show anything if logo fails to load or URL is empty
-  }
-
-  if (isLoading || !imageUrl) {
-    return null; // Don't render img element while loading or if URL is empty
-  }
+  if (hasError || (!imageUrl && !isLoading) || imageUrl === "") return null;
+  if (isLoading || !imageUrl) return null;
 
   return (
-    <img
-      src={imageUrl}
-      alt=""
-      draggable={false}
-      onDragStart={(e) => e.preventDefault()}
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "contain",
-        userSelect: "none",
-        pointerEvents: "auto",
-        display: "block",
-      }}
-      onError={(e) => {
-        console.error("Failed to load logo image:", imageUrl);
-        setHasError(true);
-        const target = e.target as HTMLImageElement;
-        target.style.display = "none";
-      }}
-    />
+    <img src={imageUrl} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "100%", height: "100%", objectFit: "contain", userSelect: "none", pointerEvents: "auto", display: "block" }} onError={(e) => { setHasError(true); (e.target as HTMLImageElement).style.display = "none"; }} />
   );
 };
 
-/**
- * Shop image component that loads images via Electron IPC or falls back to file:// URL
- */
 const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefined }> = ({ photo, shopId }) => {
   const [imageUrl, setImageUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!photo) {
-      setIsLoading(false);
-      return;
-    }
-
+    if (!photo) { setIsLoading(false); return; }
     const loadImage = async () => {
       const imagePath = buildImagePath(photo, shopId);
-      if (!imagePath) {
-        setIsLoading(false);
-        return;
-      }
-
+      if (!imagePath) { setIsLoading(false); return; }
       const electronAPI = window.electronAPI;
       if (electronAPI && electronAPI.getShopImage) {
         try {
-          // For Windows paths, convert to forward slashes for IPC
           const normalizedPath = imagePath.replace(/\\/g, "/");
           const dataUrl = await electronAPI.getShopImage(normalizedPath);
-          if (dataUrl) {
-            setImageUrl(dataUrl);
-            setIsLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.error("Failed to load image via IPC:", error, "Path:", imagePath);
-        }
+          if (dataUrl) { setImageUrl(dataUrl); setIsLoading(false); return; }
+        } catch (error) { console.error(error); }
       }
-
       const fileUrl = toFileUrl(imagePath);
       setImageUrl(fileUrl);
       setIsLoading(false);
     };
-
     loadImage();
   }, [photo, shopId]);
 
-  if (!photo || (!imageUrl && !isLoading)) {
-    return (
-      <span style={{ color: "#FFFFFF", fontSize: "24px", fontWeight: 700 }}>
-        Image
-      </span>
-    );
-  }
+  if (!photo || (!imageUrl && !isLoading)) return <span style={{ color: "#FFFFFF", fontSize: "24px", fontWeight: 700 }}>Image</span>;
 
   return (
-    <img
-      src={imageUrl}
-      alt=""
-      draggable={false}
-      onDragStart={(e) => e.preventDefault()}
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "contain",
-        userSelect: "none",
-        pointerEvents: "auto",
-        display: isLoading ? "none" : "block",
-      }}
-      onError={(e) => {
-        const target = e.target as HTMLImageElement;
-        target.style.display = "none";
-        if (target.parentElement) {
-          target.parentElement.style.backgroundColor = "#333333";
-          target.parentElement.style.color = "#FFFFFF";
-          target.parentElement.style.fontSize = "24px";
-          target.parentElement.style.fontWeight = "700";
-          target.parentElement.textContent = "Image";
-        }
-      }}
-    />
+    <img src={imageUrl} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "100%", height: "100%", objectFit: "contain", userSelect: "none", pointerEvents: "auto", display: isLoading ? "none" : "block" }} onError={(e) => { const target = e.target as HTMLImageElement; target.style.display = "none"; if (target.parentElement) { target.parentElement.style.backgroundColor = "#333333"; target.parentElement.style.color = "#FFFFFF"; target.parentElement.style.fontSize = "24px"; target.parentElement.style.fontWeight = "700"; target.parentElement.textContent = "Image"; } }} />
   );
 };
 
-/**
- * Normalize floor value to standard format (e.g., "1" -> "1F", "1F" -> "1F")
- */
 function normalizeFloor(value: string): string {
   if (!value) return "";
   const m = value.match(/(\d+)/);
   return m ? `${m[1]}F` : value;
 }
 
-/**
- * Map component with pins that correctly calculates position based on actual image display size
- */
 const MapWithPinsComponent: React.FC<{
   mapImage: string;
   normalizedFloor: string;
@@ -296,203 +143,55 @@ const MapWithPinsComponent: React.FC<{
   shopName: string;
   shopLogo?: string;
   shopId?: string;
-}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const [imageInfo, setImageInfo] = useState<{ 
-    naturalWidth: number; 
-    naturalHeight: number; 
-    displayWidth: number; 
-    displayHeight: number; 
-    offsetX: number; 
-    offsetY: number;
-    containerWidth: number;
-    containerHeight: number;
-  } | null>(null);
+  currentScale: number;
+}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentScale }) => {
+  const [mapDimensions, setMapDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  // 画像の読み込みとリサイズ時に実際の表示サイズを計算
-  useEffect(() => {
-    const updateImageInfo = () => {
-      // requestAnimationFrameで次のフレームで実行して、レイアウトが確定してから計算
-      requestAnimationFrame(() => {
-        if (!containerRef.current || !imageRef.current) return;
-
-        const container = containerRef.current;
-        const img = imageRef.current;
-
-        // 画像の自然なサイズ
-        const naturalWidth = img.naturalWidth || 0;
-        const naturalHeight = img.naturalHeight || 0;
-
-        if (naturalWidth === 0 || naturalHeight === 0) return;
-
-        // コンテナと画像の実際の表示サイズ（getBoundingClientRectで正確なサイズを取得）
-        const containerRect = container.getBoundingClientRect();
-        const imgRect = img.getBoundingClientRect();
-        const displayWidth = imgRect.width;
-        const displayHeight = imgRect.height;
-        
-        // コンテナの実際のサイズ（TransformComponentのスケールやパンの影響を受けたサイズ）
-        const containerWidth = containerRect.width;
-        const containerHeight = containerRect.height;
-
-        // 画像の表示位置（コンテナからの相対位置）
-        const offsetX = imgRect.left - containerRect.left;
-        const offsetY = imgRect.top - containerRect.top;
-
-        if (displayWidth > 0 && displayHeight > 0) {
-          setImageInfo({ 
-            naturalWidth, 
-            naturalHeight, 
-            displayWidth, 
-            displayHeight, 
-            offsetX, 
-            offsetY,
-            containerWidth,
-            containerHeight
-          });
-        }
-      });
-    };
-
-    // 画像の読み込み完了時に計算
-    const handleImageLoad = () => {
-      // 画像読み込み後、少し遅延させてから計算（レイアウト確定を待つ）
-      setTimeout(updateImageInfo, 0);
-    };
-
-    if (imageRef.current) {
-      if (imageRef.current.complete) {
-        handleImageLoad();
-      } else {
-        imageRef.current.addEventListener("load", handleImageLoad);
-      }
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    if (img.naturalWidth && img.naturalHeight) {
+      setMapDimensions({ width: img.naturalWidth, height: img.naturalHeight });
     }
-
-    // リサイズ時にも再計算
-    window.addEventListener("resize", updateImageInfo);
-    const resizeObserver = new ResizeObserver(() => {
-      updateImageInfo();
-    });
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    if (imageRef.current) {
-      resizeObserver.observe(imageRef.current);
-    }
-
-    return () => {
-      if (imageRef.current) {
-        imageRef.current.removeEventListener("load", handleImageLoad);
-      }
-      window.removeEventListener("resize", updateImageInfo);
-      resizeObserver.disconnect();
-    };
-  }, [mapImage]);
+  };
 
   if (!shopPosition || shopPosition.floor !== normalizedFloor) {
     return (
-      <div
-        ref={containerRef}
-        style={{
-          position: "relative",
-          width: "100%",
-          height: "100%",
-        }}
-      >
-        <img
-          ref={imageRef}
-          src={mapImage}
-          alt={`${normalizedFloor} map`}
-          draggable={false}
-          onDragStart={(e) => e.preventDefault()}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-          }}
-        />
-      </div>
+      <img src={mapImage} alt={`${normalizedFloor} map`} draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
     );
-  }
-
-  // 後方互換性: 0～1の値の場合は100倍に変換
-  const normalizedPosition = {
-    ...shopPosition,
-    x: shopPosition.x <= 1 ? shopPosition.x * 100 : shopPosition.x,
-    y: shopPosition.y <= 1 ? shopPosition.y * 100 : shopPosition.y,
-  };
-
-  // ピクセル座標を計算（imageInfoが存在する場合）
-  let usePixel = false;
-  let pixelX: number | undefined = undefined;
-  let pixelY: number | undefined = undefined;
-  
-  if (imageInfo) {
-    // マップ画像の表示サイズを基準に絶対ピクセル座標を計算
-    const xPercent = normalizedPosition.x / 100;
-    const yPercent = normalizedPosition.y / 100;
-    
-    // ピンのサイズを取得（デフォルト80px）
-    const pinSize = normalizedPosition.size ?? 80;
-    // ピンの半径（translate(-50%, -50%)で中央揃えしているため、半径分を考慮）
-    const pinRadius = pinSize / 2;
-    
-    // 1. ピンの相対位置 (0-100%) を、現在のマップ画像の表示サイズ (displayWidth/Height) に変換
-    // ピンのサイズを考慮して、ピンの端がマップの端に来るように調整
-    // 0%の場合はピンの左端がマップの左端、100%の場合はピンの右端がマップの右端に来るように
-    // マップ画像内での有効範囲を計算（ピンの半径分を考慮）
-    const effectiveWidth = imageInfo.displayWidth - pinSize;
-    const effectiveHeight = imageInfo.displayHeight - pinSize;
-    
-    // 有効範囲内での位置を計算
-    const xInDisplayImage = (xPercent * effectiveWidth) + pinRadius;
-    const yInDisplayImage = (yPercent * effectiveHeight) + pinRadius;
-    
-    // 2. コンテナ内の絶対ピクセル座標を計算（オフセットを加算）
-    pixelX = imageInfo.offsetX + xInDisplayImage;
-    pixelY = imageInfo.offsetY + yInDisplayImage;
-    usePixel = true;
   }
 
   return (
     <div
-      ref={containerRef}
       style={{
         position: "relative",
-        width: "100%",
-        height: "100%",
+        aspectRatio: mapDimensions ? `${mapDimensions.width} / ${mapDimensions.height}` : undefined,
+        height: mapDimensions ? "100%" : undefined,
+        maxWidth: "100%",
+        maxHeight: "100%",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center"
       }}
     >
       <img
-        ref={imageRef}
         src={mapImage}
         alt={`${normalizedFloor} map`}
+        onLoad={handleImageLoad}
         draggable={false}
         onDragStart={(e) => e.preventDefault()}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-        }}
+        style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
       />
-      {/* ショップ位置ピン - ピクセル座標で配置 */}
       <ShopPin
-        position={normalizedPosition}
-        usePixelPosition={usePixel}
-        pixelX={pixelX}
-        pixelY={pixelY}
+        position={shopPosition}
         shopName={shopName}
         shopLogo={shopLogo}
         shopId={shopId}
+        transformScale={currentScale}
       />
     </div>
   );
 };
 
-/**
- * Shop name display component that scales text to fit width (same as ShopListScreen)
- */
 const ShopNameDisplay: React.FC<{ name: string; width: string; fontSize: string }> = ({ name, width, fontSize }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
@@ -501,7 +200,6 @@ const ShopNameDisplay: React.FC<{ name: string; width: string; fontSize: string 
     if (containerRef.current && textRef.current) {
       const containerWidth = containerRef.current.clientWidth;
       const textWidth = textRef.current.scrollWidth;
-      
       if (textWidth > containerWidth) {
         const scale = containerWidth / textWidth;
         textRef.current.style.transform = `scaleX(${Math.max(scale, 0.5)})`;
@@ -512,112 +210,47 @@ const ShopNameDisplay: React.FC<{ name: string; width: string; fontSize: string 
   }, [name]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        fontSize: fontSize,
-        fontFamily: "'Rounded Mplus 1c', sans-serif",
-        fontWeight: 700,
-        lineHeight: "1.4",
-        width: width,
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        transformOrigin: "left center",
-        flexShrink: 0,
-      }}
-    >
-      <div
-        ref={textRef}
-        style={{
-          display: "inline-block",
-          transform: "scaleX(1)",
-          whiteSpace: "nowrap",
-          transformOrigin: "left center",
-        }}
-      >
-        {name}
-      </div>
+    <div ref={containerRef} style={{ fontSize: fontSize, fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 700, lineHeight: "1.4", width: width, whiteSpace: "nowrap", overflow: "hidden", transformOrigin: "left center", flexShrink: 0 }}>
+      <div ref={textRef} style={{ display: "inline-block", transform: "scaleX(1)", whiteSpace: "nowrap", transformOrigin: "left center" }}>{name}</div>
     </div>
   );
 };
-
 
 interface ShopDetailScreenProps {
   shop: Shop;
   onClose: () => void;
 }
 
-/**
- * Shop detail modal screen
- * Modal size: 2500×1680px
- * Background overlay: #000000 70%
- * Modal corner radius: 50px
- * Close button: 140×140px, positioned outside modal at top-right, 30px above modal
- */
 const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) => {
-  // Transform wrapper ref for programmatic control
-  const transformRef = useRef<{
-    zoomIn: (step?: number) => void;
-    zoomOut: (step?: number) => void;
-    resetTransform: () => void;
-    setTransform: (x: number, y: number, scale: number) => void;
-    centerView: (scale?: number) => void;
-    state: {
-      scale: number;
-      positionX: number;
-      positionY: number;
-    };
-  } | null>(null);
-
-  // Zoom button hover states
+  const transformRef = useRef<any>(null);
+  const [currentScale, setCurrentScale] = useState(1);
   const [zoomInHovered, setZoomInHovered] = useState(false);
   const [zoomOutHovered, setZoomOutHovered] = useState(false);
   const [zoomInClicked, setZoomInClicked] = useState(false);
   const [zoomOutClicked, setZoomOutClicked] = useState(false);
-  
-  // Reset button hover states
   const [resetHovered, setResetHovered] = useState(false);
   const [resetClicked, setResetClicked] = useState(false);
-
-  // Display area ref for calculating viewport center
   const displayAreaRef = useRef<HTMLDivElement>(null);
 
-  // Current scale state to control panning
-  const [currentScale, setCurrentScale] = useState(1);
-
-  // Get first floor for map display
   const floor = shop.floors && shop.floors.length > 0 ? shop.floors[0] : "";
   const normalizedFloor = normalizeFloor(String(floor));
 
-  // Select map based on floor
   const getMapImage = () => {
     switch (normalizedFloor) {
-      case "1F":
-        return food1FMap;
-      case "2F":
-        return food2FMap;
-      case "3F":
-        return food3FMap;
-      case "4F":
-        return food4FMap;
-      default:
-        return food1FMap; // Default to 1F if floor is not recognized
+      case "1F": return food1FMap;
+      case "2F": return food2FMap;
+      case "3F": return food3FMap;
+      case "4F": return food4FMap;
+      default: return food1FMap;
     }
   };
-
-  // Select floor label based on floor
   const getFloorLabel = () => {
     switch (normalizedFloor) {
-      case "1F":
-        return floorLabel1F;
-      case "2F":
-        return floorLabel2F;
-      case "3F":
-        return floorLabel3F;
-      case "4F":
-        return floorLabel4F;
-      default:
-        return floorLabel1F; // Default to 1F if floor is not recognized
+      case "1F": return floorLabel1F;
+      case "2F": return floorLabel2F;
+      case "3F": return floorLabel3F;
+      case "4F": return floorLabel4F;
+      default: return floorLabel1F;
     }
   };
 
@@ -625,75 +258,12 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
   const floorLabel = getFloorLabel();
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        backgroundColor: "rgba(0, 0, 0, 0.7)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-      }}
-    >
-      {/* Modal */}
-      <div
-        style={{
-          width: "2500px",
-          height: "1680px",
-          backgroundColor: "#FFFFFF",
-          borderRadius: "50px",
-          position: "relative",
-          display: "flex",
-          flexDirection: "row",
-          overflow: "hidden",
-        }}
-      >
-        {/* Left area */}
-        <div
-          style={{
-            flex: 1,
-            width: "1800px",
-            height: "100%",
-            backgroundColor: "#D9D9D9",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {/* Display area */}
-          <div
-            ref={displayAreaRef}
-            style={{
-              width: "1700px",
-              height: "1580px",
-              backgroundColor: "#FFFFFF",
-              overflow: "hidden",
-              position: "relative",
-            }}
-          >
-            {/* Floor label - positioned at top-left */}
-            <div
-              style={{
-                position: "absolute",
-                top: "30px",
-                left: "30px",
-                zIndex: 10,
-                pointerEvents: "none",
-              }}
-            >
-              <img
-                src={floorLabel}
-                alt={`${normalizedFloor} label`}
-                draggable={false}
-                onDragStart={(e) => e.preventDefault()}
-                style={{
-                  display: "block",
-                }}
-              />
+    <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "rgba(0, 0, 0, 0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+      <div style={{ width: "2500px", height: "1680px", backgroundColor: "#FFFFFF", borderRadius: "50px", position: "relative", display: "flex", flexDirection: "row", overflow: "hidden" }}>
+        <div style={{ flex: 1, width: "1800px", height: "100%", backgroundColor: "#D9D9D9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div ref={displayAreaRef} style={{ width: "1700px", height: "1580px", backgroundColor: "#FFFFFF", overflow: "hidden", position: "relative" }}>
+            <div style={{ position: "absolute", top: "30px", left: "30px", zIndex: 10, pointerEvents: "none" }}>
+              <img src={floorLabel} alt={`${normalizedFloor} label`} draggable={false} onDragStart={(e) => e.preventDefault()} style={{ display: "block" }} />
             </div>
             <TransformWrapper
               initialScale={1}
@@ -701,36 +271,13 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
               maxScale={4}
               limitToBounds={currentScale > 1}
               centerOnInit={true}
-              wheel={{
-                step: 0.05,
-              }}
-              doubleClick={{
-                disabled: true,
-              }}
-              panning={{
-                disabled: currentScale === 1,
-              }}
-              onInit={(ref) => {
-                transformRef.current = ref;
-                setCurrentScale(ref.state.scale);
-              }}
-              onTransformed={(ref) => {
-                setCurrentScale(ref.state.scale);
-              }}
+              wheel={{ step: 0.05 }}
+              doubleClick={{ disabled: true }}
+              panning={{ disabled: currentScale === 1 }}
+              onInit={(ref) => { transformRef.current = ref; setCurrentScale(ref.state.scale); }}
+              onTransformed={(ref) => { setCurrentScale(ref.state.scale); }}
             >
-              <TransformComponent
-                wrapperStyle={{
-                  width: "100%",
-                  height: "100%",
-                }}
-                contentStyle={{
-                  width: "100%",
-                  height: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <MapWithPinsComponent
                   mapImage={mapImage}
                   normalizedFloor={normalizedFloor}
@@ -738,536 +285,111 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                   shopName={shop.name}
                   shopLogo={shop.shopLogo}
                   shopId={shop.shopId || shop.number}
+                  currentScale={currentScale}
                 />
               </TransformComponent>
             </TransformWrapper>
-            {/* Zoom controls - positioned at bottom-left */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: "30px",
-                left: "30px",
-                zIndex: 10,
-                display: "flex",
-                flexDirection: "column",
-                gap: "0px",
-                borderRadius: "50px",
-                overflow: "hidden",
-                boxShadow: "0 0px 12px rgba(0, 0, 0, 0.3)",
-              }}
-            >
-              {/* Zoom in button */}
+            <div style={{ position: "absolute", bottom: "30px", left: "30px", zIndex: 10, display: "flex", flexDirection: "column", gap: "0px", borderRadius: "50px", overflow: "hidden", boxShadow: "0 0px 12px rgba(0, 0, 0, 0.3)" }}>
+              {/* Zoom In Button */}
               <div
-                style={{
-                  position: "relative",
-                  cursor: "pointer",
-                }}
+                style={{ position: "relative", cursor: "pointer" }}
                 onMouseEnter={() => setZoomInHovered(true)}
-                onMouseLeave={() => {
-                  setZoomInHovered(false);
-                  setZoomInClicked(false);
-                }}
+                onMouseLeave={() => { setZoomInHovered(false); setZoomInClicked(false); }}
                 onMouseDown={() => setZoomInClicked(true)}
                 onMouseUp={() => setZoomInClicked(false)}
-                onTouchStart={() => {
-                  setZoomInHovered(true);
-                  setZoomInClicked(true);
-                }}
-                onTouchEnd={() => {
-                  // Use setTimeout to ensure highlight is visible briefly, then remove
-                  setTimeout(() => {
-                    setZoomInHovered(false);
-                    setZoomInClicked(false);
-                  }, 100);
-                }}
-                onTouchCancel={() => {
-                  setZoomInHovered(false);
-                  setZoomInClicked(false);
-                }}
                 onClick={() => {
-                  // Reset highlight immediately on click
                   setZoomInHovered(false);
                   setZoomInClicked(false);
-                  
-                  if (transformRef.current && displayAreaRef.current) {
-                    const currentScale = transformRef.current.state.scale;
-                    const newScale = Math.min(currentScale * 1.5, 4); // 50% increase, max 400%
-                    
-                    // Calculate viewport center
-                    const viewportWidth = displayAreaRef.current.clientWidth;
-                    const viewportHeight = displayAreaRef.current.clientHeight;
-                    const viewportCenterX = viewportWidth / 2;
-                    const viewportCenterY = viewportHeight / 2;
-                    
-                    // Calculate content point at viewport center
-                    const currentX = transformRef.current.state.positionX;
-                    const currentY = transformRef.current.state.positionY;
-                    const contentPointX = (viewportCenterX - currentX) / currentScale;
-                    const contentPointY = (viewportCenterY - currentY) / currentScale;
-                    
-                    // Calculate new position to keep the same content point at viewport center
-                    const newX = viewportCenterX - (contentPointX * newScale);
-                    const newY = viewportCenterY - (contentPointY * newScale);
-                    
-                    transformRef.current.setTransform(newX, newY, newScale);
-                  }
+                  if (transformRef.current) transformRef.current.zoomIn();
                 }}
               >
-                <img
-                  src={zoomIn}
-                  alt="Zoom in"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={zoomInHighlight}
-                  alt="Zoom in highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: zoomInHovered || zoomInClicked ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
+                <img src={zoomIn} alt="Zoom in" draggable={false} style={{ display: "block" }} />
+                <img src={zoomInHighlight} alt="Highlight" draggable={false} style={{ position: "absolute", top: 0, left: 0, display: "block", opacity: zoomInHovered || zoomInClicked ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
-              {/* Zoom out button */}
+              {/* Zoom Out Button */}
               <div
-                style={{
-                  position: "relative",
-                  cursor: "pointer",
-                }}
+                style={{ position: "relative", cursor: "pointer" }}
                 onMouseEnter={() => setZoomOutHovered(true)}
-                onMouseLeave={() => {
-                  setZoomOutHovered(false);
-                  setZoomOutClicked(false);
-                }}
+                onMouseLeave={() => { setZoomOutHovered(false); setZoomOutClicked(false); }}
                 onMouseDown={() => setZoomOutClicked(true)}
                 onMouseUp={() => setZoomOutClicked(false)}
-                onTouchStart={() => {
-                  setZoomOutHovered(true);
-                  setZoomOutClicked(true);
-                }}
-                onTouchEnd={() => {
-                  // Use setTimeout to ensure highlight is visible briefly, then remove
-                  setTimeout(() => {
-                    setZoomOutHovered(false);
-                    setZoomOutClicked(false);
-                  }, 100);
-                }}
-                onTouchCancel={() => {
-                  setZoomOutHovered(false);
-                  setZoomOutClicked(false);
-                }}
                 onClick={() => {
-                  // Reset highlight immediately on click
                   setZoomOutHovered(false);
                   setZoomOutClicked(false);
-                  
-                  if (transformRef.current && displayAreaRef.current) {
-                    const currentScale = transformRef.current.state.scale;
-                    const newScale = Math.max(currentScale / 1.5, 1); // 50% decrease, min 100%
-                    
-                    // Calculate viewport center
-                    const viewportWidth = displayAreaRef.current.clientWidth;
-                    const viewportHeight = displayAreaRef.current.clientHeight;
-                    const viewportCenterX = viewportWidth / 2;
-                    const viewportCenterY = viewportHeight / 2;
-                    
-                    // Calculate content point at viewport center
-                    const currentX = transformRef.current.state.positionX;
-                    const currentY = transformRef.current.state.positionY;
-                    const contentPointX = (viewportCenterX - currentX) / currentScale;
-                    const contentPointY = (viewportCenterY - currentY) / currentScale;
-                    
-                    // Calculate new position to keep the same content point at viewport center
-                    const newX = viewportCenterX - (contentPointX * newScale);
-                    const newY = viewportCenterY - (contentPointY * newScale);
-                    
-                    transformRef.current.setTransform(newX, newY, newScale);
-                  }
+                  if (transformRef.current) transformRef.current.zoomOut();
                 }}
               >
-                <img
-                  src={zoomOut}
-                  alt="Zoom out"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={zoomOutHighlight}
-                  alt="Zoom out highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: zoomOutHovered || zoomOutClicked ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
+                <img src={zoomOut} alt="Zoom out" draggable={false} style={{ display: "block" }} />
+                <img src={zoomOutHighlight} alt="Highlight" draggable={false} style={{ position: "absolute", top: 0, left: 0, display: "block", opacity: zoomOutHovered || zoomOutClicked ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
             </div>
-            {/* Reset button - positioned at bottom-right */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: "30px",
-                right: "30px",
-                zIndex: 10,
-              }}
-            >
+            <div style={{ position: "absolute", bottom: "30px", right: "30px", zIndex: 10 }}>
               <div
-                style={{
-                  position: "relative",
-                  cursor: "pointer",
-                  boxShadow: "0 0px 12px rgba(0, 0, 0, 0.3)",
-                  borderRadius: "50px",
-                  overflow: "hidden",
-                }}
+                style={{ position: "relative", cursor: "pointer", boxShadow: "0 0px 12px rgba(0, 0, 0, 0.3)", borderRadius: "50px", overflow: "hidden" }}
                 onMouseEnter={() => setResetHovered(true)}
-                onMouseLeave={() => {
-                  setResetHovered(false);
-                  setResetClicked(false);
-                }}
+                onMouseLeave={() => { setResetHovered(false); setResetClicked(false); }}
                 onMouseDown={() => setResetClicked(true)}
                 onMouseUp={() => setResetClicked(false)}
-                onTouchStart={() => {
-                  setResetHovered(true);
-                  setResetClicked(true);
-                }}
-                onTouchEnd={() => {
-                  // Use setTimeout to ensure highlight is visible briefly, then remove
-                  setTimeout(() => {
-                    setResetHovered(false);
-                    setResetClicked(false);
-                  }, 100);
-                }}
-                onTouchCancel={() => {
-                  setResetHovered(false);
-                  setResetClicked(false);
-                }}
                 onClick={() => {
-                  // Reset highlight immediately on click
                   setResetHovered(false);
                   setResetClicked(false);
-                  
-                  if (transformRef.current) {
-                    transformRef.current.resetTransform();
-                  }
+                  if (transformRef.current) transformRef.current.resetTransform();
                 }}
               >
-                <img
-                  src={reset}
-                  alt="Reset"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={resetHighlight}
-                  alt="Reset highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: resetHovered || resetClicked ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
+                <img src={reset} alt="Reset" draggable={false} style={{ display: "block" }} />
+                <img src={resetHighlight} alt="Highlight" draggable={false} style={{ position: "absolute", top: 0, left: 0, display: "block", opacity: resetHovered || resetClicked ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
             </div>
           </div>
         </div>
-        {/* Right detail area */}
-        <div
-          style={{
-            width: "700px",
-            height: "100%",
-            flexShrink: 0,
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          {/* Shop image display area */}
-          <div
-            style={{
-              width: "100%",
-              height: "394px",
-              backgroundColor: "#FFFFFF",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "hidden",
-            }}
-          >
+        <div style={{ width: "700px", height: "100%", flexShrink: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ width: "100%", height: "394px", backgroundColor: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
             <ShopImage photo={shop.photo2 || shop.photo1} shopId={shop.shopId} />
           </div>
-          {/* Shop logo and name */}
-          <div
-            style={{
-              marginTop: "50px",
-              marginLeft: "30px",
-              marginRight: "30px",
-              marginBottom: "30px",
-              display: "flex",
-              alignItems: "center",
-              gap: "20px",
-            }}
-          >
-            {/* Shop logo */}
-            {(() => {
-              // Try to get logo from shop.shopLogo, or construct default path if shopId exists
-              const logoPath = shop.shopLogo || (shop.shopId ? `files/shop/${shop.shopId}/shop_logo.png` : undefined);
-              console.log("Shop logo check:", {
-                shopLogo: shop.shopLogo,
-                shopId: shop.shopId,
-                constructedLogoPath: logoPath,
-              });
-              return logoPath;
-            })() && (
-              <div
-                style={{
-                  width: "200px",
-                  height: "200px",
-                  borderRadius: "20px",
-                  border: "2px solid #D9D9D9",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                  backgroundColor: "#FFFFFF",
-                  boxSizing: "border-box",
-                  padding: "10px",
-                  flexShrink: 0,
-                }}
-              >
-                <ShopLogoImage 
-                  photo={shop.shopLogo || (shop.shopId ? `files/shop/${shop.shopId}/shop_logo.png` : undefined)} 
-                  shopId={shop.shopId} 
-                />
+          <div style={{ marginTop: "50px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", display: "flex", alignItems: "center", gap: "20px" }}>
+            {(shop.shopLogo || shop.shopId) && (
+              <div style={{ width: "200px", height: "200px", borderRadius: "20px", border: "2px solid #D9D9D9", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", backgroundColor: "#FFFFFF", boxSizing: "border-box", padding: "10px", flexShrink: 0 }}>
+                <ShopLogoImage photo={shop.shopLogo || (shop.shopId ? `files/shop/${shop.shopId}/shop_logo.png` : undefined)} shopId={shop.shopId} />
               </div>
             )}
-            {/* Shop name */}
             <ShopNameDisplay name={shop.name} width="410px" fontSize="32px" />
           </div>
-          {/* Shop description */}
           {shop.description && (
-            <div
-              style={{
-                fontSize: "24px",
-                fontFamily: "'Rounded Mplus 1c', sans-serif",
-                fontWeight: 400,
-                width: "640px",
-                marginLeft: "30px",
-                marginRight: "30px",
-                marginBottom: "30px",
-                color: "#000000",
-                lineHeight: "1.6",
-                wordWrap: "break-word",
-                whiteSpace: "pre-wrap",
-              }}
-            >
+            <div style={{ fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, width: "640px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", color: "#000000", lineHeight: "1.6", wordWrap: "break-word", whiteSpace: "pre-wrap" }}>
               {shop.description}
             </div>
           )}
-          {/* Divider line */}
-          <div
-            style={{
-              width: "640px",
-              height: "1px",
-              backgroundColor: "#D9D9D9",
-              marginLeft: "30px",
-              marginRight: "30px",
-              marginBottom: "30px",
-            }}
-          />
-          {/* Floor information */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginLeft: "30px",
-              marginRight: "30px",
-              marginBottom: "30px",
-              fontSize: "24px",
-              fontFamily: "'Rounded Mplus 1c', sans-serif",
-              fontWeight: 400,
-              color: "#000000",
-            }}
-          >
-            {/* Location icon */}
-            <img
-              src={iconLocation}
-              alt=""
-              draggable={false}
-              onDragStart={(e) => e.preventDefault()}
-              style={{
-                width: "24px",
-                height: "24px",
-                flexShrink: 0,
-              }}
-            />
-            {/* Floor */}
-            {shop.floors && shop.floors.length > 0 && (
-              <span>{normalizeFloor(shop.floors[0])}</span>
-            )}
-            {/* Number */}
-            {shop.number && (
-              <span>[{shop.number}]</span>
-            )}
-            {/* Genre memo */}
-            {shop.genreMemo && (
-              <>
-                <span>/</span>
-                <span>{shop.genreMemo}</span>
-              </>
-            )}
+          <div style={{ width: "640px", height: "1px", backgroundColor: "#D9D9D9", marginLeft: "30px", marginRight: "30px", marginBottom: "30px" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, color: "#000000" }}>
+            <img src={iconLocation} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
+            {shop.floors && shop.floors.length > 0 && <span>{normalizeFloor(shop.floors[0])}</span>}
+            {shop.number && <span>[{shop.number}]</span>}
+            {shop.genreMemo && (<><span>/</span><span>{shop.genreMemo}</span></>)}
           </div>
-          {/* Opening hours */}
-          {shop.openTime && (() => {
-            // Split at 】 if found
-            const closingBracketIndex = shop.openTime.indexOf("】");
-            const hasBracket = closingBracketIndex !== -1;
-            let firstLine = shop.openTime;
-            let secondLine = "";
-            
-            if (hasBracket) {
-              firstLine = shop.openTime.substring(0, closingBracketIndex + 1);
-              secondLine = shop.openTime.substring(closingBracketIndex + 1);
-            }
-            
-            return (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginLeft: "30px",
-                  marginRight: "30px",
-                  marginBottom: "30px",
-                  fontSize: "24px",
-                  fontFamily: "'Rounded Mplus 1c', sans-serif",
-                  fontWeight: 400,
-                  color: "#000000",
-                }}
-              >
-                {/* Time icon */}
-                <img
-                  src={iconTime}
-                  alt=""
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    width: "24px",
-                    height: "24px",
-                    flexShrink: 0,
-                  }}
-                />
-                {/* Opening hours text */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    lineHeight: "1.4",
-                  }}
-                >
-                  <span>{firstLine}</span>
-                  {secondLine && <span>{secondLine}</span>}
+          {shop.openTime && (
+             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, color: "#000000" }}>
+                <img src={iconTime} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
+                <div style={{ display: "flex", flexDirection: "column", lineHeight: "1.4" }}>
+                  <span>{shop.openTime}</span>
                 </div>
-              </div>
-            );
-          })()}
-          {/* Phone number */}
+             </div>
+          )}
           {shop.tel && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginLeft: "30px",
-                marginRight: "30px",
-                marginBottom: "30px",
-                fontSize: "24px",
-                fontFamily: "'Rounded Mplus 1c', sans-serif",
-                fontWeight: 400,
-                color: "#000000",
-              }}
-            >
-              {/* Tel icon */}
-              <img
-                src={iconTel}
-                alt=""
-                draggable={false}
-                onDragStart={(e) => e.preventDefault()}
-                style={{
-                  width: "24px",
-                  height: "24px",
-                  flexShrink: 0,
-                }}
-              />
-              {/* Phone number text */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, color: "#000000" }}>
+              <img src={iconTel} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
               <span>{shop.tel}</span>
             </div>
           )}
         </div>
       </div>
-      {/* Close button - positioned outside modal, at top-right corner, aligned to modal's right edge */}
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
-        style={{
-          position: "absolute",
-          top: "calc(50% - 840px)",
-          right: "calc(50% - 1250px)",
-          transform: "translateY(-100%)",
-          marginTop: "-30px",
-          width: "140px",
-          height: "140px",
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-          padding: 0,
-          zIndex: 1001,
-        }}
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        style={{ position: "absolute", top: "calc(50% - 840px)", right: "calc(50% - 1250px)", transform: "translateY(-100%)", marginTop: "-30px", width: "140px", height: "140px", border: "none", background: "transparent", cursor: "pointer", padding: 0, zIndex: 1001 }}
       >
-        <img
-          src={buttonClose}
-          alt="Close"
-          draggable={false}
-          onDragStart={(e) => e.preventDefault()}
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "block",
-          }}
-        />
+        <img src={buttonClose} alt="Close" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "100%", height: "100%", display: "block" }} />
       </button>
     </div>
   );
 };
 
 export default ShopDetailScreen;
-

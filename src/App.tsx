@@ -71,12 +71,14 @@ const App: React.FC = () => {
               speechBubble: {
                 ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
                 ...saved.speechBubble,
+                enabled: DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled, // Always use default enabled value
                 shadow: saved.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
                 animation: saved.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
               },
               location: {
                 ...DEFAULT_LOCATION_ICON_SETTINGS.location,
                 ...saved.location,
+                enabled: DEFAULT_LOCATION_ICON_SETTINGS.location.enabled, // Always use default enabled value
                 shadow: saved.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
               },
             };
@@ -96,12 +98,14 @@ const App: React.FC = () => {
                 speechBubble: {
                   ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
                   ...settings.speechBubble,
+                  enabled: DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled, // Always use default enabled value
                   shadow: settings.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
                   animation: settings.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
                 },
                 location: {
                   ...DEFAULT_LOCATION_ICON_SETTINGS.location,
                   ...settings.location,
+                  enabled: DEFAULT_LOCATION_ICON_SETTINGS.location.enabled, // Always use default enabled value
                   shadow: settings.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
                 },
               };
@@ -171,12 +175,14 @@ const App: React.FC = () => {
               speechBubble: {
                 ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
                 ...updated.speechBubble,
+                enabled: DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled, // Always use default enabled value
                 shadow: updated.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
                 animation: updated.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
               },
               location: {
                 ...DEFAULT_LOCATION_ICON_SETTINGS.location,
                 ...updated.location,
+                enabled: DEFAULT_LOCATION_ICON_SETTINGS.location.enabled, // Always use default enabled value
                 shadow: updated.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
               },
             };
@@ -196,12 +202,14 @@ const App: React.FC = () => {
                 speechBubble: {
                   ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
                   ...settings.speechBubble,
+                  enabled: DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled, // Always use default enabled value
                   shadow: settings.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
                   animation: settings.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
                 },
                 location: {
                   ...DEFAULT_LOCATION_ICON_SETTINGS.location,
                   ...settings.location,
+                  enabled: DEFAULT_LOCATION_ICON_SETTINGS.location.enabled, // Always use default enabled value
                   shadow: settings.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
                 },
               };

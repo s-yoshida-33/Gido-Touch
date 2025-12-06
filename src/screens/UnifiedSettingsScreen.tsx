@@ -5,7 +5,6 @@ import GidoApp from "./GidoApp";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import { getLocationIconSettingsForFloor, DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR } from "../config";
 import type { FloorId, FloorLayout } from "../types/floorLayout";
-import { LocationSettingsTab } from "../components/LocationSettingsTab";
 import { ImageSettingsTab } from "../components/ImageSettingsTab";
 import { ShopPositionSettingsTab } from "../components/ShopPositionSettingsTab";
 import iconSvg from "../assets/icon.svg";
@@ -13,7 +12,7 @@ import type { ImageSettings } from "../types/imageSettings";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
 
-type TabType = "location" | "image" | "shopPosition";
+type TabType = "image" | "shopPosition";
 
 interface UnifiedSettingsScreenProps {
   floor: FloorId;
@@ -41,7 +40,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   shops,
 }) => {
   const [visible, setVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>("location");
+  const [activeTab, setActiveTab] = useState<TabType>("image");
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -106,7 +105,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     if (window.electronAPI?.onOpenSettings) {
       unsubscribe = window.electronAPI.onOpenSettings(() => {
         setVisible(true);
-        setActiveTab("location");
+        setActiveTab("image");
         setFloor(initialFloor);
         setLocationIconSettings(initialLocationIconSettings);
         setImageSettings(initialImageSettings);
@@ -166,18 +165,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   const validateSettings = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    if (activeTab === "location") {
-      // Validate location icon settings for all floors
-      Object.entries(locationIconSettings).forEach(([floorId, settings]) => {
-        if (settings.speechBubble.size <= 0 || settings.speechBubble.size > 512) {
-          newErrors[`location.${floorId}.speechBubble.size`] = `${floorId}のSpeechBubbleサイズは1〜512の範囲で入力してください`;
-        }
-        if (settings.location.size <= 0 || settings.location.size > 512) {
-          newErrors[`location.${floorId}.location.size`] = `${floorId}のLocationサイズは1〜512の範囲で入力してください`;
-        }
-      });
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -344,7 +331,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
           {/* Tabs */}
           <div style={{ flex: 1, padding: "16px 0" }}>
             {[
-              { id: "location" as TabType, label: "現在地" },
               { id: "image" as TabType, label: "画像" },
               { id: "shopPosition" as TabType, label: "座標設定" },
             ].map((tab) => (
@@ -420,16 +406,18 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 height: `${window.screen.height >= 2160 ? 2160 : 1080}px`,
               }}
             >
-              <GidoApp
-                locationIconSettings={getLocationIconSettingsForFloor(locationIconSettings, floor)}
-                previewFloor={floor}
-                previewFloorLayout={floorLayout}
-                imageSettings={imageSettings}
-                shopPositions={activeTab === "shopPosition" ? shopPositions : undefined}
-                shops={activeTab === "shopPosition" ? shops : undefined}
-                selectedShopId={activeTab === "shopPosition" ? selectedShopId : undefined}
-                showOnlyMap={activeTab === "shopPosition"}
-              />
+              {activeTab !== "image" && (
+                <GidoApp
+                  locationIconSettings={getLocationIconSettingsForFloor(locationIconSettings, floor)}
+                  previewFloor={floor}
+                  previewFloorLayout={floorLayout}
+                  imageSettings={imageSettings}
+                  shopPositions={activeTab === "shopPosition" ? shopPositions : undefined}
+                  shops={activeTab === "shopPosition" ? shops : undefined}
+                  selectedShopId={activeTab === "shopPosition" ? selectedShopId : undefined}
+                  showOnlyMap={activeTab === "shopPosition"}
+                />
+              )}
             </TransformComponent>
           </TransformWrapper>
           </div>
@@ -512,14 +500,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             padding: "24px",
           }}
         >
-          {activeTab === "location" && (
-            <LocationSettingsTab
-              floor={floor}
-              onChangeFloor={setFloor}
-              locationIconSettings={locationIconSettings}
-              onChangeLocationIconSettings={setLocationIconSettings}
-            />
-          )}
           {activeTab === "image" && (
             <ImageSettingsTab
               floor={floor}
