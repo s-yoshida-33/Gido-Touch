@@ -27,20 +27,20 @@ function buildShadowStyle(shadow?: ShopPosition['shadow']): React.CSSProperties 
 function buildAnimationProps(fixedAmplitude: number, animation?: AnimationConfig) {
   if (!animation || !animation.enabled || animation.type === "none") {
     return {
-      initial: { scale: 1, backgroundColor: "rgba(255, 255, 255, 0)" },
-      animate: { scale: 1, backgroundColor: "rgba(255, 255, 255, 0)" },
+      initial: { scale: 1 },
+      animate: { scale: 1 },
     };
   }
 
   const duration = animation.duration;
 
+  // 'ease' property needs 'as const' to satisfy Framer Motion types
   switch (animation.type) {
     case "floating":
       return {
-        initial: { y: 0, backgroundColor: "rgba(255, 255, 255, 0)" },
+        initial: { y: 0 },
         animate: {
           y: [0, -fixedAmplitude, 0],
-          backgroundColor: "rgba(255, 255, 255, 0)",
         },
         transition: {
           duration,
@@ -50,10 +50,10 @@ function buildAnimationProps(fixedAmplitude: number, animation?: AnimationConfig
       };
     case "pulse":
       return {
-        initial: { scale: 1, backgroundColor: "rgba(255, 255, 255, 0)" },
+        initial: { scale: 1 },
         animate: {
           scale: [1, 1.1, 1],
-          backgroundColor: "rgba(255, 255, 255, 0)" },
+        },
         transition: {
           duration,
           repeat: Infinity,
@@ -62,10 +62,10 @@ function buildAnimationProps(fixedAmplitude: number, animation?: AnimationConfig
       };
     case "bounce":
       return {
-        initial: { y: 0, backgroundColor: "rgba(255, 255, 255, 0)" },
+        initial: { y: 0 },
         animate: {
           y: [0, -fixedAmplitude, 0],
-          backgroundColor: "rgba(255, 255, 255, 0)" },
+        },
         transition: {
           duration,
           repeat: Infinity,
@@ -84,22 +84,19 @@ function buildAnimationProps(fixedAmplitude: number, animation?: AnimationConfig
       };
     default:
       return {
-        initial: { scale: 1, backgroundColor: "rgba(255, 255, 255, 0)" },
-        animate: { scale: 1, backgroundColor: "rgba(255, 255, 255, 0)" },
+        initial: { scale: 1 },
+        animate: { scale: 1 },
       };
   }
 }
 
-// Helper to build image path
 function buildImagePath(photo: string | undefined, shopId: string | undefined): string {
   if (!photo) return "";
   
-  // Handle windows absolute paths
   if (photo.match(/^[A-Za-z]:[\\/]/)) {
     return photo.replace(/\\/g, "/");
   }
   
-  // Handle protocols
   if (photo.startsWith("file://") || 
       photo.startsWith("http://") || 
       photo.startsWith("https://") ||
@@ -107,13 +104,11 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
     return photo;
   }
   
-  // Handle absolute paths (Unix-like)
   if (photo.startsWith("/") || photo.startsWith("\\")) {
     if (photo.startsWith("\\\\")) return photo;
     if (photo.startsWith("/")) return photo;
   }
   
-  // Handle relative paths with shopId
   if (shopId) {
     if (photo.includes(`shop/${shopId}/`) || photo.includes(`shop\\${shopId}\\`) ||
         photo.includes(`files/shop/${shopId}/`) || photo.includes(`files\\shop\\${shopId}\\`)) {
@@ -123,7 +118,6 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
     const normalizedPhoto = photo.replace(/\\/g, "/");
     const cleanPhoto = normalizedPhoto.startsWith("/") ? normalizedPhoto.slice(1) : normalizedPhoto;
     
-    // If it's just a filename like "logo.png"
     if (!cleanPhoto.includes("/")) {
       return `files/shop/${shopId}/${cleanPhoto}`;
     }
@@ -137,7 +131,6 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
   return photo;
 }
 
-// Convert path to file URL
 function toFileUrl(filePath: string): string {
   if (!filePath) return "";
   
@@ -158,8 +151,7 @@ function toFileUrl(filePath: string): string {
     return `file://${normalized}`;
   }
   
-  // Fallback for relative paths
-  return filePath;
+  return `file:///${normalized}`;
 }
 
 export const ShopPin: React.FC<ShopPinProps> = ({ 
@@ -185,7 +177,6 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   const [logoLoading, setLogoLoading] = useState(true);
   
   useEffect(() => {
-    // Determine logo path: use prop or fallback to standard location
     const logoPath = shopLogo || (shopId ? `files/shop/${shopId}/shop_logo.png` : undefined);
     
     if (!logoPath) {
@@ -215,7 +206,6 @@ export const ShopPin: React.FC<ShopPinProps> = ({
         }
       }
 
-      // Fallback for non-electron or failed IPC
       const fileUrl = toFileUrl(imagePath);
       setLogoUrl(fileUrl);
       setLogoLoading(false);
@@ -224,56 +214,51 @@ export const ShopPin: React.FC<ShopPinProps> = ({
     loadLogo();
   }, [shopLogo, shopId]);
 
-  const animationKey = animation
-    ? `${animation.enabled}-${animation.type}-${animation.duration}-${animation.amplitude}-${animation.rippleColor || ""}-${animation.rippleSize || ""}`
-    : "no-animation";
-
-  // Calculate inverse scale to maintain visual size during zoom
   const inverseScale = 1 / Math.max(transformScale, 0.1);
 
-  const baseWrapperStyle: React.CSSProperties = {
+  // Wrapper style: positions the pin on the map
+  const wrapperStyle: React.CSSProperties = {
     position: "absolute",
     left: `${position.x}%`,
     top: `${position.y}%`,
-    width: 0,
-    height: 0,
+    // Do NOT set width/height to 0 here; let it size to content
+    // transform centers the element on the coordinate
     transform: `translate(-50%, -50%) scale(${inverseScale})`,
     transformOrigin: "center center",
-    pointerEvents: "none",
-    zIndex: isSelected ? 101 : 100,
+    zIndex: isSelected ? 1000 : 100,
+    pointerEvents: "none", 
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
     ...buildShadowStyle(shadow),
     ...style,
   };
 
   if (isSelected) {
-    baseWrapperStyle.filter = baseWrapperStyle.filter
-      ? `${baseWrapperStyle.filter}, drop-shadow(0 0 8px rgba(0, 122, 255, 0.8))`
+    wrapperStyle.filter = wrapperStyle.filter
+      ? `${wrapperStyle.filter}, drop-shadow(0 0 8px rgba(0, 122, 255, 0.8))`
       : "drop-shadow(0 0 8px rgba(0, 122, 255, 0.8))";
   }
 
-  // Pin image (speech bubble)
-  const imageStyle: React.CSSProperties = {
+  const pinImageStyle: React.CSSProperties = {
     width: `${size}px`,
     height: "auto",
     display: "block",
     transform: `rotate(${rotation}deg)`,
     transformOrigin: "center bottom",
-    position: "relative",
-    zIndex: 1, // Base layer
+    zIndex: 1,
   };
   
-  // Logo image overlay
-  const fixedLogoSize = size * 0.55; // Adjusted size to fit in the speech bubble
+  const fixedLogoSize = size * 0.75;
   const logoStyle: React.CSSProperties = {
     position: "absolute",
-    top: `calc(50% - ${fixedLogoSize / 2 + 6}px)`, // Adjusted vertical position
+    top: `calc(50% - ${fixedLogoSize / 2 - size * 0.3}px)`,
     left: "50%",
-    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
     width: `${fixedLogoSize}px`,
     height: `${fixedLogoSize}px`,
     objectFit: "contain",
-    pointerEvents: "none",
-    zIndex: 2, // Layer on top of the pin
+    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+    zIndex: 2,
   };
 
   const rippleColor = animation?.rippleColor || "#FFFFFF";
@@ -282,118 +267,86 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   const isBlinkAnimation = animation?.enabled && animation.type === "blink";
 
   const renderContent = () => (
-    <>
+    <div style={{ position: "relative", width: `${size}px`, height: `${size}px`, display: "flex", justifyContent: "center", alignItems: "center" }}>
       {isBlinkAnimation && (
         <>
           <style>{`
             @keyframes ripple-animation-${shopId} {
-              0% {
-                transform: translate(-50%, -50%) scale(${rippleCenterSize});
-                opacity: 1;
-              }
-              90% {
-                opacity: 0.1;
-              }
-              100% {
-                transform: translate(-50%, -50%) scale(${rippleSize * 1.2});
-                opacity: 0;
-              }
+              0% { transform: translate(-50%, -50%) scale(${rippleCenterSize}); opacity: 1; }
+              90% { opacity: 0.1; }
+              100% { transform: translate(-50%, -50%) scale(${rippleSize * 1.2}); opacity: 0; }
             }
-            .ripple-${shopId}-1 {
-              animation: ripple-animation-${shopId} ${animation.duration}s ease-out infinite;
-            }
-            .ripple-${shopId}-2 {
-              animation: ripple-animation-${shopId} ${animation.duration}s ease-out ${animation.duration / 2}s infinite;
+            .ripple-${shopId} {
+              position: absolute;
+              top: 43%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              border-radius: 50%;
+              background-color: ${rippleColor};
+              pointer-events: none;
+              z-index: 0;
             }
           `}</style>
           <div
-            className={`ripple-${shopId}-1`}
+            className={`ripple-${shopId}`}
             style={{
-              position: "absolute",
-              top: "calc(50% - 6px)",
-              left: "50%",
-              transform: `translate(-50%, -50%) scale(${rippleCenterSize})`,
               width: `${size}px`,
               height: `${size}px`,
-              borderRadius: "50%",
-              backgroundColor: rippleColor,
-              pointerEvents: "none",
-              zIndex: 0, // Behind the pin
-              opacity: 0,
+              animation: `ripple-animation-${shopId} ${animation.duration}s ease-out infinite`,
             }}
           />
           <div
-            className={`ripple-${shopId}-2`}
+            className={`ripple-${shopId}`}
             style={{
-              position: "absolute",
-              top: "calc(50% - 6px)",
-              left: "50%",
-              transform: `translate(-50%, -50%) scale(${rippleCenterSize})`,
               width: `${size}px`,
               height: `${size}px`,
-              borderRadius: "50%",
-              backgroundColor: rippleColor,
-              pointerEvents: "none",
-              zIndex: 0,
-              opacity: 0,
+              animation: `ripple-animation-${shopId} ${animation.duration}s ease-out ${animation.duration / 2}s infinite`,
             }}
           />
         </>
       )}
       
-      {/* Pin Image */}
       <img
         src={speechBubbleIcon}
         alt={shopName}
         draggable={false}
-        onDragStart={(e) => e.preventDefault()}
-        style={imageStyle}
+        style={pinImageStyle}
+        onError={(e) => console.error("Pin icon failed to load", e)}
       />
       
-      {/* Logo Image Overlay */}
       {logoUrl && !logoLoading && (
         <img
           src={logoUrl}
           alt={`${shopName} logo`}
           draggable={false}
-          onDragStart={(e) => e.preventDefault()}
           style={logoStyle}
           onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.style.display = "none";
-            console.warn(`Failed to load shop logo for ${shopName}: ${logoUrl}`);
+            (e.target as HTMLImageElement).style.display = "none";
           }}
         />
       )}
-    </>
+    </div>
   );
 
   if (animation?.enabled && animation.type !== "none") {
     const animationProps = buildAnimationProps(fixedAmplitude, animation);
-    
+    // Explicitly cast style to avoid type conflict with animation props if necessary, 
+    // though the buildAnimationProps fix should resolve the main error.
     return (
-      <div style={baseWrapperStyle}>
-        <motion.div
-          key={animationKey}
-          style={{ 
-            position: "relative", 
-            display: "inline-block",
-          }}
-          initial={animationProps.initial}
-          animate={animationProps.animate}
-          transition={animationProps.transition}
-        >
-          {renderContent()}
-        </motion.div>
-      </div>
+      <motion.div
+        style={wrapperStyle as any} 
+        initial={animationProps.initial}
+        animate={animationProps.animate}
+        transition={animationProps.transition}
+      >
+        {renderContent()}
+      </motion.div>
     );
   }
 
   return (
-    <div style={baseWrapperStyle}>
-      <div style={{ position: "relative", display: "inline-block" }}>
-        {renderContent()}
-      </div>
+    <div style={wrapperStyle}>
+      {renderContent()}
     </div>
   );
 };

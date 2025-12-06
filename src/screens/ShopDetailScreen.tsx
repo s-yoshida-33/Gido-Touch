@@ -56,33 +56,17 @@ const ShopLogoImage: React.FC<{ photo: string | undefined; shopId: string | unde
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    if (!photo) {
-      setIsLoading(false);
-      setHasError(true);
-      return;
-    }
+    if (!photo) { setIsLoading(false); setHasError(true); return; }
     const loadImage = async () => {
       const imagePath = buildImagePath(photo, shopId);
-      if (!imagePath) {
-        setIsLoading(false);
-        setHasError(true);
-        return;
-      }
+      if (!imagePath) { setIsLoading(false); setHasError(true); return; }
       const electronAPI = window.electronAPI;
       if (electronAPI && electronAPI.getShopImage) {
         try {
           const normalizedPath = imagePath.replace(/\\/g, "/");
           const dataUrl = await electronAPI.getShopImage(normalizedPath);
-          if (dataUrl) {
-            setImageUrl(dataUrl);
-            setIsLoading(false);
-            setHasError(false);
-            return;
-          }
-        } catch (error) {
-          console.error(error);
-          setHasError(true);
-        }
+          if (dataUrl) { setImageUrl(dataUrl); setIsLoading(false); setHasError(false); return; }
+        } catch (error) { console.error(error); setHasError(true); }
       }
       const fileUrl = toFileUrl(imagePath);
       setImageUrl(fileUrl);
