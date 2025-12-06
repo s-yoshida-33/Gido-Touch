@@ -13,6 +13,10 @@ interface ShopPinProps {
   shopId?: string;
   transformScale?: number;
   style?: React.CSSProperties;
+  // Props for absolute pixel positioning
+  usePixelPosition?: boolean;
+  pixelX?: number;
+  pixelY?: number;
 }
 
 function buildShadowStyle(shadow?: ShopPosition['shadow']): React.CSSProperties {
@@ -34,7 +38,6 @@ function buildAnimationProps(fixedAmplitude: number, animation?: AnimationConfig
 
   const duration = animation.duration;
 
-  // 'ease' property needs 'as const' to satisfy Framer Motion types
   switch (animation.type) {
     case "floating":
       return {
@@ -161,7 +164,10 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   shopLogo,
   shopId,
   transformScale = 1,
-  style
+  style,
+  usePixelPosition = false,
+  pixelX,
+  pixelY
 }) => {
   if (position.enabled === false) {
     return null;
@@ -216,13 +222,16 @@ export const ShopPin: React.FC<ShopPinProps> = ({
 
   const inverseScale = 1 / Math.max(transformScale, 0.1);
 
+  // Determine coordinates: prioritize pixel props if enabled
+  const left = usePixelPosition && pixelX !== undefined ? `${pixelX}px` : `${position.x}%`;
+  const top = usePixelPosition && pixelY !== undefined ? `${pixelY}px` : `${position.y}%`;
+
   // Wrapper style: positions the pin on the map
   const wrapperStyle: React.CSSProperties = {
     position: "absolute",
-    left: `${position.x}%`,
-    top: `${position.y}%`,
-    // Do NOT set width/height to 0 here; let it size to content
-    // transform centers the element on the coordinate
+    left,
+    top,
+    // Center the element on the coordinate using translate
     transform: `translate(-50%, -50%) scale(${inverseScale})`,
     transformOrigin: "center center",
     zIndex: isSelected ? 1000 : 100,
@@ -330,8 +339,6 @@ export const ShopPin: React.FC<ShopPinProps> = ({
 
   if (animation?.enabled && animation.type !== "none") {
     const animationProps = buildAnimationProps(fixedAmplitude, animation);
-    // Explicitly cast style to avoid type conflict with animation props if necessary, 
-    // though the buildAnimationProps fix should resolve the main error.
     return (
       <motion.div
         style={wrapperStyle as any} 

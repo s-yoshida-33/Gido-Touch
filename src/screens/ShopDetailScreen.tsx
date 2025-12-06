@@ -1,5 +1,5 @@
 // src/screens/ShopDetailScreen.tsx
-import React, { useRef, useState, useEffect, useLayoutEffect } from "react";
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import buttonClose from "../assets/button-close.svg";
 import food1FMap from "../assets/food-1F-map.svg";
@@ -21,6 +21,10 @@ import iconTime from "../assets/icon-time.svg";
 import iconTel from "../assets/icon-tel.svg";
 import type { Shop } from "../types/shop";
 import { ShopPin } from "../components/ShopPin";
+
+// Constants for consistent scaling (must match GidoApp)
+const REFERENCE_MAP_WIDTH = 1920;
+const DEFAULT_PIN_SIZE = 80;
 
 function buildImagePath(photo: string | undefined, shopId: string | undefined): string {
   if (!photo) return "";
@@ -48,6 +52,41 @@ function toFileUrl(filePath: string): string {
   if (normalized.match(/^[A-Za-z]:\//)) return `file:///${normalized}`;
   if (normalized.startsWith("/")) return `file://${normalized}`;
   return `file:///${normalized}`;
+}
+
+// Helper function to calculate actual image dimensions (Same as GidoApp)
+function calculateImageRect(
+  containerWidth: number,
+  containerHeight: number,
+  imageNaturalWidth: number,
+  imageNaturalHeight: number
+) {
+  const containerAspect = containerWidth / containerHeight;
+  const imageAspect = imageNaturalWidth / imageNaturalHeight;
+
+  let displayWidth, displayHeight, offsetX, offsetY;
+
+  if (containerAspect > imageAspect) {
+    // Container is wider than image -> Image fits by height
+    displayHeight = containerHeight;
+    displayWidth = displayHeight * imageAspect;
+    offsetY = 0;
+    offsetX = (containerWidth - displayWidth) / 2;
+  } else {
+    // Container is taller than image -> Image fits by width
+    displayWidth = containerWidth;
+    displayHeight = displayWidth / imageAspect;
+    offsetX = 0;
+    offsetY = (containerHeight - displayHeight) / 2;
+  }
+
+  // Use Math.round to prevent sub-pixel rendering issues
+  return { 
+    displayWidth: Math.round(displayWidth), 
+    displayHeight: Math.round(displayHeight), 
+    offsetX: Math.round(offsetX), 
+    offsetY: Math.round(offsetY) 
+  };
 }
 
 const ShopLogoImage: React.FC<{ photo: string | undefined; shopId: string | undefined }> = ({ photo, shopId }) => {
@@ -129,49 +168,113 @@ const MapWithPinsComponent: React.FC<{
   shopId?: string;
   currentScale: number;
 }> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentScale }) => {
-  const [mapDimensions, setMapDimensions] = useState<{ width: number; height: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const [imageMetrics, setImageMetrics] = useState<{ 
+    displayWidth: number; 
+    displayHeight: number; 
+    offsetX: number; 
+    offsetY: number;
+  } | null>(null);
 
-  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    if (img.naturalWidth && img.naturalHeight) {
-      setMapDimensions({ width: img.naturalWidth, height: img.naturalHeight });
-    }
-  };
+  // Update metrics based on actual container and image size
+  const updateMetrics = useCallback(() => {
+    if (!containerRef.current || !imageRef.current) return;
+    const img = imageRef.current;
+    
+    if (!img.complete || img.naturalWidth === 0) return;
 
-  if (!shopPosition || shopPosition.floor !== normalizedFloor) {
-    return (
-      <img src={mapImage} alt={`${normalizedFloor} map`} draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+    const metrics = calculateImageRect(
+      containerRef.current.clientWidth,
+      containerRef.current.clientHeight,
+      img.naturalWidth,
+      img.naturalHeight
     );
+    setImageMetrics(metrics);
+  }, []);
+
+  useEffect(() => {
+    const img = imageRef.current;
+    if (img) {
+      if (img.complete) updateMetrics();
+      else img.addEventListener('load', updateMetrics);
+    }
+    
+    const resizeObserver = new ResizeObserver(updateMetrics);
+    if (containerRef.current) resizeObserver.observe(containerRef.current);
+
+    return () => {
+      img?.removeEventListener('load', updateMetrics);
+      resizeObserver.disconnect();
+    };
+  }, [mapImage, updateMetrics]);
+
+  const shouldShowPin = shopPosition && shopPosition.floor === normalizedFloor && imageMetrics;
+
+  // Calculate Render Props
+  let renderPosition = shopPosition;
+  let pixelX = 0;
+  let pixelY = 0;
+
+  if (shouldShowPin && imageMetrics && shopPosition) {
+    // 1. Normalize position to 0-100 scale
+    const normalizedX = shopPosition.x <= 1 ? shopPosition.x * 100 : shopPosition.x;
+    const normalizedY = shopPosition.y <= 1 ? shopPosition.y * 100 : shopPosition.y;
+
+    // 2. Scale pin size consistent with GidoApp
+    const scaleRatio = imageMetrics.displayWidth / REFERENCE_MAP_WIDTH;
+    const basePinSize = shopPosition.size ?? DEFAULT_PIN_SIZE;
+    const scaledPinSize = basePinSize * scaleRatio;
+
+    renderPosition = {
+      ...shopPosition,
+      x: normalizedX,
+      y: normalizedY,
+      size: scaledPinSize
+    };
+
+    // 3. Calculate exact pixel coordinates (0% = Image Left, 100% = Image Right)
+    const xPercent = normalizedX / 100;
+    const yPercent = normalizedY / 100;
+
+    pixelX = Math.round(imageMetrics.offsetX + (xPercent * imageMetrics.displayWidth));
+    pixelY = Math.round(imageMetrics.offsetY + (yPercent * imageMetrics.displayHeight));
   }
 
   return (
     <div
+      ref={containerRef}
       style={{
+        width: "100%",
+        height: "100%",
         position: "relative",
-        aspectRatio: mapDimensions ? `${mapDimensions.width} / ${mapDimensions.height}` : undefined,
-        height: mapDimensions ? "100%" : undefined,
-        maxWidth: "100%",
-        maxHeight: "100%",
         display: "flex",
         justifyContent: "center",
-        alignItems: "center"
+        alignItems: "center",
+        overflow: "hidden"
       }}
     >
       <img
+        ref={imageRef}
         src={mapImage}
         alt={`${normalizedFloor} map`}
-        onLoad={handleImageLoad}
         draggable={false}
         onDragStart={(e) => e.preventDefault()}
         style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
       />
-      <ShopPin
-        position={shopPosition}
-        shopName={shopName}
-        shopLogo={shopLogo}
-        shopId={shopId}
-        transformScale={currentScale}
-      />
+      
+      {shouldShowPin && renderPosition && (
+        <ShopPin
+          position={renderPosition}
+          shopName={shopName}
+          shopLogo={shopLogo}
+          shopId={shopId}
+          transformScale={currentScale}
+          usePixelPosition={true}
+          pixelX={pixelX}
+          pixelY={pixelY}
+        />
+      )}
     </div>
   );
 };

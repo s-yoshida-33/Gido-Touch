@@ -406,7 +406,13 @@ function calculateImageRect(
     offsetY = (containerHeight - displayHeight) / 2;
   }
 
-  return { displayWidth, displayHeight, offsetX, offsetY };
+  // Use Math.round to prevent sub-pixel rendering issues which might cause slight visual offsets
+  return { 
+    displayWidth: Math.round(displayWidth), 
+    displayHeight: Math.round(displayHeight), 
+    offsetX: Math.round(offsetX), 
+    offsetY: Math.round(offsetY) 
+  };
 }
 
 /**
@@ -540,20 +546,14 @@ const ShopPinsOverlay: React.FC<{
             size: scaledPinSize
           };
 
-          // Calculate Pixel Coordinates using Containment Logic
-          // This ensures pin stays within the map boundaries regardless of size
-          const effectiveWidth = imageMetrics.displayWidth - scaledPinSize;
-          const effectiveHeight = imageMetrics.displayHeight - scaledPinSize;
-          const pinRadius = scaledPinSize / 2;
-
+          // Calculate Pixel Coordinates directly mapped to image dimensions.
+          // Removed the containment logic that shifted pins inward.
+          // Now: 0% = Image Left Edge, 100% = Image Right Edge.
           const xPercent = renderPosition.x / 100;
           const yPercent = renderPosition.y / 100;
 
-          // Note: ShopPin is centered (translate -50%, -50%). 
-          // We calculate the center point here.
-          // Logic: Offset + (Percent * EffectiveWidth) + Radius
-          const pixelX = imageMetrics.offsetX + (xPercent * effectiveWidth) + pinRadius;
-          const pixelY = imageMetrics.offsetY + (yPercent * effectiveHeight) + pinRadius;
+          const pixelX = Math.round(imageMetrics.offsetX + (xPercent * imageMetrics.displayWidth));
+          const pixelY = Math.round(imageMetrics.offsetY + (yPercent * imageMetrics.displayHeight));
 
           return (
             <ShopPin
