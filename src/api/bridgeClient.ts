@@ -119,9 +119,11 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
       return {
         shopId: String(item.shop_id),
         name: item.shop_name,
+        nameEn: item.shop_name_english,
         genre: item.genre,
         genreSub: item.genre_sub,
         genreMemo: item.genre_memo,
+        genreMemoEn: item.genre_memo_english,
         number: item.number,
         floors,
         photo1: photo1Value,

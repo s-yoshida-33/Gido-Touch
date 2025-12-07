@@ -933,17 +933,25 @@ const ShopListScreen: React.FC = () => {
                   {columnShops.map((shop) => {
                     // Get first floor for display
                     const floor = shop.floors && shop.floors.length > 0 ? shop.floors[0] : "";
-                    // Get first 2 genre memos (split by |)
-                    const genreMemo = shop.genreMemo 
-                      ? shop.genreMemo
+                    
+                    // Logic for genre memo display
+                    let genreMemo = "";
+                    if (selectedLanguage === "en" && shop.genreMemoEn) {
+                      genreMemo = shop.genreMemoEn;
+                    } else if (shop.genreMemo) {
+                        genreMemo = shop.genreMemo
                           .split(/[|]+/)
                           .map(s => s.trim())
                           .filter(s => s.length > 0)
                           .slice(0, 2)
-                          .join(" / ")
-                      : "";
+                          .join(" / ");
+                    }
+
                     // Format first line: "フロア [区画番号] ジャンルメモ"
                     const firstLine = `${floor} [${shop.number}] ${genreMemo}`;
+
+                    // Logic for shop name display
+                    const shopName = (selectedLanguage === "en" && shop.nameEn) ? shop.nameEn : shop.name;
 
                     return (
                       <motion.div
@@ -1039,7 +1047,7 @@ const ShopListScreen: React.FC = () => {
                             {firstLine}
                           </div>
                           {/* Second line: Shop name (24px) */}
-                          <ShopNameDisplay name={shop.name} />
+                          <ShopNameDisplay name={shopName} />
                         </div>
                       </motion.div>
                     );
@@ -1069,7 +1077,11 @@ const ShopListScreen: React.FC = () => {
                 zIndex: 1000,
               }}
             >
-              <ShopDetailScreen shop={selectedShop} onClose={() => setSelectedShop(null)} />
+              <ShopDetailScreen 
+                shop={selectedShop} 
+                onClose={() => setSelectedShop(null)} 
+                language={selectedLanguage}
+              />
             </motion.div>
           )}
         </AnimatePresence>

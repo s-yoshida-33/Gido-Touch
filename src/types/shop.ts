@@ -24,9 +24,11 @@ export interface ShopPosition {
 export interface Shop {
   shopId?: string;
   name: string;
+  nameEn?: string;
   genre: string;
   genreSub?: string;
   genreMemo: string;
+  genreMemoEn?: string;
   number: string;
   floors: FloorId[];
   photo1?: string;

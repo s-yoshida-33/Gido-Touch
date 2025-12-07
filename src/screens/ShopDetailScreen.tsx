@@ -306,9 +306,10 @@ const ShopNameDisplay: React.FC<{ name: string; width: string; fontSize: string 
 interface ShopDetailScreenProps {
   shop: Shop;
   onClose: () => void;
+  language?: "ja" | "en";
 }
 
-const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) => {
+const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, language = "ja" }) => {
   const transformRef = useRef<any>(null);
   const [currentScale, setCurrentScale] = useState(1);
   const [zoomInHovered, setZoomInHovered] = useState(false);
@@ -321,6 +322,19 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
 
   const floor = shop.floors && shop.floors.length > 0 ? shop.floors[0] : "";
   const normalizedFloor = normalizeFloor(String(floor));
+
+  // Language display logic
+  const displayShopName = (language === "en" && shop.nameEn) ? shop.nameEn : shop.name;
+  
+  const displayGenreMemo = React.useMemo(() => {
+    if (language === "en" && shop.genreMemoEn) {
+      return shop.genreMemoEn;
+    }
+    if (shop.genreMemo) {
+      return shop.genreMemo.split(/[|]+/).map(s => s.trim()).filter(s => s.length > 0).slice(0, 2).join(" / ");
+    }
+    return "";
+  }, [shop, language]);
 
   const getMapImage = () => {
     switch (normalizedFloor) {
@@ -369,7 +383,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                   mapImage={mapImage}
                   normalizedFloor={normalizedFloor}
                   shopPosition={shop.position}
-                  shopName={shop.name}
+                  shopName={displayShopName}
                   shopLogo={shop.shopLogo}
                   shopId={shop.shopId || shop.number}
                   currentScale={currentScale}
@@ -440,7 +454,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
                 <ShopLogoImage photo={shop.shopLogo || (shop.shopId ? `files/shop/${shop.shopId}/shop_logo.png` : undefined)} shopId={shop.shopId} />
               </div>
             )}
-            <ShopNameDisplay name={shop.name} width="410px" fontSize="32px" />
+            <ShopNameDisplay name={displayShopName} width="410px" fontSize="32px" />
           </div>
 
           <div style={{ 
@@ -494,7 +508,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
               <img src={iconLocation} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
               {shop.floors && shop.floors.length > 0 && <span>{normalizeFloor(shop.floors[0])}</span>}
               {shop.number && <span>[{shop.number}]</span>}
-              {shop.genreMemo && (<><span>/</span><span>{shop.genreMemo.split(/[|]+/).map(s => s.trim()).filter(s => s.length > 0).slice(0, 2).join(" / ")}</span></>)}
+              {displayGenreMemo && (<><span>/</span><span>{displayGenreMemo}</span></>)}
             </div>
             
             {shop.openTime && (
