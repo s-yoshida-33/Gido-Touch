@@ -181,6 +181,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
     let timerId: number | null = null;
 
     const loadShops = async () => {
+      let hasError = false;
       try {
         const data = await fetchShops();
         if (cancelled) return;
@@ -197,6 +198,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
           count: cleaned.length,
         });
       } catch (e: any) {
+        hasError = true;
         console.error(e);
         if (cancelled) return;
 
@@ -208,7 +210,18 @@ const GidoApp: React.FC<GidoAppProps> = ({
         });
       } finally {
         if (cancelled) return;
-        timerId = window.setTimeout(loadShops, POLLING_INTERVALS.SHOP_LIST_MS);
+        
+        // ポーリング間隔の設定
+        // エラー（API未接続など）の場合は、リトライ間隔を短くする（例: 10秒）
+        // これにより、アプリ起動後にAPIが起動した場合でも、最大10秒で反映される
+        // 注意: useStateのerrorはクロージャ内で古い値のままの可能性があるため、
+        // ローカル変数 hasError を使用して判定する
+        const nextInterval = hasError 
+          ? 10 * 1000 // エラー時は10秒後にリトライ
+          : POLLING_INTERVALS.SHOP_LIST_MS; // 成功時は設定通りの間隔
+
+        console.log(`[ShopList] Next poll in ${nextInterval}ms (Error: ${hasError})`);
+        timerId = window.setTimeout(loadShops, nextInterval);
       }
     };
 

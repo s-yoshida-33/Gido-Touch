@@ -36,7 +36,9 @@ export async function getApiBaseUrl(): Promise<string> {
     try {
       const url = await window.electronAPI.getBridgeBaseUrl();
       if (url) {
-        cachedApiBaseUrl = url;
+        // Electron側で30秒間隔のキャッシュ制御を行っているため、
+        // レンダラー側ではキャッシュせず毎回問い合わせるように変更し、
+        // 後からAPIサーバーが起動した場合でも追従できるようにする
         return url;
       }
     } catch (error) {
@@ -161,7 +163,8 @@ export const FLOOR_ROWS_PER_COL: Record<string, number> = {
 
 // Polling intervals
 export const POLLING_INTERVALS = {
-  SHOP_LIST_MS: 10 * 60 * 1000, // 10 minutes
+  // 開発環境では検証しやすくするために10秒、本番は3分
+  SHOP_LIST_MS: import.meta.env.DEV ? 10 * 1000 : 3 * 60 * 1000,
   VIDEO_MS: 500,      // 0.5 second
 };
 

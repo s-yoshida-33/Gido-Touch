@@ -345,8 +345,10 @@ const ShopListScreen: React.FC = () => {
   // Fetch shops from API
   useEffect(() => {
     let cancelled = false;
+    let timerId: number | null = null;
 
     const loadShops = async () => {
+      let hasError = false;
       try {
         const data = await fetchShops();
         if (cancelled) return;
@@ -388,11 +390,25 @@ const ShopListScreen: React.FC = () => {
 
         setError(null);
       } catch (e: any) {
+        hasError = true;
         console.error(e);
         if (cancelled) return;
 
         const message = e?.message ?? "failed to load";
         setError(message);
+      } finally {
+        if (cancelled) return;
+        
+        // ポーリング間隔の設定
+        // エラー（API未接続など）の場合は、リトライ間隔を短くする（例: 10秒）
+        // 成功時は3分（開発環境は10秒）
+        const SHOP_LIST_MS = import.meta.env.DEV ? 10 * 1000 : 3 * 60 * 1000;
+        const nextInterval = hasError 
+          ? 10 * 1000 // エラー時は10秒後にリトライ
+          : SHOP_LIST_MS; // 成功時は設定通りの間隔
+
+        console.log(`[ShopListScreen] Next poll in ${nextInterval}ms (Error: ${hasError})`);
+        timerId = window.setTimeout(loadShops, nextInterval);
       }
     };
 
@@ -400,6 +416,9 @@ const ShopListScreen: React.FC = () => {
 
     return () => {
       cancelled = true;
+      if (timerId !== null) {
+        clearTimeout(timerId);
+      }
     };
   }, []);
 

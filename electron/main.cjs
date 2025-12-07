@@ -452,7 +452,7 @@ async function getBridgeBaseUrl() {
   }
 
   // Fallback to default
-  return 'http://localhost:8080';
+  return 'http://localhost:8090';
 }
 
 /**
