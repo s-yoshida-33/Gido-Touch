@@ -2,34 +2,36 @@ import type { WspCurrentTimelineResponse } from '../types/wsp';
 
 type SseEventType = 'connected' | 'switch' | 'preload' | 'update' | 'heartbeat';
 
-interface SseEvent<T = any> {
+// Event payload types based on API.md
+// Exporting types to suppress unused errors (TS6196) and for potential future usage
+export interface SseEvent<T = any> {
   type: SseEventType;
   timestamp: string;
   data: T;
 }
 
 // Event payload types based on API.md
-interface ConnectedEvent {
+export interface ConnectedEvent {
   type: 'connected';
   timestamp: string;
   current_timeline_index: number;
   schedule_id: string;
 }
 
-interface SwitchEvent {
+export interface SwitchEvent {
   type: 'switch';
   timestamp: string;
   current_timeline: WspCurrentTimelineResponse['current_timeline'];
 }
 
-interface UpdateEvent {
+export interface UpdateEvent {
   type: 'update';
   timestamp: string;
   schedule_id: string;
   message: string;
 }
 
-interface HeartbeatEvent {
+export interface HeartbeatEvent {
   timestamp: string;
   clients: number;
 }

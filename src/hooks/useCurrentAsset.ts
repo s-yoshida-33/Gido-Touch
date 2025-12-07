@@ -60,7 +60,7 @@ function mapToCurrentAsset(timelineItemWrapper: ApiTimelineItem): CurrentAsset |
  */
 export function useCurrentAsset(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  pollIntervalMs: number = POLLING_INTERVALS.VIDEO_MS,
+  _pollIntervalMs: number = POLLING_INTERVALS.VIDEO_MS,
 ): UseCurrentAssetResult {
   const [asset, setAsset] = useState<CurrentAsset | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -118,8 +118,8 @@ export function useCurrentAsset(
              }
           }
         }
-      } catch (e) {
-        logWarn('video', 'Failed to fetch initial timeline via REST', e);
+      } catch (e: any) {
+        logWarn('video', 'Failed to fetch initial timeline via REST', e?.message || e);
       } finally {
         setIsLoading(false);
       }
