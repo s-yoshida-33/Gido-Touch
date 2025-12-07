@@ -1,73 +1,138 @@
-# React + TypeScript + Vite
+# Gido Touch
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Gido Touch** は、Electron、React、TypeScript で構築されたインタラクティブなフロアガイド表示システムです。
+大型タッチパネルディスプレイでの運用を想定しており、直感的なフロアマップ操作、店舗検索、デジタルサイネージ機能を提供します。
 
-Currently, two official plugins are available:
+## 📋 概要
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+商業施設向けのデジタルフロアガイドとして、以下の機能を提供します。
 
-## React Compiler
+*   **フロアマップ表示**: 1F〜4F（設定により変更可能）のフロアマップを表示し、現在地や店舗位置をピンで示します。
+*   **店舗リスト**: 各フロアの店舗一覧を表示し、詳細情報を確認できます。
+*   **店舗詳細**: 営業時間、電話番号、写真などの詳細情報をモーダル表示します。
+*   **デジタルサイネージ**: 画面の一部でプロモーション動画や案内動画を再生します。
+*   **管理・設定**: 設置場所に応じた現在地設定、フロアマップ画像の差し替え、店舗ピンの位置調整などが可能な統合設定画面を備えています。
+*   **外部システム連携**:
+    *   **BridgeWebPopper**: 店舗情報の管理システムと連携し、最新の店舗データを取得します。
+    *   **WSP (Web Signage Player)**: CMSと連携し、放映スケジュールに基づいたメディアコンテンツを取得します。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠 技術スタック
 
-## Expanding the ESLint configuration
+*   **Runtime**: [Electron](https://www.electronjs.org/) (v39.2.2)
+*   **Frontend**: [React](https://react.dev/) (v19.2.0), [TypeScript](https://www.typescriptlang.org/)
+*   **Build Tool**: [Vite](https://vitejs.dev/)
+*   **Styling**: [Tailwind CSS](https://tailwindcss.com/) (v4), CSS Modules
+*   **State/Logic**: Custom Hooks, Context API
+*   **Animation**: [Framer Motion](https://www.framer.com/motion/)
+*   **Map Interaction**: [react-zoom-pan-pinch](https://github.com/prc5/react-zoom-pan-pinch)
+*   **Packaging**: [electron-builder](https://www.electron.build/)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🚀 セットアップと実行
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 前提条件
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+*   Node.js (v18以上推奨)
+*   npm
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### インストール
+
+プロジェクトのルートディレクトリで依存関係をインストールします。
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 開発環境の起動
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Vite 開発サーバーと Electron を同時に起動します。ホットリロードが有効です。
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run electron:dev
 ```
+※ ブラウザのみでUIを確認したい場合は `npm run dev` を使用できますが、Electron 固有の API (IPC 通信など) は動作しません。
+
+### 本番ビルド (インストーラー作成)
+
+Windows 用のインストーラー (`.exe`) を生成します。
+
+```bash
+npm run electron:build
+```
+生成物は `release/` ディレクトリに出力されます。
+
+## 🖥 機能詳細
+
+### 1. メイン画面 (Main Window)
+アプリケーションのメインインターフェースです。
+*   **マップエリア**: SVG形式のフロアマップを表示。ピンチ操作やドラッグ操作には対応していませんが、設定によりズーム挙動を制御可能です。
+*   **店舗ピン**: マップ上に店舗の位置を示すピンを表示します。選択すると詳細が開きます。
+*   **サイドバー/動画エリア**: 縦型動画や画像の再生エリアと、店舗リストを配置しています。
+
+### 2. 統合設定画面 (Unified Settings)
+アプリケーションの動作をカスタマイズするための管理者用画面です。
+通常は Electron のメニューバー (`設定` -> `設定画面を開く`) からアクセスします。
+
+*   **画像設定**: 各階のフロアマップ画像や、営業時間案内画像をローカルファイルから読み込んで設定できます。
+*   **座標設定**: マップ上の店舗ピンの位置をドラッグ＆ドロップで視覚的に調整できます。
+*   **保存**: 設定内容は `userData` ディレクトリ内の `settings.json` に保存され、再起動後も維持されます。
+
+### 3. 自動更新 (Auto Updater)
+起動時に更新サーバーを確認し、新しいバージョンがあれば自動的にダウンロード・適用します。
+更新プロセス中は専用のパッチ画面 (`PatchScreen`) が表示されます。
+
+## 📂 ディレクトリ構成
+
+```
+Gido-Touch/
+├── build/                  # Electron ビルド用リソース (アイコン, インストーラー設定)
+├── electron/               # Electron メインプロセス関連
+│   ├── main.cjs            # エントリーポイント
+│   ├── preload.cjs         # プリロードスクリプト (IPC ブリッジ)
+│   ├── updateChecker.cjs   # 自動更新ロジック
+│   └── ...
+├── media/                  # デフォルトのメディアファイル
+├── src/                    # React フロントエンドソース
+│   ├── assets/             # 静的アセット (画像, フォント)
+│   ├── components/         # UI コンポーネント
+│   ├── config/             # アプリケーション設定定数
+│   ├── hooks/              # カスタムフック
+│   ├── repositories/       # データ取得ロジック
+│   ├── screens/            # 各画面コンポーネント (App, Settings, etc.)
+│   ├── types/              # TypeScript 型定義
+│   └── ...
+└── release/                # ビルド生成物の出力先
+```
+
+## 🔌 外部システム連携仕様
+
+### BridgeWebPopper (店舗情報)
+*   **接続先**: `http://localhost:[PORT]/api/shops`
+*   **ポート検出**: `8090` から `8099` の範囲で利用可能なポートを自動検出して接続します。
+*   **データ**: 店舗名、ジャンル、フロア、営業時間、画像パスなどを取得します。
+
+### WSP - Web Signage Player (CMS)
+*   **接続先**: `http://127.0.0.1:[PORT]/current-timeline`
+*   **ポート検出**: `8080` から `8089` の範囲で利用可能なポートを自動検出します。
+*   **データ**: 放映スケジュール、メディアファイル（動画/静止画）のパスを取得します。
+
+## ⚙️ 設定ファイル
+
+ユーザー設定は OS のアプリケーションデータフォルダに `settings.json` として保存されます。
+(例: `C:\Users\[User]\AppData\Roaming\Gido Touch\settings.json`)
+
+主な設定項目:
+*   `floor`: 現在表示中のフロア (デフォルト起動フロア)
+*   `locationIcons`: 現在地アイコンや吹き出しのデザイン・アニメーション設定
+*   `floorLayout`: 各階の店舗リストのレイアウト設定（列数、行数）
+*   `imageSettings`: カスタムフロアマップ画像のパス
+*   `shopPositions`: 店舗ごとのマップ上での座標データ
+
+## 🐛 トラブルシューティング
+
+*   **店舗データが表示されない**: BridgeWebPopper が起動しているか、ポート `8090-8099` がブロックされていないか確認してください。
+*   **動画が再生されない**: WSP (CMS) が起動しているか、メディアファイルへのパスが正しいか確認してください。
+*   **設定が保存されない**: アプリケーションにファイル書き込み権限があるか確認してください。
+
+## 📝 ライセンス
+
+© 2025 Toei Techno International Inc.
