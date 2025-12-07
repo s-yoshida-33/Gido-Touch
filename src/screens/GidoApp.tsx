@@ -85,6 +85,12 @@ const GidoApp: React.FC<GidoAppProps> = ({
   showOnlyMap = false,
 }) => {
   const [shops, setShops] = useState<Shop[]>([]);
+  const shopsRef = useRef<Shop[]>([]); // Keep track of shops for error handling
+
+  useEffect(() => {
+    shopsRef.current = shops;
+  }, [shops]);
+
   const [error, setError] = useState<string | null>(null);
 
   const [floor, setFloor] = useState<string>(
@@ -186,6 +192,11 @@ const GidoApp: React.FC<GidoAppProps> = ({
         const data = await fetchShops();
         if (cancelled) return;
 
+        // Check for empty data (likely due to API update in progress)
+        if (data.length === 0 && shopsRef.current.length > 0) {
+          throw new Error("API returned 0 shops");
+        }
+
         const cleaned = data.map((s) => ({
           ...s,
           name: s.name.replace(/【.*?】/g, "").trim(),
@@ -203,10 +214,17 @@ const GidoApp: React.FC<GidoAppProps> = ({
         if (cancelled) return;
 
         const message = e?.message ?? "failed to load";
-        setError(message);
+
+        // If we already have shops, don't show error screen, just keep retrying
+        if (shopsRef.current.length === 0) {
+          setError(message);
+        } else {
+          console.warn("[ShopList] API Error but keeping existing data:", e);
+        }
 
         logError("shopList", "Failed to load shop list", {
           error: message,
+          keepingExistingData: shopsRef.current.length > 0
         });
       } finally {
         if (cancelled) return;

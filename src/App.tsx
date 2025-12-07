@@ -150,12 +150,19 @@ const App: React.FC = () => {
       // Load shops
       try {
         const shopData = await fetchShops();
-        const filtered = shopData.filter((shop) => shop.genre === "飲食店・食品");
+        
+        // Filter shops: only "飲食店・食品" or "グルメ" genre
+        const filtered = shopData.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
+        
+        // Exclude "イオン堺北花田店"
         const excluded = filtered.filter((shop) => !shop.name.includes("イオン堺北花田店"));
+        
+        // Clean shop names
         const cleaned = excluded.map((s) => ({
           ...s,
           name: s.name.replace(/【.*?】/g, "").trim(),
         }));
+        
         setShops(cleaned);
       } catch (e) {
         console.error("Failed to load shops:", e);

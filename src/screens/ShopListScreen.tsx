@@ -282,6 +282,12 @@ const ShopListScreen: React.FC = () => {
 
   // Shop data state
   const [shops, setShops] = useState<Shop[]>([]);
+  const shopsRef = useRef<Shop[]>([]); // Keep track of shops for error handling
+
+  useEffect(() => {
+    shopsRef.current = shops;
+  }, [shops]);
+
   const [error, setError] = useState<string | null>(null);
   
   // Floor filter state
@@ -353,6 +359,11 @@ const ShopListScreen: React.FC = () => {
         const data = await fetchShops();
         if (cancelled) return;
 
+        // Check for empty data (likely due to API update in progress)
+        if (data.length === 0 && shopsRef.current.length > 0) {
+          throw new Error("API returned 0 shops");
+        }
+
         // Filter shops: only "飲食店・食品" or "グルメ" genre
         const filtered = data.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
 
@@ -394,8 +405,13 @@ const ShopListScreen: React.FC = () => {
         console.error(e);
         if (cancelled) return;
 
-        const message = e?.message ?? "failed to load";
-        setError(message);
+        // If we already have shops, don't show error screen, just keep retrying
+        if (shopsRef.current.length === 0) {
+          const message = e?.message ?? "failed to load";
+          setError(message);
+        } else {
+          console.warn("[ShopListScreen] API Error but keeping existing data:", e);
+        }
       } finally {
         if (cancelled) return;
         

@@ -261,10 +261,18 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
   const selectedShopPosition = selectedShopId
     ? (() => {
         const existing = shopPositions.positions[selectedShopId];
-        if (!existing) return createDefaultShopPosition(selectedFloor);
+        // Always use selectedFloor for new or existing positions displayed in this tab
+        // If existing position has different floor, we might want to warn, but for now override for display if it's a new default
+        
+        if (!existing) {
+           return createDefaultShopPosition(selectedFloor);
+        }
+        
         return {
           ...createDefaultShopPosition(selectedFloor),
           ...existing,
+          // Ensure floor is correct for display/editing in this context if missing
+          floor: existing.floor || selectedFloor,
           shadow: existing.shadow || createDefaultShopPosition(selectedFloor).shadow!,
           animation: existing.animation || createDefaultShopPosition(selectedFloor).animation!,
         };
@@ -274,9 +282,15 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
   const updatePositionField = useCallback(
     (field: keyof ShopPosition, value: any) => {
       if (!selectedShopId || !selectedShopPosition) return;
-      updateShopPosition(selectedShopId, { ...selectedShopPosition, [field]: value });
+      // When updating any field, ensure we save the FULL position object including floor
+      // This handles the case where it was a "virtual" default position
+      updateShopPosition(selectedShopId, { 
+        ...selectedShopPosition, 
+        floor: selectedFloor, // Enforce current floor
+        [field]: value 
+      });
     },
-    [selectedShopId, selectedShopPosition, updateShopPosition]
+    [selectedShopId, selectedShopPosition, selectedFloor, updateShopPosition]
   );
 
   const updateShadowField = useCallback(
@@ -335,8 +349,12 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
             onChange={(e) => {
               const newShopId = e.target.value || null;
               setSelectedShopId(newShopId);
-              if (newShopId && !shopPositions.positions[newShopId]) {
-                updateShopPosition(newShopId, createDefaultShopPosition(selectedFloor));
+              if (newShopId) {
+                // If position doesn't exist, create default but DO NOT save immediately
+                // It will be saved when user modifies a field
+                if (!shopPositions.positions[newShopId]) {
+                   // Just local state update if needed, or handle in render logic
+                }
               }
             }}
             style={{ width: "100%", padding: "8px 12px", backgroundColor: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: 6, color: "#ffffff", fontSize: 14 }}
