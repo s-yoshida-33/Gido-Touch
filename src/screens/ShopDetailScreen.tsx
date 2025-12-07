@@ -451,7 +451,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
             <img src={iconLocation} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
             {shop.floors && shop.floors.length > 0 && <span>{normalizeFloor(shop.floors[0])}</span>}
             {shop.number && <span>[{shop.number}]</span>}
-            {shop.genreMemo && (<><span>/</span><span>{shop.genreMemo}</span></>)}
+            {shop.genreMemo && (<><span>/</span><span>{shop.genreMemo.replace(/\|/g, " / ")}</span></>)}
           </div>
           {shop.openTime && (
              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, color: "#000000" }}>

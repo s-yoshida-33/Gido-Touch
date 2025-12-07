@@ -97,9 +97,11 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
         });
       }
 
-      // Debug: Log shop_logo if it exists
-      // Try multiple ways to access shop_logo in case of type issues
-      const shopLogoValue = (item as any).shop_logo || item.shop_logo;
+      // Prioritize new API fields (local_path), fallback to legacy fields
+      const shopLogoValue = item.shop_logo_local_path || item.shop_logo;
+      const photo1Value = item.photo1_local_path || item.photo1;
+      const photo2Value = item.photo2_local_path || item.photo2;
+
       if (shopLogoValue) {
         logInfo("shopList", "Shop has shop_logo", {
           shopId: item.shop_id,
@@ -111,25 +113,23 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
           shopId: item.shop_id,
           shopName: item.shop_name,
           availableKeys: Object.keys(item),
-          hasShopLogoKey: "shop_logo" in item,
-          hasShopLogoKeyAny: "shop_logo" in (item as any),
         });
       }
 
       return {
-        shopId: item.shop_id,
+        shopId: String(item.shop_id),
         name: item.shop_name,
         genre: item.genre,
         genreSub: item.genre_sub,
         genreMemo: item.genre_memo,
         number: item.number,
         floors,
-        photo1: item.photo1,
-        photo2: item.photo2,
+        photo1: photo1Value,
+        photo2: photo2Value,
         shopLogo: shopLogoValue,
-        description: (item as any).description || item.description,
-        openTime: (item as any).open_time || item.open_time,
-        tel: (item as any).tel || item.tel,
+        description: item.description,
+        openTime: item.open_time,
+        tel: item.tel,
       };
     });
 

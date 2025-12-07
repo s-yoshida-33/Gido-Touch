@@ -5,7 +5,7 @@ import type { FloorId } from '../types/floorLayout';
 // Global app configuration (do not use Japanese in comments to avoid encoding issues)
 export const APP_CONFIG = {
   // Default base URL for BridgeWebPopper HTTP server
-  defaultApiBaseUrl: "http://localhost:8080",
+  defaultApiBaseUrl: "http://localhost:8090",
 
   // Default floor for this screen (this screen is dedicated to one floor)
   floor: "3F",

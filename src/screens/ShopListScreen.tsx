@@ -351,8 +351,8 @@ const ShopListScreen: React.FC = () => {
         const data = await fetchShops();
         if (cancelled) return;
 
-        // Filter shops: only "飲食店・食品" genre
-        const filtered = data.filter((shop) => shop.genre === "飲食店・食品");
+        // Filter shops: only "飲食店・食品" or "グルメ" genre
+        const filtered = data.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
 
         // Exclude "イオン堺北花田店"
         const excluded = filtered.filter((shop) => !shop.name.includes("イオン堺北花田店"));
@@ -898,9 +898,14 @@ const ShopListScreen: React.FC = () => {
                   {columnShops.map((shop) => {
                     // Get first floor for display
                     const floor = shop.floors && shop.floors.length > 0 ? shop.floors[0] : "";
-                    // Get first genre memo only (if multiple, take the first one)
+                    // Get first 2 genre memos (split by |)
                     const genreMemo = shop.genreMemo 
-                      ? shop.genreMemo.split(/[,、，\s]+/)[0].trim() 
+                      ? shop.genreMemo
+                          .split(/[|]+/)
+                          .map(s => s.trim())
+                          .filter(s => s.length > 0)
+                          .slice(0, 2)
+                          .join(" / ")
                       : "";
                     // Format first line: "フロア [区画番号] ジャンルメモ"
                     const firstLine = `${floor} [${shop.number}] ${genreMemo}`;

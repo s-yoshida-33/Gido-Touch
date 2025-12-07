@@ -5,7 +5,3 @@ export interface VideoSettings {
   loop: boolean;
   autoplay: boolean;
 }
-
-
-
-
