@@ -1,0 +1,125 @@
+import type { WspCurrentTimelineResponse } from '../types/wsp';
+
+type SseEventType = 'connected' | 'switch' | 'preload' | 'update' | 'heartbeat';
+
+interface SseEvent<T = any> {
+  type: SseEventType;
+  timestamp: string;
+  data: T;
+}
+
+// Event payload types based on API.md
+interface ConnectedEvent {
+  type: 'connected';
+  timestamp: string;
+  current_timeline_index: number;
+  schedule_id: string;
+}
+
+interface SwitchEvent {
+  type: 'switch';
+  timestamp: string;
+  current_timeline: WspCurrentTimelineResponse['current_timeline'];
+}
+
+interface UpdateEvent {
+  type: 'update';
+  timestamp: string;
+  schedule_id: string;
+  message: string;
+}
+
+interface HeartbeatEvent {
+  timestamp: string;
+  clients: number;
+}
+
+type SseListener<T> = (data: T) => void;
+
+class SseClient {
+  private eventSource: EventSource | null = null;
+  private listeners: Map<SseEventType, Set<SseListener<any>>> = new Map();
+  private baseUrl: string;
+  private reconnectTimer: number | undefined;
+
+  constructor(baseUrl: string = 'http://localhost:8080') {
+    this.baseUrl = baseUrl;
+  }
+
+  public connect() {
+    if (this.eventSource) {
+      return;
+    }
+
+    const url = `${this.baseUrl}/api/events`;
+    console.log(`[SSE] Connecting to ${url}`);
+    
+    this.eventSource = new EventSource(url);
+
+    this.eventSource.onopen = () => {
+      console.log('[SSE] Connection opened');
+    };
+
+    this.eventSource.onerror = (error) => {
+      console.error('[SSE] Connection error:', error);
+      this.disconnect();
+      // Reconnect after 3 seconds
+      this.reconnectTimer = window.setTimeout(() => {
+        this.connect();
+      }, 3000);
+    };
+
+    // Setup event listeners
+    this.setupEventListener('connected');
+    this.setupEventListener('switch');
+    this.setupEventListener('preload');
+    this.setupEventListener('update');
+    this.setupEventListener('heartbeat');
+  }
+
+  private setupEventListener(type: SseEventType) {
+    if (!this.eventSource) return;
+
+    this.eventSource.addEventListener(type, (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.notifyListeners(type, data);
+      } catch (e) {
+        console.error(`[SSE] Failed to parse ${type} event data:`, e);
+      }
+    });
+  }
+
+  public disconnect() {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
+  }
+
+  public on<T>(type: SseEventType, listener: SseListener<T>) {
+    if (!this.listeners.has(type)) {
+      this.listeners.set(type, new Set());
+    }
+    this.listeners.get(type)!.add(listener);
+
+    // Return unsubscribe function
+    return () => {
+      this.listeners.get(type)?.delete(listener);
+    };
+  }
+
+  private notifyListeners(type: SseEventType, data: any) {
+    const typeListeners = this.listeners.get(type);
+    if (typeListeners) {
+      typeListeners.forEach(listener => listener(data));
+    }
+  }
+}
+
+export const sseClient = new SseClient();
+

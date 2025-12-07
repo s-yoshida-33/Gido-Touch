@@ -169,7 +169,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ useRightTopVideoC
       key={mediaKey}
       src={asset.src}
       autoPlay
-      muted
+      muted={false}
       loop={true}
       playsInline
       style={{

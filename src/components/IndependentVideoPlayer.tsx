@@ -93,6 +93,7 @@ const IndependentVideoPlayer: React.FC = () => {
     if (isVideo && videoRef.current) {
       const video = videoRef.current;
       video.src = currentFile;
+      video.muted = true;
       // If only one file, use native loop. Otherwise handle looping manually
       video.loop = mediaFiles.length === 1;
       video.autoplay = true;
@@ -201,6 +202,7 @@ const IndependentVideoPlayer: React.FC = () => {
           <video
             ref={videoRef}
             autoPlay
+            muted
             playsInline
             style={{
               width: '100%',
@@ -267,6 +269,7 @@ const IndependentVideoPlayer: React.FC = () => {
   return (
     <video
       ref={videoRef}
+      muted
       autoPlay={videoSettings.autoplay}
       loop={videoSettings.loop}
       playsInline

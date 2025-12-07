@@ -1,106 +1,132 @@
-// src/hooks/useCurrentAsset.ts
-import { useEffect, useState, useRef } from 'react';
-import type { CurrentAsset } from '../types/wsp';
-import { fetchCurrentAsset } from '../repositories/wspRepository';
+import { useEffect, useState } from 'react';
+import { sseClient } from '../api/sseClient';
+import type { CurrentAsset, WspTimelineItem } from '../types/wsp';
+import { logInfo, logWarn } from '../logs/logging';
 import { POLLING_INTERVALS } from '../config';
-import { logInfo, logWarn, logError } from '../logs/logging';
 
 interface UseCurrentAssetResult {
   asset: CurrentAsset | null;
   isLoading: boolean;
 }
 
-type AssetStatus = 'ok' | 'noAsset' | 'error' | null;
+interface ApiTimelineItem {
+  timeline_index: number;
+  start_time: string;
+  end_time: string;
+  schedule_id: string;
+  data: WspTimelineItem; // The actual item details are nested in 'data'
+}
+
+interface SwitchEventData {
+  type: 'switch';
+  timestamp: string;
+  current_timeline: ApiTimelineItem;
+}
+
+function mapToCurrentAsset(timelineItemWrapper: ApiTimelineItem): CurrentAsset | null {
+  const timelineItem = timelineItemWrapper.data;
+  if (!timelineItem) return null;
+
+  const mediaAsset = timelineItem.media_assets?.[0];
+  if (!mediaAsset) {
+    return null;
+  }
+
+  // Map to CurrentAsset
+  // Note: API.md shows localPath, types/wsp.ts shows url, we might need to handle both
+  const src = (mediaAsset as any).localPath || mediaAsset.url;
+  const name = timelineItem.media_info?.[0]?.filename || mediaAsset.id;
+
+  return {
+    id: mediaAsset.id,
+    src: src,
+    duration: mediaAsset.duration,
+    width: mediaAsset.width,
+    height: mediaAsset.height,
+    name: name,
+    startTime: timelineItemWrapper.start_time,
+    endTime: timelineItemWrapper.end_time,
+    mediaType: mediaAsset.mediaType || mediaAsset.type,
+    type: mediaAsset.type,
+  };
+}
 
 /**
  * Polls wsp.exe API via Electron IPC and returns the current asset.
  * Default interval is configured in WSP_CONFIG.
+ * 
+ * UPDATE: Now uses SSE to receive real-time updates from the local API.
+ * The pollIntervalMs parameter is kept for backward compatibility but ignored.
  */
 export function useCurrentAsset(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   pollIntervalMs: number = POLLING_INTERVALS.VIDEO_MS,
 ): UseCurrentAssetResult {
   const [asset, setAsset] = useState<CurrentAsset | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Keep track of last status to avoid spamming logs / Slack alerts
-  const lastStatusRef = useRef<AssetStatus>(null);
-
   useEffect(() => {
-    let isMounted = true;
-    let timerId: number | undefined;
+    sseClient.connect();
 
-    const tick = async () => {
-      const startTime = Date.now();
-      try {
-        const next = await fetchCurrentAsset();
-        const fetchDuration = Date.now() - startTime;
-        if (!isMounted) return;
-
-        if (next) {
-          // Check if asset has changed
-          const assetChanged = asset?.id !== next.id;
-          
-          // Status: ok (asset available)
-          if (lastStatusRef.current !== 'ok') {
-            logInfo('video', 'Fetched current video asset', {
-              assetId: next.id,
-              src: next.src,
-              duration: next.duration,
-              name: next.name,
-              fetchDurationMs: fetchDuration,
-            });
-          } else if (assetChanged) {
-            // Asset changed - log the change
-            logInfo('video', 'Asset changed', {
-              oldAssetId: asset?.id,
-              newAssetId: next.id,
-              oldSrc: asset?.src,
-              newSrc: next.src,
-              fetchDurationMs: fetchDuration,
-            });
-          }
-          lastStatusRef.current = 'ok';
-        } else {
-          // Status: noAsset (API OK but no current asset)
-          if (lastStatusRef.current !== 'noAsset') {
-            logWarn('video', 'No current video asset returned by WSP', {
-              fetchDurationMs: Date.now() - startTime,
-            });
-          }
-          lastStatusRef.current = 'noAsset';
-        }
-
-        setAsset(next);
-        setIsLoading(false);
-      } catch (error: any) {
-        const fetchDuration = Date.now() - startTime;
-        if (!isMounted) return;
-
-        // Status: error (API communication error)
-        if (lastStatusRef.current !== 'error') {
-          logError('video', 'Failed to fetch current video asset', {
-            error: error?.message,
-            fetchDurationMs: fetchDuration,
-          });
-        }
-        lastStatusRef.current = 'error';
-
-        setIsLoading(false);
-      } finally {
-        if (!isMounted) return;
-        timerId = window.setTimeout(tick, pollIntervalMs);
-      }
+    const handleConnected = () => {
+      logInfo('video', 'SSE Connected');
+      setIsLoading(false);
     };
 
-    tick();
+    const handleSwitch = (data: SwitchEventData) => {
+      logInfo('video', 'Content switched via SSE', { timelineIndex: data.current_timeline?.timeline_index });
+      
+      const nextAsset = mapToCurrentAsset(data.current_timeline);
+      
+      if (nextAsset) {
+          logInfo('video', 'Asset updated via SSE', {
+            assetId: nextAsset.id,
+            src: nextAsset.src,
+            name: nextAsset.name
+          });
+          setAsset(nextAsset);
+      } else {
+         logWarn('video', 'Failed to map timeline item to asset via SSE');
+         setAsset(null);
+      }
+      setIsLoading(false);
+    };
+
+    // Subscribe to events
+    const unsubscribeConnected = sseClient.on('connected', handleConnected);
+    const unsubscribeSwitch = sseClient.on('switch', handleSwitch);
 
     return () => {
-      isMounted = false;
-      if (timerId !== undefined) {
-        window.clearTimeout(timerId);
+      unsubscribeConnected();
+      unsubscribeSwitch();
+    };
+  }, []);
+
+  // Fetch initial state when mounted
+  useEffect(() => {
+    const fetchInitial = async () => {
+      try {
+        // TODO: Make base URL configurable via sseClient or config
+        const response = await fetch('http://localhost:8080/api/current-timeline');
+        if (response.ok) {
+          const json = await response.json();
+          if (json.current_timeline) {
+             const initialAsset = mapToCurrentAsset(json.current_timeline);
+             if (initialAsset) {
+                setAsset(initialAsset);
+                logInfo('video', 'Initial asset fetched via REST', { assetId: initialAsset.id });
+             }
+          }
+        }
+      } catch (e) {
+        logWarn('video', 'Failed to fetch initial timeline via REST', e);
+      } finally {
+        setIsLoading(false);
       }
     };
-  }, [pollIntervalMs, asset?.id]);
+
+    fetchInitial();
+  }, []);
 
   return { asset, isLoading };
 }
