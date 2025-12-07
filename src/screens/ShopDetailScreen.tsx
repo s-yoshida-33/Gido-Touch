@@ -430,10 +430,11 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
           </div>
         </div>
         <div style={{ width: "700px", height: "100%", flexShrink: 0, display: "flex", flexDirection: "column" }}>
-          <div style={{ width: "100%", height: "394px", backgroundColor: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          <div style={{ width: "100%", height: "394px", backgroundColor: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
             <ShopImage photo={shop.photo2 || shop.photo1} shopId={shop.shopId} />
           </div>
-          <div style={{ marginTop: "50px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", display: "flex", alignItems: "center", gap: "20px" }}>
+          
+          <div style={{ marginTop: "50px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", display: "flex", alignItems: "center", gap: "20px", flexShrink: 0 }}>
             {(shop.shopLogo || shop.shopId) && (
               <div style={{ width: "200px", height: "200px", borderRadius: "20px", border: "2px solid #D9D9D9", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", backgroundColor: "#FFFFFF", boxSizing: "border-box", padding: "10px", flexShrink: 0 }}>
                 <ShopLogoImage photo={shop.shopLogo || (shop.shopId ? `files/shop/${shop.shopId}/shop_logo.png` : undefined)} shopId={shop.shopId} />
@@ -441,32 +442,75 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose }) =>
             )}
             <ShopNameDisplay name={shop.name} width="410px" fontSize="32px" />
           </div>
-          {shop.description && (
-            <div style={{ fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, width: "640px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", color: "#000000", lineHeight: "1.6", wordWrap: "break-word", whiteSpace: "pre-wrap" }}>
-              {shop.description}
-            </div>
-          )}
-          <div style={{ width: "640px", height: "1px", backgroundColor: "#D9D9D9", marginLeft: "30px", marginRight: "30px", marginBottom: "30px" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, color: "#000000" }}>
-            <img src={iconLocation} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
-            {shop.floors && shop.floors.length > 0 && <span>{normalizeFloor(shop.floors[0])}</span>}
-            {shop.number && <span>[{shop.number}]</span>}
-            {shop.genreMemo && (<><span>/</span><span>{shop.genreMemo.replace(/\|/g, " / ")}</span></>)}
+
+          <div style={{ 
+            flex: 1, 
+            overflowY: "auto", 
+            width: "640px", 
+            marginLeft: "30px", 
+            marginRight: "30px", 
+            marginBottom: "30px",
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+            minHeight: 0 // Flex child scrolling fix
+          }}>
+            <style>
+              {`
+                div::-webkit-scrollbar {
+                  display: none;
+                }
+                /* Disable link styles in description and all possible children */
+                .shop-description a,
+                .shop-description u,
+                .shop-description span {
+                  text-decoration: none !important;
+                  color: inherit !important;
+                  pointer-events: none !important;
+                  border-bottom: none !important;
+                }
+                /* Catch-all for any underlined element */
+                .shop-description * {
+                  text-decoration: none !important;
+                }
+              `}
+            </style>
+            
+            {shop.description && (
+              <div 
+                className="shop-description"
+                style={{ fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, color: "#000000", lineHeight: "1.6", wordWrap: "break-word", pointerEvents: "none" }}
+                dangerouslySetInnerHTML={{ __html: shop.description }}
+              />
+            )}
+            
+            {/* Scrollable content continues here if description is long */}
           </div>
-          {shop.openTime && (
-             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, color: "#000000" }}>
-                <img src={iconTime} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
-                <div style={{ display: "flex", flexDirection: "column", lineHeight: "1.4" }}>
-                  <span>{shop.openTime}</span>
-                </div>
-             </div>
-          )}
-          {shop.tel && (
+
+          {/* Fixed Footer Info */}
+          <div style={{ flexShrink: 0, width: "100%" }}>
+            <div style={{ width: "640px", height: "1px", backgroundColor: "#D9D9D9", marginLeft: "30px", marginRight: "30px", marginBottom: "30px" }} />
+            
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, color: "#000000" }}>
-              <img src={iconTel} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
-              <span>{shop.tel}</span>
+              <img src={iconLocation} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
+              {shop.floors && shop.floors.length > 0 && <span>{normalizeFloor(shop.floors[0])}</span>}
+              {shop.number && <span>[{shop.number}]</span>}
+              {shop.genreMemo && (<><span>/</span><span>{shop.genreMemo.split(/[|]+/).map(s => s.trim()).filter(s => s.length > 0).slice(0, 2).join(" / ")}</span></>)}
             </div>
-          )}
+            
+            {shop.openTime && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, color: "#000000" }}>
+                  <img src={iconTime} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
+                  <div style={{ display: "flex", flexDirection: "column", lineHeight: "1.4" }} dangerouslySetInnerHTML={{ __html: shop.openTime }} />
+              </div>
+            )}
+            
+            {shop.tel && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "30px", marginRight: "30px", marginBottom: "30px", fontSize: "24px", fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 400, color: "#000000" }}>
+                <img src={iconTel} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
+                <span>{shop.tel}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <button
