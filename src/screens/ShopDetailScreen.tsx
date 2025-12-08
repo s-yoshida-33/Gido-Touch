@@ -458,20 +458,32 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
           </div>
 
           <div style={{ 
-            flex: 1, 
+            flexGrow: 0,
+            flexShrink: 1,
+            flexBasis: "auto",
             overflowY: "auto", 
+            minHeight: 0,
             width: "640px", 
             marginLeft: "30px", 
-            marginRight: "30px", 
+            marginRight: "10px", // Scrollbar space
+            paddingRight: "20px", // Content spacing from scrollbar
             marginBottom: "30px",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-            minHeight: 0 // Flex child scrolling fix
           }}>
             <style>
               {`
                 div::-webkit-scrollbar {
-                  display: none;
+                  width: 8px;
+                }
+                div::-webkit-scrollbar-track {
+                  background: #f1f1f1;
+                  border-radius: 4px;
+                }
+                div::-webkit-scrollbar-thumb {
+                  background: #c1c1c1;
+                  border-radius: 4px;
+                }
+                div::-webkit-scrollbar-thumb:hover {
+                  background: #a8a8a8;
                 }
                 /* Disable link styles in description and all possible children */
                 .shop-description a,
