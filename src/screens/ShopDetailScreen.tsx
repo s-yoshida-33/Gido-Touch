@@ -2,6 +2,7 @@
 import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import buttonClose from "../assets/button-close.svg";
+import buttonCloseHighlight from "../assets/button-close-highlight.svg";
 import food1FMap from "../assets/food-1F-map.svg";
 import food2FMap from "../assets/food-2F-map.svg";
 import food3FMap from "../assets/food-3F-map.svg";
@@ -398,6 +399,9 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                 onMouseLeave={() => { setZoomInHovered(false); setZoomInClicked(false); }}
                 onMouseDown={() => setZoomInClicked(true)}
                 onMouseUp={() => setZoomInClicked(false)}
+                onTouchStart={() => setZoomInClicked(true)}
+                onTouchEnd={() => setZoomInClicked(false)}
+                onTouchCancel={() => setZoomInClicked(false)}
                 onClick={() => {
                   setZoomInHovered(false);
                   setZoomInClicked(false);
@@ -414,6 +418,9 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                 onMouseLeave={() => { setZoomOutHovered(false); setZoomOutClicked(false); }}
                 onMouseDown={() => setZoomOutClicked(true)}
                 onMouseUp={() => setZoomOutClicked(false)}
+                onTouchStart={() => setZoomOutClicked(true)}
+                onTouchEnd={() => setZoomOutClicked(false)}
+                onTouchCancel={() => setZoomOutClicked(false)}
                 onClick={() => {
                   setZoomOutHovered(false);
                   setZoomOutClicked(false);
@@ -431,6 +438,9 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                 onMouseLeave={() => { setResetHovered(false); setResetClicked(false); }}
                 onMouseDown={() => setResetClicked(true)}
                 onMouseUp={() => setResetClicked(false)}
+                onTouchStart={() => setResetClicked(true)}
+                onTouchEnd={() => setResetClicked(false)}
+                onTouchCancel={() => setResetClicked(false)}
                 onClick={() => {
                   setResetHovered(false);
                   setResetClicked(false);
@@ -539,12 +549,43 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
           </div>
         </div>
       </div>
-      <button
+      <div
         onClick={(e) => { e.stopPropagation(); onClose(); }}
         style={{ position: "absolute", top: "calc(50% - 840px)", right: "calc(50% - 1250px)", transform: "translateY(-100%)", marginTop: "-30px", width: "140px", height: "140px", border: "none", background: "transparent", cursor: "pointer", padding: 0, zIndex: 1001 }}
+        onTouchStart={(e) => {
+          const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+          if (highlight) highlight.style.opacity = "1";
+        }}
+        onTouchEnd={(e) => {
+          const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+          if (highlight) highlight.style.opacity = "0";
+        }}
+        onTouchCancel={(e) => {
+          const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+          if (highlight) highlight.style.opacity = "0";
+        }}
       >
-        <img src={buttonClose} alt="Close" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "100%", height: "100%", display: "block" }} />
-      </button>
+        <img src={buttonClose} alt="Close" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "100%", height: "100%", display: "block", position: "relative", zIndex: 1 }} />
+        <img 
+          src={buttonCloseHighlight} 
+          alt="Close Highlight" 
+          className="highlight"
+          draggable={false} 
+          onDragStart={(e) => e.preventDefault()} 
+          style={{ 
+            position: "absolute", 
+            top: 0, 
+            left: 0, 
+            width: "100%", 
+            height: "100%", 
+            display: "block", 
+            opacity: 0, 
+            transition: "opacity 0.3s ease-in-out", 
+            pointerEvents: "none",
+            zIndex: 2
+          }} 
+        />
+      </div>
     </div>
   );
 };

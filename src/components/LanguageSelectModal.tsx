@@ -204,6 +204,8 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
           onMouseLeave={handleMouseLeave}
           onMouseDown={() => handleMouseDown("ja")}
           onMouseUp={() => handleMouseUp("ja")}
+          onTouchStart={() => handleMouseDown("ja")}
+          onTouchEnd={() => handleMouseUp("ja")}
           style={{
             position: "absolute",
             top: "46px",
@@ -235,6 +237,8 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
           onMouseLeave={handleMouseLeave}
           onMouseDown={() => handleMouseDown("en")}
           onMouseUp={() => handleMouseUp("en")}
+          onTouchStart={() => handleMouseDown("en")}
+          onTouchEnd={() => handleMouseUp("en")}
           style={{
             position: "absolute",
             top: "142px",

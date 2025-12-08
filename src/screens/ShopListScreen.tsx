@@ -9,6 +9,8 @@ import button3F from "../assets/button-3F.svg";
 import button1FHighlight from "../assets/button-1F-highlight.svg";
 import button2FHighlight from "../assets/button-2F-highlight.svg";
 import button3FHighlight from "../assets/button-3F-highlight.svg";
+import buttonPrevHighlight from "../assets/button-prev-highlight.svg";
+import buttonNextHighlight from "../assets/button-next-highlight.svg";
 import selectLanguageSelectedEn from "../assets/select-language-selected-en.svg";
 import selectLanguageSelectedJp from "../assets/select-language-selected-jp.svg";
 import openTime from "../assets/open-time.svg";
@@ -779,7 +781,7 @@ const ShopListScreen: React.FC = () => {
         >
           {/* Prev button (left side) */}
           {canScroll && scrollPercentage > 50 && (
-            <button
+            <div
               onClick={scrollToStart}
               style={{
                 position: "absolute",
@@ -797,6 +799,18 @@ const ShopListScreen: React.FC = () => {
                 alignItems: "center",
                 justifyContent: "center",
               }}
+              onTouchStart={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "1";
+              }}
+              onTouchEnd={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "0";
+              }}
+              onTouchCancel={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "0";
+              }}
             >
               <img
                 src={prev}
@@ -810,11 +824,30 @@ const ShopListScreen: React.FC = () => {
                   objectFit: "contain",
                 }}
               />
-            </button>
+              <img
+                src={buttonPrevHighlight}
+                alt="Highlight"
+                className="highlight"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  objectFit: "contain",
+                  opacity: 0,
+                  transition: "opacity 0.3s ease-in-out",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
           )}
           {/* Next button (right side) */}
           {canScroll && scrollPercentage <= 50 && (
-            <button
+            <div
               onClick={scrollToEnd}
               style={{
                 position: "absolute",
@@ -832,6 +865,18 @@ const ShopListScreen: React.FC = () => {
                 alignItems: "center",
                 justifyContent: "center",
               }}
+              onTouchStart={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "1";
+              }}
+              onTouchEnd={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "0";
+              }}
+              onTouchCancel={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "0";
+              }}
             >
               <img
                 src={next}
@@ -845,7 +890,26 @@ const ShopListScreen: React.FC = () => {
                   objectFit: "contain",
                 }}
               />
-            </button>
+              <img
+                src={buttonNextHighlight}
+                alt="Highlight"
+                className="highlight"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  objectFit: "contain",
+                  opacity: 0,
+                  transition: "opacity 0.3s ease-in-out",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
           )}
           <div
             ref={scrollContainerRef}
