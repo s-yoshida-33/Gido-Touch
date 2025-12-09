@@ -641,6 +641,7 @@ function createPatchWindow() {
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
+    alwaysOnTop: true,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -679,6 +680,7 @@ function createMainWindow() {
     width: 1920,
     height: 1080,
     fullscreen: true,
+    alwaysOnTop: true,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
