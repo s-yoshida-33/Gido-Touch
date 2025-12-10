@@ -112,7 +112,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     if (!isLoading) {
       logWarn('video', 'No video asset available for VerticalVideoSlot', {
         isLoading,
-        currentAssetId: asset?.id || null,
+        currentAssetId: null,
       });
     }
 
