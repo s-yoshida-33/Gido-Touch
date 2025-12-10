@@ -302,6 +302,9 @@ const ShopListScreen: React.FC = () => {
   const [scrollPercentage, setScrollPercentage] = useState(0);
   const [canScroll, setCanScroll] = useState(false);
 
+  // Force reload trigger state
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   // Idle timeout state (30 seconds for testing)
   const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds
   const lastActivityTimeRef = useRef<number>(Date.now());
@@ -438,7 +441,7 @@ const ShopListScreen: React.FC = () => {
         clearTimeout(timerId);
       }
     };
-  }, []);
+  }, [refreshTrigger]);
 
   // ショップ位置情報の更新を監視
   useEffect(() => {
@@ -511,6 +514,10 @@ const ShopListScreen: React.FC = () => {
         setSelectedFloor(null);
         setSelectedLanguage("ja"); // Reset to default Japanese (also saves to localStorage)
         setIsLanguageModalOpen(false);
+        
+        // Trigger forced reload of images and API data
+        setRefreshTrigger(prev => prev + 1);
+        console.log('[ShopListScreen] Idle timeout: Refreshing content');
         
         // Reset scroll position to top with smooth animation (same as scrollToStart)
         if (scrollContainerRef.current) {
@@ -1179,7 +1186,7 @@ const ShopListScreen: React.FC = () => {
             alignSelf: "flex-start",
           }}
         >
-          <IndependentVideoPlayer />
+          <IndependentVideoPlayer forceReload={refreshTrigger} />
         </div>
 
         {/* Spacer between top video and middle buttons */}
@@ -1568,7 +1575,7 @@ const ShopListScreen: React.FC = () => {
               height: "100%",
             }}
           >
-            <VerticalVideoSlot />
+            <VerticalVideoSlot forceReload={refreshTrigger} />
           </div>
         </div>
       </div>

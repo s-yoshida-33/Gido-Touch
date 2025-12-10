@@ -21,7 +21,11 @@ function isImageFile(url: string): boolean {
   return imageExtensions.some(ext => urlLower.includes(ext));
 }
 
-const IndependentVideoPlayer: React.FC = () => {
+interface IndependentVideoPlayerProps {
+  forceReload?: number;
+}
+
+const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({ forceReload = 0 }) => {
   const { videoSettings, isLoading } = useIndependentVideo();
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
@@ -58,11 +62,20 @@ const IndependentVideoPlayer: React.FC = () => {
 
         logInfo('video', 'Loaded media files from local directory', {
           count: files.length,
+          forceReload,
         });
 
         setMediaFiles(files);
-        setCurrentIndex(0);
+        // Reset index only if it's a reload
+        if (forceReload > 0) {
+          setCurrentIndex(0);
+        }
         setIsLoadingMedia(false);
+        
+        // Force reload video element if it exists
+        if (videoRef.current) {
+          videoRef.current.load();
+        }
       } catch (error: any) {
         logError('video', 'Failed to load media files from local directory', {
           error: error?.message,
@@ -78,7 +91,7 @@ const IndependentVideoPlayer: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [forceReload]);
 
   // Handle media playback - loop through files
   React.useEffect(() => {

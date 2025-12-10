@@ -1,24 +1,42 @@
 // src/components/VerticalVideoSlot.tsx
 import React from 'react';
 import { useCurrentAsset } from '../hooks/useCurrentAsset';
-import { useRightTopVideoAsset } from '../hooks/useRightTopVideoAsset';
 import { logInfo, logWarn, logError } from '../logs/logging';
 
 interface VerticalVideoSlotProps {
-  useRightTopVideoCms?: boolean;
+  forceReload?: number;
 }
 
-const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ useRightTopVideoCms = false }) => {
-  const { asset: currentAsset, isLoading: isLoadingCurrent } = useCurrentAsset();
-  const { asset: rightTopAsset, isLoading: isLoadingRightTop } = useRightTopVideoAsset();
+const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }) => {
+  const { asset, isLoading } = useCurrentAsset();
   
-  // Use right-top video CMS if specified, otherwise use default CMS
-  const asset = useRightTopVideoCms ? rightTopAsset : currentAsset;
-  const isLoading = useRightTopVideoCms ? isLoadingRightTop : isLoadingCurrent;
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
   const prevAssetIdRef = React.useRef<string | null>(null);
   const [objectFit, setObjectFit] = React.useState<'cover' | 'contain'>('cover');
+
+  // Handle force reload
+  React.useEffect(() => {
+    if (forceReload > 0) {
+      logInfo('video', 'Force reload triggered in VerticalVideoSlot', { forceReload });
+      if (videoRef.current) {
+        videoRef.current.load();
+        // Try to play after reload
+        videoRef.current.play().catch(e => {
+            logError('video', 'Failed to play video after force reload', { error: e.message });
+        });
+      }
+      if (imgRef.current && asset) {
+        // Force image reload by appending query param
+        const src = imgRef.current.src;
+        // Don't append if data url
+        if (!src.startsWith('data:')) {
+           const separator = src.includes('?') ? '&' : '?';
+           imgRef.current.src = `${src}${separator}t=${Date.now()}`;
+        }
+      }
+    }
+  }, [forceReload, asset]);
 
   // CMSエリアのアスペクト比: 1080px × 607.5px (16:9)
   const containerAspectRatio = 1080 / 607.5;
@@ -93,11 +111,8 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ useRightTopVideoC
   if (!asset) {
     if (!isLoading) {
       logWarn('video', 'No video asset available for VerticalVideoSlot', {
-        useRightTopVideoCms,
-        isLoadingCurrent,
-        isLoadingRightTop,
-        currentAssetId: currentAsset?.id || null,
-        rightTopAssetId: rightTopAsset?.id || null,
+        isLoading,
+        currentAssetId: asset?.id || null,
       });
     }
 
@@ -185,7 +200,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ useRightTopVideoC
           videoWidth: video.videoWidth,
           videoHeight: video.videoHeight,
           duration: video.duration,
-          useRightTopVideoCms,
         });
       }}
       onLoadedData={(e) => {
@@ -198,7 +212,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ useRightTopVideoC
           videoWidth: video.videoWidth,
           videoHeight: video.videoHeight,
           objectFit: fit,
-          useRightTopVideoCms,
           paused: video.paused,
           readyState: video.readyState,
         });
@@ -226,7 +239,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ useRightTopVideoC
           assetId: asset.id,
           readyState: video.readyState,
           paused: video.paused,
-          useRightTopVideoCms,
         });
         // Ensure playback starts when video can play
         if (video.paused) {
@@ -246,7 +258,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ useRightTopVideoC
       onPlay={() => {
         logInfo('video', 'Video playback started', {
           assetId: asset.id,
-          useRightTopVideoCms,
           currentTime: videoRef.current?.currentTime,
           duration: videoRef.current?.duration,
         });
@@ -263,7 +274,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ useRightTopVideoC
           src: asset.src,
           error: video.error?.message,
           errorCode: video.error?.code,
-          useRightTopVideoCms,
           networkState: video.networkState,
           readyState: video.readyState,
         });

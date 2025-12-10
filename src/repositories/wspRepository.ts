@@ -61,28 +61,4 @@ import type {
     }
   }
 
-  /**
-   * Fetch current asset from right-top video CMS via Electron IPC bridge.
-   */
-  export async function fetchRightTopVideoAsset(): Promise<CurrentAsset | null> {
-    if (!window.wspApi?.getRightTopVideoAsset) {
-      // eslint-disable-next-line no-console
-      console.warn('[fetchRightTopVideoAsset] window.wspApi.getRightTopVideoAsset is not available');
-      return null;
-    }
-  
-    try {
-      const asset = await window.wspApi.getRightTopVideoAsset();
-      return asset ?? null;
-    } catch (error: any) {
-      // eslint-disable-next-line no-console
-      console.error('[fetchRightTopVideoAsset] failed:', {
-        error: error?.message,
-        errorName: error?.name,
-        errorCode: error?.code,
-        errorStack: error?.stack,
-      });
-      return null;
-    }
-  }
   
