@@ -106,7 +106,9 @@ FunctionEnd
   ${EndIf}
 
   ; Windows auto-start registry
-  ${IfNot} ${Silent}
+  ${If} ${Silent}
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido Touch" "$INSTDIR\Gido Touch.exe"
+  ${Else}
     ${If} $WantAutoStart == ${BST_CHECKED}
       WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gido Touch" "$INSTDIR\Gido Touch.exe"
     ${Else}

@@ -264,10 +264,10 @@ export function PatchScreen() {
               style={{
                 height: '100%',
                 width: `${displayPercent}%`,
-                backgroundColor: isWaiting ? '#ff0000' : '#00ff88',
-                borderRight: displayPercent < 100 ? (isWaiting ? '2px solid #cc0000' : '2px solid #00cc66') : 'none',
+                backgroundColor: isWaiting ? '#ff0000' : '#ff0000',
+                borderRight: displayPercent < 100 ? (isWaiting ? '2px solid #cc0000' : '2px solid #cc0000') : 'none',
                 transition: 'width 0.2s linear',
-                boxShadow: displayPercent > 0 ? (isWaiting ? 'inset 0 0 8px rgba(255,0,0,0.3)' : 'inset 0 0 8px rgba(0,255,136,0.3)') : 'none',
+                boxShadow: displayPercent > 0 ? (isWaiting ? 'inset 0 0 8px rgba(255,0,0,0.3)' : 'inset 0 0 8px rgba(255,0,0,0.3)') : 'none',
               }}
             />
           </div>
@@ -296,7 +296,7 @@ export function PatchScreen() {
               <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600 }}>{formatMB(total)}</div>
 
               <div style={{ color: '#888888' }}>Speed</div>
-              <div style={{ textAlign: 'right', color: '#00ff88', fontWeight: 600 }}>{formatSpeed(speed)}</div>
+              <div style={{ textAlign: 'right', color: '#ff0000', fontWeight: 600 }}>{formatSpeed(speed)}</div>
 
               <div style={{ color: '#888888' }}>State</div>
               <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600, textTransform: 'uppercase' }}>{statusState}</div>
