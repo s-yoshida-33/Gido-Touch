@@ -5,6 +5,7 @@ import type { StatusState } from '../types/global';
 export function PatchScreen() {
   const [statusState, setStatusState] = useState<StatusState>('checking');
   const [statusMessage, setStatusMessage] = useState<string>('起動しています…');
+  // const [percent, setPercent] = useState<number | null>(null); // Replaced logic
   const [percent, setPercent] = useState<number | null>(null);
   const [transferred, setTransferred] = useState<number | null>(null);
   const [total, setTotal] = useState<number | null>(null);
@@ -32,9 +33,8 @@ export function PatchScreen() {
 
       if (data.state === 'none' || data.state === 'error') {
         setIsWaiting(true);
-        setStatusMessage(data.state === 'error' 
-          ? 'アップデート確認中にエラーが発生しました。\nそのまま起動します。' 
-          : '最新バージョンです。\n起動準備中...');
+        // setStatusMessage... is handled below in render
+        
         // Clear download stats
         setPercent(null);
         setTransferred(null);
@@ -133,7 +133,9 @@ export function PatchScreen() {
     return (bytesPerSec / (1024 * 1024)).toFixed(1) + ' MB/s';
   };
 
-  const currentPercent = isWaiting ? waitProgress : percent;
+  // UI描画用変数
+  // 待機中は待機進捗、ダウンロード中はダウンロード進捗を表示
+  const displayPercent = isWaiting ? waitProgress : (percent ?? 0);
 
   return (
     <div
@@ -224,7 +226,9 @@ export function PatchScreen() {
               whiteSpace: 'pre-line',
             }}
           >
-            {statusMessage}
+            {isWaiting 
+              ? `${statusMessage}\nあと ${countdown} 秒で起動します。`
+              : statusMessage}
           </p>
         </div>
 
@@ -240,9 +244,8 @@ export function PatchScreen() {
             gap: 12,
           }}
         >
-          <div style={{ fontSize: 12, color: '#888888', marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
-            <span>{isWaiting ? 'Startup progress' : 'Download status'}</span>
-            {isWaiting && <span>あと {countdown} 秒</span>}
+          <div style={{ fontSize: 12, color: '#888888', marginBottom: 6 }}>
+            {isWaiting ? 'Startup Wait' : 'Download status'}
           </div>
 
           {/* Progress Bar */}
@@ -260,30 +263,17 @@ export function PatchScreen() {
             <div
               style={{
                 height: '100%',
-                width: `${currentPercent ?? 0}%`,
-                backgroundColor: '#00ff88',
-                borderRight: currentPercent && currentPercent < 100 ? '2px solid #00cc66' : 'none',
+                width: `${displayPercent}%`,
+                backgroundColor: isWaiting ? '#ff0000' : '#00ff88',
+                borderRight: displayPercent < 100 ? (isWaiting ? '2px solid #cc0000' : '2px solid #00cc66') : 'none',
                 transition: 'width 0.2s linear',
-                boxShadow: currentPercent && currentPercent > 0 ? 'inset 0 0 8px rgba(0,255,136,0.3)' : 'none',
+                boxShadow: displayPercent > 0 ? (isWaiting ? 'inset 0 0 8px rgba(255,0,0,0.3)' : 'inset 0 0 8px rgba(0,255,136,0.3)') : 'none',
               }}
             />
-            {currentPercent && currentPercent > 0 && currentPercent < 100 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: '2px',
-                  backgroundColor: '#00ff88',
-                  boxShadow: '0 0 4px #00ff88',
-                }}
-              />
-            )}
           </div>
 
           <div style={{ fontSize: 12, textAlign: 'right', color: '#ffffff', fontWeight: 600 }}>
-            {currentPercent != null ? `${currentPercent.toFixed(1)}%` : '待機中…'}
+            {isWaiting ? `${countdown}s` : (percent != null ? `${percent.toFixed(1)}%` : '待機中…')}
           </div>
 
           {/* Numeric Info (Only show when downloading) */}
@@ -312,34 +302,14 @@ export function PatchScreen() {
               <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600, textTransform: 'uppercase' }}>{statusState}</div>
             </div>
           )}
-          
-          {/* Skip Button (Only show when waiting) */}
-          {isWaiting && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid #1a1a1a' }}>
-              <button
-                onClick={handleSkip}
-                style={{
-                  backgroundColor: '#333',
-                  color: '#fff',
-                  border: '1px solid #555',
-                  borderRadius: 4,
-                  padding: '6px 16px',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  fontWeight: 600,
-                }}
-              >
-                スキップする
-              </button>
-            </div>
-          )}
         </div>
-
-        {/* Footer */}
+        
+        {/* Footer with Skip Button */}
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
+            alignItems: 'center', // Align items vertically
             fontSize: 11,
             color: '#666666',
             marginTop: 'auto',
@@ -347,8 +317,38 @@ export function PatchScreen() {
             borderTop: '1px solid #1a1a1a',
           }}
         >
-          <div>Do not turn off your device while updating.</div>
-          <div>© 2025 Toei Techno International Inc.</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div>Do not turn off your device while updating.</div>
+            <div>© 2025 Toei Techno International Inc.</div>
+          </div>
+
+          {/* Skip Button (only visible when waiting) */}
+          {isWaiting && (
+            <button
+              onClick={handleSkip}
+              style={{
+                backgroundColor: '#333',
+                color: '#fff',
+                border: '1px solid #555',
+                borderRadius: 4,
+                padding: '6px 16px',
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 600,
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#444';
+                e.currentTarget.style.borderColor = '#666';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#333';
+                e.currentTarget.style.borderColor = '#555';
+              }}
+            >
+              スキップして起動
+            </button>
+          )}
         </div>
       </div>
     </div>
