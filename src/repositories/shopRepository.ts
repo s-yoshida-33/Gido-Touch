@@ -8,24 +8,48 @@ export interface GroupedShops {
   byGenre: Record<string, Shop[]>;
 }
 
+// Memory cache
+let cachedShops: Shop[] | null = null;
+let fetchPromise: Promise<Shop[]> | null = null;
+
+export interface FetchShopsOptions {
+  forceReload?: boolean;
+}
+
 // Entry point for fetching shops
-export async function fetchShops(): Promise<Shop[]> {
-  switch (DATA_SOURCE) {
-    case "bridge":
-      return fetchShopsFromBridge();
-
-    // case "api":
-    //   return fetchShopsFromApi();
-
-    // case "cms":
-    //   return fetchShopsFromCms();
-
-    // case "hybrid":
-    //   return fetchShopsHybrid();
-
-    default:
-      return fetchShopsFromBridge();
+export async function fetchShops(options: FetchShopsOptions = {}): Promise<Shop[]> {
+  // Return cached data if available and not forced to reload
+  if (cachedShops && !options.forceReload) {
+    return cachedShops;
   }
+
+  // If a fetch is already in progress, return that promise
+  if (fetchPromise) {
+    return fetchPromise;
+  }
+
+  const fetchTask = async () => {
+    let shops: Shop[] = [];
+    try {
+      switch (DATA_SOURCE) {
+        case "bridge":
+          shops = await fetchShopsFromBridge();
+          break;
+        default:
+          shops = await fetchShopsFromBridge();
+          break;
+      }
+      // Update cache
+      cachedShops = shops;
+      return shops;
+    } finally {
+      // Clear the promise when done
+      fetchPromise = null;
+    }
+  };
+
+  fetchPromise = fetchTask();
+  return fetchPromise;
 }
 
 // Sort helper: compare shop numbers in ascending order (e.g. "103" < "110" < "112")

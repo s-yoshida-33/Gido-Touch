@@ -90,48 +90,48 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
 
       if (floors.length === 0) {
         logWarn("shopList", "Shop has no floors after normalization", {
-          shopId: item.shop_id,
-          name: item.shop_name,
+          shopId: item.shopId,
+          name: item.shopName,
           rawFloors: item.floors,
           defaultFloor,
         });
       }
 
       // Prioritize new API fields (local_path), fallback to legacy fields
-      const shopLogoValue = item.shop_logo_local_path || item.shop_logo;
-      const photo1Value = item.photo1_local_path || item.photo1;
-      const photo2Value = item.photo2_local_path || item.photo2;
+      const shopLogoValue = item.shopLogoLocalPath || item.shopLogo;
+      const photo1Value = item.photo1LocalPath || item.photo1;
+      const photo2Value = item.photo2LocalPath || item.photo2;
 
       if (shopLogoValue) {
         logInfo("shopList", "Shop has shop_logo", {
-          shopId: item.shop_id,
-          shopName: item.shop_name,
+          shopId: item.shopId,
+          shopName: item.shopName,
           shopLogo: shopLogoValue,
         });
       } else {
         logInfo("shopList", "Shop missing shop_logo", {
-          shopId: item.shop_id,
-          shopName: item.shop_name,
+          shopId: item.shopId,
+          shopName: item.shopName,
           availableKeys: Object.keys(item),
         });
       }
 
       return {
-        shopId: String(item.shop_id),
-        name: item.shop_name,
-        nameEn: item.shop_name_english,
-        genre: item.genre,
-        genreSub: item.genre_sub,
-        genreMemo: item.genre_memo,
-        genreMemoEn: item.genre_memo_english,
-        number: item.number,
+        shopId: String(item.shopId),
+        name: item.shopName || "",
+        nameEn: item.shopNameEnglish || "",
+        genre: item.genre || "",
+        genreSub: item.genreSub || "",
+        genreMemo: item.genreMemo || "",
+        genreMemoEn: item.genreMemoEnglish || "",
+        number: item.number || "",
         floors,
         photo1: photo1Value,
         photo2: photo2Value,
         shopLogo: shopLogoValue,
-        description: item.description,
-        openTime: item.open_time,
-        tel: item.tel,
+        description: item.description || "",
+        openTime: item.openTime || "",
+        tel: item.tel || "",
       };
     });
 

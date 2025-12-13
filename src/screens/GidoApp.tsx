@@ -10,8 +10,9 @@ import food3FMap from "../assets/food-3F-map.svg";
 import food4FMap from "../assets/food-4F-map.svg";
 import openTimeImage from "../assets/open-time.svg";
 
-import { APP_CONFIG, POLLING_INTERVALS } from "../config";
+import { APP_CONFIG } from "../config";
 import { fetchShops } from "../repositories/shopRepository";
+import { sseClient } from "../api/sseClient";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 
 import type { LocationIconSettings, LocationIconSettingsPerFloor } from "../types/locationIcon";
@@ -184,12 +185,10 @@ const GidoApp: React.FC<GidoAppProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    let timerId: number | null = null;
 
-    const loadShops = async () => {
-      let hasError = false;
+    const loadShops = async (forceReload: boolean = false) => {
       try {
-        const data = await fetchShops();
+        const data = await fetchShops({ forceReload });
         if (cancelled) return;
 
         // Check for empty data (likely due to API update in progress)
@@ -199,7 +198,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
 
         const cleaned = data.map((s) => ({
           ...s,
-          name: s.name.replace(/【.*?】/g, "").trim(),
+          name: (s.name || "").replace(/【.*?】/g, "").trim(),
         }));
 
         setShops(cleaned);
@@ -209,7 +208,6 @@ const GidoApp: React.FC<GidoAppProps> = ({
           count: cleaned.length,
         });
       } catch (e: any) {
-        hasError = true;
         console.error(e);
         if (cancelled) return;
 
@@ -226,30 +224,27 @@ const GidoApp: React.FC<GidoAppProps> = ({
           error: message,
           keepingExistingData: shopsRef.current.length > 0
         });
-      } finally {
-        if (cancelled) return;
-        
-        // ポーリング間隔の設定
-        // エラー（API未接続など）の場合は、リトライ間隔を短くする（例: 10秒）
-        // これにより、アプリ起動後にAPIが起動した場合でも、最大10秒で反映される
-        // 注意: useStateのerrorはクロージャ内で古い値のままの可能性があるため、
-        // ローカル変数 hasError を使用して判定する
-        const nextInterval = hasError 
-          ? 10 * 1000 // エラー時は10秒後にリトライ
-          : POLLING_INTERVALS.SHOP_LIST_MS; // 成功時は設定通りの間隔
-
-        console.log(`[ShopList] Next poll in ${nextInterval}ms (Error: ${hasError})`);
-        timerId = window.setTimeout(loadShops, nextInterval);
       }
     };
 
-    loadShops();
+    // Initial load (use cache if available)
+    loadShops(false);
+
+    // Subscribe to SSE events for real-time updates
+    const unsubscribeUpdate = sseClient.on('update', () => {
+      console.log('[GidoApp] SSE update received, reloading shops...');
+      loadShops(true);
+    });
+
+    const unsubscribeConnected = sseClient.on('connected', () => {
+      console.log('[GidoApp] SSE connected, reloading shops...');
+      loadShops(true);
+    });
 
     return () => {
       cancelled = true;
-      if (timerId !== null) {
-        window.clearTimeout(timerId);
-      }
+      unsubscribeUpdate();
+      unsubscribeConnected();
     };
   }, []);
 

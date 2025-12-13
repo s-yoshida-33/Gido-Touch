@@ -42,105 +42,69 @@ export interface Shop {
 
 // Raw data type from BridgeWebPopper /api/shops
 export interface BridgeShop {
-  shop_id: number;
-  shop_name: string;
-  shop_name_kana: string;
-  shop_name_english: string;
-  shop_name_china_cn: string;
-  shop_name_china_tw: string;
-  shop_name_korea: string;
-  shop_name_france: string;
-  shop_name_vietnam: string;
-  shop_name_thai: string;
-  abbr: string;
-  web_status: number;
+  shopId: string | number;
+  shopName: string;
+  shopNameKana: string;
+  shopNameEnglish: string;
+  shopNameChinaCn?: string;
+  shopNameChinaTw?: string;
+  shopNameKorea?: string;
+  shopNameFrance?: string;
+  shopNameVietnam?: string;
+  shopNameThai?: string;
+  abbr?: string;
+  webStatus?: number;
   searches: string;
   genre: string;
-  genre_sub: string;
-  genre_sub_english: string;
-  genre_memo: string;
-  genre_memo_english: string;
-  genre_memo_china_cn: string;
-  genre_memo_china_tw: string;
-  genre_memo_korea: string;
-  genre_memo_france: string;
-  genre_memo_vietnam: string;
-  genre_memo_thai: string;
-  group_id: number | null;
-  tenant_code: string | null;
+  genreSub: string;
+  genreSubEnglish: string;
+  genreMemo: string;
+  genreMemoEnglish: string;
+  genreMemoChinaCn?: string;
+  genreMemoChinaTw?: string;
+  genreMemoKorea?: string;
+  genreMemoFrance?: string;
+  genreMemoVietnam?: string;
+  genreMemoThai?: string;
+  groupId: string | number | null;
+  tenantCode?: string | null;
   tel: string;
-  user_url: string;
-  floor: string;
-  floors: string | string[];
+  userUrl?: string;
+  floors: string | string[]; // "3F" or ["3F"]
   area: string;
-  area_sub: string;
+  areaSub: string;
   number: string;
-  open_year: number | null;
-  open_month: number | null;
-  close_flg: number;
-  pub_start: string;
-  pub_end: string | null;
-  open_day: string | null;
-  open_time: string;
+  openYear?: number | null;
+  openMonth?: number | null;
+  closeFlg: string | number;
+  pubStart?: string;
+  pubEnd?: string | null;
+  openDay?: string | null;
+  openTime: string;
   description: string;
-  update_date: string;
+  updateDate: string;
   
   // Web Paths
   photo1: string;
-  photo1_thumb: string;
-  photo1_thumb150x150: string;
-  photo1_thumb640x640: string;
-  photo1_thumb_w320: string;
-  photo1_thumb_w640: string;
-  
   photo2: string;
-  photo2_thumb: string;
-  photo2_thumb150x150: string;
-  photo2_thumb640x640: string;
-  photo2_thumb_w320: string;
-  photo2_thumb_w640: string;
-  
-  shop_logo: string;
-  shop_logo_thumb: string;
-  shop_logo_thumb150x150: string;
-  shop_logo_thumb640x640: string;
-  shop_logo_thumb_w320: string;
-  shop_logo_thumb_w640: string;
+  shopLogo: string;
 
   // Local Paths
-  photo1_local_path: string;
-  photo1_thumb_local_path: string;
-  photo1_thumb150x150_local_path: string;
-  photo1_thumb640x640_local_path: string;
-  photo1_thumb_w320_local_path: string;
-  photo1_thumb_w640_local_path: string;
-
-  photo2_local_path: string;
-  photo2_thumb_local_path: string;
-  photo2_thumb150x150_local_path: string;
-  photo2_thumb640x640_local_path: string;
-  photo2_thumb_w320_local_path: string;
-  photo2_thumb_w640_local_path: string;
-
-  shop_logo_local_path: string;
-  shop_logo_thumb_local_path: string;
-  shop_logo_thumb150x150_local_path: string;
-  shop_logo_thumb640x640_local_path: string;
-  shop_logo_thumb_w320_local_path: string;
-  shop_logo_thumb_w640_local_path: string;
-
-  qr: string;
+  photo1LocalPath: string;
+  photo2LocalPath: string;
+  shopLogoLocalPath: string;
   
-  // Options
-  food_class: string;
-  seats: string;
-  smoking: string;
-  reservation: string;
-  lunch_menu: string;
-  dinner_menu: string;
-  take_out: string;
-  childrens_menu: string;
-  baby_seat: string;
-  alcohol: string;
-  options: string;
+  // Additional fields if needed
+  qr?: string;
+  foodClass?: string;
+  seats?: string;
+  smoking?: string;
+  reservation?: string;
+  lunchMenu?: string;
+  dinnerMenu?: string;
+  takeOut?: string;
+  childrensMenu?: string;
+  babySeat?: string;
+  alcohol?: string;
+  options?: string;
 }

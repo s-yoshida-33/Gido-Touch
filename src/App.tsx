@@ -13,6 +13,7 @@ import { DEFAULT_IMAGE_SETTINGS } from "./types/imageSettings";
 import type { ShopPositionSettings } from "./types/shopPosition";
 import type { Shop } from "./types/shop";
 import { fetchShops } from "./repositories/shopRepository";
+import { sseClient } from "./api/sseClient";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
 
@@ -55,6 +56,9 @@ const App: React.FC = () => {
   useEffect(() => {
     let unsubscribeUpdated: (() => void) | undefined;
     let unsubscribeFloorLayout: (() => void) | undefined;
+
+    // Start SSE connection
+    sseClient.connect();
 
     const init = async () => {
       const api = window.electronAPI;
@@ -149,18 +153,18 @@ const App: React.FC = () => {
 
       // Load shops
       try {
-        const shopData = await fetchShops();
+        const shopData = await fetchShops({ forceReload: true }); // Initial full load
         
         // Filter shops: only "飲食店・食品" or "グルメ" genre
         const filtered = shopData.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
         
         // Exclude "イオン堺北花田店"
-        const excluded = filtered.filter((shop) => !shop.name.includes("イオン堺北花田店"));
+        const excluded = filtered.filter((shop) => !(shop.name || "").includes("イオン堺北花田店"));
         
         // Clean shop names
         const cleaned = excluded.map((s) => ({
           ...s,
-          name: s.name.replace(/【.*?】/g, "").trim(),
+          name: (s.name || "").replace(/【.*?】/g, "").trim(),
         }));
         
         setShops(cleaned);

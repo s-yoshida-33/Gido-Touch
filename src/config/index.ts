@@ -163,8 +163,6 @@ export const FLOOR_ROWS_PER_COL: Record<string, number> = {
 
 // Polling intervals
 export const POLLING_INTERVALS = {
-  // 開発環境では検証しやすくするために10秒、本番は3分
-  SHOP_LIST_MS: import.meta.env.DEV ? 10 * 1000 : 3 * 60 * 1000,
   VIDEO_MS: 500,      // 0.5 second
 };
 

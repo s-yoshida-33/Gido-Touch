@@ -17,6 +17,7 @@ import openTime from "../assets/open-time.svg";
 import prev from "../assets/button-prev.svg";
 import next from "../assets/button-next.svg";
 import { fetchShops } from "../repositories/shopRepository";
+import { sseClient } from "../api/sseClient";
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
@@ -356,12 +357,10 @@ const ShopListScreen: React.FC = () => {
   // Fetch shops from API
   useEffect(() => {
     let cancelled = false;
-    let timerId: number | null = null;
 
-    const loadShops = async () => {
-      let hasError = false;
+    const loadShops = async (forceReload: boolean = false) => {
       try {
-        const data = await fetchShops();
+        const data = await fetchShops({ forceReload });
         if (cancelled) return;
 
         // Check for empty data (likely due to API update in progress)
@@ -373,12 +372,12 @@ const ShopListScreen: React.FC = () => {
         const filtered = data.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
 
         // Exclude "イオン堺北花田店"
-        const excluded = filtered.filter((shop) => !shop.name.includes("イオン堺北花田店"));
+        const excluded = filtered.filter((shop) => !(shop.name || "").includes("イオン堺北花田店"));
 
         // Clean shop names (remove furigana in brackets)
         const cleaned = excluded.map((s) => ({
           ...s,
-          name: s.name.replace(/【.*?】/g, "").trim(),
+          name: (s.name || "").replace(/【.*?】/g, "").trim(),
         }));
 
         // Load shop positions and merge with shop data
@@ -406,7 +405,6 @@ const ShopListScreen: React.FC = () => {
 
         setError(null);
       } catch (e: any) {
-        hasError = true;
         console.error(e);
         if (cancelled) return;
 
@@ -417,29 +415,26 @@ const ShopListScreen: React.FC = () => {
         } else {
           console.warn("[ShopListScreen] API Error but keeping existing data:", e);
         }
-      } finally {
-        if (cancelled) return;
-        
-        // ポーリング間隔の設定
-        // エラー（API未接続など）の場合は、リトライ間隔を短くする（例: 10秒）
-        // 成功時は3分（開発環境は10秒）
-        const SHOP_LIST_MS = import.meta.env.DEV ? 10 * 1000 : 3 * 60 * 1000;
-        const nextInterval = hasError 
-          ? 10 * 1000 // エラー時は10秒後にリトライ
-          : SHOP_LIST_MS; // 成功時は設定通りの間隔
-
-        console.log(`[ShopListScreen] Next poll in ${nextInterval}ms (Error: ${hasError})`);
-        timerId = window.setTimeout(loadShops, nextInterval);
       }
     };
 
-    loadShops();
+    loadShops(false);
+
+    // Subscribe to SSE events for real-time updates
+    const unsubscribeUpdate = sseClient.on('update', () => {
+      console.log('[ShopListScreen] SSE update received, reloading shops...');
+      loadShops(true);
+    });
+
+    const unsubscribeConnected = sseClient.on('connected', () => {
+      console.log('[ShopListScreen] SSE connected, reloading shops...');
+      loadShops(true);
+    });
 
     return () => {
       cancelled = true;
-      if (timerId !== null) {
-        clearTimeout(timerId);
-      }
+      unsubscribeUpdate();
+      unsubscribeConnected();
     };
   }, [refreshTrigger]);
 

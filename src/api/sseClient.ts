@@ -38,45 +38,60 @@ export interface HeartbeatEvent {
 
 type SseListener<T> = (data: T) => void;
 
+import { getApiBaseUrl } from '../config';
+
+// ... existing code ...
+
 class SseClient {
   private eventSource: EventSource | null = null;
   private listeners: Map<SseEventType, Set<SseListener<any>>> = new Map();
-  private baseUrl: string;
   private reconnectTimer: number | undefined;
+  private isConnecting: boolean = false;
 
-  constructor(baseUrl: string = 'http://localhost:8080') {
-    this.baseUrl = baseUrl;
-  }
+  constructor() {}
 
-  public connect() {
-    if (this.eventSource) {
+  public async connect() {
+    if (this.eventSource || this.isConnecting) {
       return;
     }
 
-    const url = `${this.baseUrl}/api/events`;
-    console.log(`[SSE] Connecting to ${url}`);
-    
-    this.eventSource = new EventSource(url);
+    this.isConnecting = true;
+    try {
+      const baseUrl = await getApiBaseUrl();
+      const url = `${baseUrl}/api/events`;
+      console.log(`[SSE] Connecting to ${url}`);
+      
+      this.eventSource = new EventSource(url);
 
-    this.eventSource.onopen = () => {
-      console.log('[SSE] Connection opened');
-    };
+      this.eventSource.onopen = () => {
+        console.log('[SSE] Connection opened');
+        this.isConnecting = false;
+      };
 
-    this.eventSource.onerror = (error) => {
-      console.error('[SSE] Connection error:', error);
-      this.disconnect();
+      this.eventSource.onerror = (error) => {
+        console.error('[SSE] Connection error:', error);
+        this.disconnect();
+        this.isConnecting = false;
+        // Reconnect after 3 seconds
+        this.reconnectTimer = window.setTimeout(() => {
+          this.connect();
+        }, 3000);
+      };
+
+      // Setup event listeners
+      this.setupEventListener('connected');
+      this.setupEventListener('switch');
+      this.setupEventListener('preload');
+      this.setupEventListener('update');
+      this.setupEventListener('heartbeat');
+    } catch (e) {
+      console.error('[SSE] Failed to connect:', e);
+      this.isConnecting = false;
       // Reconnect after 3 seconds
       this.reconnectTimer = window.setTimeout(() => {
         this.connect();
       }, 3000);
-    };
-
-    // Setup event listeners
-    this.setupEventListener('connected');
-    this.setupEventListener('switch');
-    this.setupEventListener('preload');
-    this.setupEventListener('update');
-    this.setupEventListener('heartbeat');
+    }
   }
 
   private setupEventListener(type: SseEventType) {
