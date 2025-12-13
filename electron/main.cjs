@@ -1683,6 +1683,15 @@ ipcMain.on('menu:set-floor', (_event, floorId) => {
   updateFloorSetting(floorId);
 });
 
+// Startup wait completed
+ipcMain.on('startup-wait-completed', () => {
+  logger.info('Startup wait completed, switching to main window');
+  if (patchWindow && !patchWindow.isDestroyed()) {
+    patchWindow.close();
+  }
+  createMainWindow();
+});
+
 // Manual update check
 ipcMain.on('menu:check-updates', () => {
   checkForUpdates(true);

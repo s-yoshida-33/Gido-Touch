@@ -10,48 +10,38 @@ export function PatchScreen() {
   const [total, setTotal] = useState<number | null>(null);
   const [speed, setSpeed] = useState<number | null>(null);
   const [appVersion, setAppVersion] = useState<string>('');
+  
+  // Wait state
+  const [waitProgress, setWaitProgress] = useState(0);
+  const [isWaiting, setIsWaiting] = useState(false);
+  const [countdown, setCountdown] = useState(90);
 
   useEffect(() => {
     // Mock data for browser preview
     const isBrowser = !window.electronAPI;
     
     if (isBrowser) {
-      // Simulate update progress for browser preview
-      setAppVersion('0.1.0-beta.15');
-      setStatusState('available');
-      setStatusMessage('アップデートをダウンロードしています…\nしばらくお待ちください。');
-      
-      // Simulate progress
-      let mockPercent = 0;
-      const interval = setInterval(() => {
-        mockPercent += 2;
-        if (mockPercent > 100) {
-          mockPercent = 100;
-          setStatusState('downloaded');
-          setStatusMessage('アップデートが完了しました。\nアプリを再起動してください。');
-          clearInterval(interval);
-        } else {
-          setPercent(mockPercent);
-          setTransferred(mockPercent * 1024 * 1024 * 2); // Mock: 2MB per percent
-          setTotal(100 * 1024 * 1024 * 2); // Mock: 200MB total
-          setSpeed(5 * 1024 * 1024); // Mock: 5MB/s
-        }
-      }, 100);
-      
-      return () => clearInterval(interval);
+      // ... (keep existing browser mock if needed, or update it)
+      return;
     }
 
     if (!window.updater) return;
 
     window.updater.onStatus((data) => {
       setStatusState(data.state);
-      setStatusMessage(data.message);
 
       if (data.state === 'none' || data.state === 'error') {
+        setIsWaiting(true);
+        setStatusMessage(data.state === 'error' 
+          ? 'アップデート確認中にエラーが発生しました。\nそのまま起動します。' 
+          : '最新バージョンです。\n起動準備中...');
+        // Clear download stats
         setPercent(null);
         setTransferred(null);
         setTotal(null);
         setSpeed(null);
+      } else {
+        setStatusMessage(data.message);
       }
     });
 
@@ -62,6 +52,39 @@ export function PatchScreen() {
       setSpeed(data.speed);
     });
   }, []);
+
+  useEffect(() => {
+    if (!isWaiting) return;
+
+    const startTime = Date.now();
+    const duration = 90 * 1000;
+
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(100, (elapsed / duration) * 100);
+      setWaitProgress(progress);
+      
+      const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
+      setCountdown(remaining);
+
+      if (elapsed >= duration) {
+        clearInterval(timer);
+        finishWait();
+      }
+    }, 100);
+
+    return () => clearInterval(timer);
+  }, [isWaiting]);
+
+  const finishWait = () => {
+    if (window.updater?.startupWaitCompleted) {
+      window.updater.startupWaitCompleted();
+    }
+  };
+
+  const handleSkip = () => {
+    finishWait();
+  };
 
   useEffect(() => {
     // Mock data for browser preview
@@ -109,6 +132,8 @@ export function PatchScreen() {
     if (bytesPerSec == null || bytesPerSec <= 0) return '-';
     return (bytesPerSec / (1024 * 1024)).toFixed(1) + ' MB/s';
   };
+
+  const currentPercent = isWaiting ? waitProgress : percent;
 
   return (
     <div
@@ -215,8 +240,9 @@ export function PatchScreen() {
             gap: 12,
           }}
         >
-          <div style={{ fontSize: 12, color: '#888888', marginBottom: 6 }}>
-            Download status
+          <div style={{ fontSize: 12, color: '#888888', marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
+            <span>{isWaiting ? 'Startup progress' : 'Download status'}</span>
+            {isWaiting && <span>あと {countdown} 秒</span>}
           </div>
 
           {/* Progress Bar */}
@@ -234,14 +260,14 @@ export function PatchScreen() {
             <div
               style={{
                 height: '100%',
-                width: `${percent ?? 0}%`,
+                width: `${currentPercent ?? 0}%`,
                 backgroundColor: '#00ff88',
-                borderRight: percent && percent < 100 ? '2px solid #00cc66' : 'none',
+                borderRight: currentPercent && currentPercent < 100 ? '2px solid #00cc66' : 'none',
                 transition: 'width 0.2s linear',
-                boxShadow: percent && percent > 0 ? 'inset 0 0 8px rgba(0,255,136,0.3)' : 'none',
+                boxShadow: currentPercent && currentPercent > 0 ? 'inset 0 0 8px rgba(0,255,136,0.3)' : 'none',
               }}
             />
-            {percent && percent > 0 && percent < 100 && (
+            {currentPercent && currentPercent > 0 && currentPercent < 100 && (
               <div
                 style={{
                   position: 'absolute',
@@ -257,33 +283,56 @@ export function PatchScreen() {
           </div>
 
           <div style={{ fontSize: 12, textAlign: 'right', color: '#ffffff', fontWeight: 600 }}>
-            {percent != null ? `${percent.toFixed(1)}%` : '待機中…'}
+            {currentPercent != null ? `${currentPercent.toFixed(1)}%` : '待機中…'}
           </div>
 
-          {/* Numeric Info */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              rowGap: 8,
-              columnGap: 16,
-              fontSize: 11,
-              paddingTop: 8,
-              borderTop: '1px solid #1a1a1a',
-            }}
-          >
-            <div style={{ color: '#888888' }}>Transferred</div>
-            <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600 }}>{formatMB(transferred)}</div>
+          {/* Numeric Info (Only show when downloading) */}
+          {!isWaiting && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                rowGap: 8,
+                columnGap: 16,
+                fontSize: 11,
+                paddingTop: 8,
+                borderTop: '1px solid #1a1a1a',
+              }}
+            >
+              <div style={{ color: '#888888' }}>Transferred</div>
+              <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600 }}>{formatMB(transferred)}</div>
 
-            <div style={{ color: '#888888' }}>Total</div>
-            <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600 }}>{formatMB(total)}</div>
+              <div style={{ color: '#888888' }}>Total</div>
+              <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600 }}>{formatMB(total)}</div>
 
-            <div style={{ color: '#888888' }}>Speed</div>
-            <div style={{ textAlign: 'right', color: '#00ff88', fontWeight: 600 }}>{formatSpeed(speed)}</div>
+              <div style={{ color: '#888888' }}>Speed</div>
+              <div style={{ textAlign: 'right', color: '#00ff88', fontWeight: 600 }}>{formatSpeed(speed)}</div>
 
-            <div style={{ color: '#888888' }}>State</div>
-            <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600, textTransform: 'uppercase' }}>{statusState}</div>
-          </div>
+              <div style={{ color: '#888888' }}>State</div>
+              <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600, textTransform: 'uppercase' }}>{statusState}</div>
+            </div>
+          )}
+          
+          {/* Skip Button (Only show when waiting) */}
+          {isWaiting && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid #1a1a1a' }}>
+              <button
+                onClick={handleSkip}
+                style={{
+                  backgroundColor: '#333',
+                  color: '#fff',
+                  border: '1px solid #555',
+                  borderRadius: 4,
+                  padding: '6px 16px',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                スキップする
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

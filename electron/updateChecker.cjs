@@ -49,11 +49,7 @@ function initAutoUpdater(opts) {
       message: 'You are running the latest version. Launching app…',
     });
 
-    setTimeout(() => {
-      const w = getPatchWindow && getPatchWindow();
-      if (w) w.close();
-      if (createMainWindow) createMainWindow();
-    }, 0);
+    // Wait for the renderer to finish its countdown before closing/opening main window
   });
 
   autoUpdater.on('download-progress', (progress) => {
@@ -91,11 +87,7 @@ function initAutoUpdater(opts) {
       message: `Update error: ${err?.message ?? err}`,
     });
 
-    setTimeout(() => {
-      const w = getPatchWindow && getPatchWindow();
-      if (w) w.close();
-      if (createMainWindow) createMainWindow();
-    }, 1500);
+    // Wait for the renderer to finish its countdown before closing/opening main window
   });
 }
 

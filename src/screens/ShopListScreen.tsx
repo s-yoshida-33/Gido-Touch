@@ -308,7 +308,7 @@ const ShopListScreen: React.FC = () => {
   const [canScroll, setCanScroll] = useState(false);
 
   // Force reload trigger state
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [refreshTrigger, _setRefreshTrigger] = useState(0);
 
   // Idle timeout state (30 seconds for testing)
   const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds
@@ -1251,7 +1251,7 @@ const ShopListScreen: React.FC = () => {
                     handleFloorSelect("3F");
                   }
                 }}
-                onTouchStart={(e) => {
+                onTouchStart={(_e) => {
                   // If another button is already being touched, ignore this touch
                   if (activeTouchRef.current && activeTouchRef.current !== "3F") return;
                   activeTouchRef.current = "3F";
@@ -1264,7 +1264,7 @@ const ShopListScreen: React.FC = () => {
                     activeTouchRef.current = null;
                   }
                 }}
-                onTouchCancel={(e) => {
+                onTouchCancel={(_e) => {
                   if (activeTouchRef.current === "3F") {
                     activeTouchRef.current = null;
                   }
@@ -1318,7 +1318,7 @@ const ShopListScreen: React.FC = () => {
                     handleFloorSelect("2F");
                   }
                 }}
-                onTouchStart={(e) => {
+                onTouchStart={(_e) => {
                   if (activeTouchRef.current && activeTouchRef.current !== "2F") return;
                   activeTouchRef.current = "2F";
                 }}
@@ -1329,7 +1329,7 @@ const ShopListScreen: React.FC = () => {
                     activeTouchRef.current = null;
                   }
                 }}
-                onTouchCancel={(e) => {
+                onTouchCancel={(_e) => {
                   if (activeTouchRef.current === "2F") {
                     activeTouchRef.current = null;
                   }
@@ -1383,7 +1383,7 @@ const ShopListScreen: React.FC = () => {
                     handleFloorSelect("1F");
                   }
                 }}
-                onTouchStart={(e) => {
+                onTouchStart={(_e) => {
                   if (activeTouchRef.current && activeTouchRef.current !== "1F") return;
                   activeTouchRef.current = "1F";
                 }}
@@ -1394,7 +1394,7 @@ const ShopListScreen: React.FC = () => {
                     activeTouchRef.current = null;
                   }
                 }}
-                onTouchCancel={(e) => {
+                onTouchCancel={(_e) => {
                   if (activeTouchRef.current === "1F") {
                     activeTouchRef.current = null;
                   }

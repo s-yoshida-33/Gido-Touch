@@ -23,8 +23,10 @@ interface SwitchEventData {
   current_timeline: ApiTimelineItem;
 }
 
-function mapToCurrentAsset(timelineItemWrapper: ApiTimelineItem): CurrentAsset | null {
-  const timelineItem = timelineItemWrapper.data;
+function mapToCurrentAsset(item: ApiTimelineItem | WspTimelineItem): CurrentAsset | null {
+  // Use explicit casting to handle the discriminated union properly with the index signature of WspTimelineItem
+  const timelineItem = ((item as any).data || item) as WspTimelineItem;
+  
   if (!timelineItem) return null;
 
   const mediaAsset = timelineItem.media_assets?.[0];
@@ -44,8 +46,8 @@ function mapToCurrentAsset(timelineItemWrapper: ApiTimelineItem): CurrentAsset |
     width: mediaAsset.width,
     height: mediaAsset.height,
     name: name,
-    startTime: timelineItemWrapper.start_time,
-    endTime: timelineItemWrapper.end_time,
+    startTime: item.start_time,
+    endTime: item.end_time,
     mediaType: mediaAsset.mediaType || mediaAsset.type,
     type: mediaAsset.type,
   };
