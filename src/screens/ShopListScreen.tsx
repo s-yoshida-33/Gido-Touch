@@ -145,6 +145,10 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
     );
   }
 
+  if (isLoading) {
+    return null;
+  }
+
   return (
     <img
       src={imageUrl}
@@ -314,6 +318,24 @@ const ShopListScreen: React.FC = () => {
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const languageButtonRef = useRef<HTMLDivElement>(null);
   
+  // Ref to track active touch on floor buttons to prevent multi-touch highlighting
+  const activeTouchRef = useRef<string | null>(null);
+
+  // Helper to handle floor selection
+  const handleFloorSelect = (floor: string) => {
+    // Close modal if open
+    if (selectedShop) {
+      setSelectedShop(null);
+    }
+    // If same floor is selected, deselect (show all shops)
+    // Otherwise, select the clicked floor
+    if (selectedFloor === floor) {
+      setSelectedFloor(null);
+    } else {
+      setSelectedFloor(floor);
+    }
+  };
+  
   // Get selected language from localStorage (default to Japanese)
   const getSelectedLanguage = (): "ja" | "en" => {
     if (typeof window !== "undefined" && window.localStorage) {
@@ -436,7 +458,7 @@ const ShopListScreen: React.FC = () => {
       unsubscribeUpdate();
       unsubscribeConnected();
     };
-  }, [refreshTrigger]);
+  }, []);
 
   // ショップ位置情報の更新を監視
   useEffect(() => {
@@ -510,9 +532,9 @@ const ShopListScreen: React.FC = () => {
         setSelectedLanguage("ja"); // Reset to default Japanese (also saves to localStorage)
         setIsLanguageModalOpen(false);
         
-        // Trigger forced reload of images and API data
-        setRefreshTrigger(prev => prev + 1);
-        console.log('[ShopListScreen] Idle timeout: Refreshing content');
+        // Note: Do NOT trigger refreshTrigger here, as it forces CMS content to reset/reload.
+        // We only want to reset the UI selection state, not the background content loop.
+        console.log('[ShopListScreen] Idle timeout: Resetting UI state');
         
         // Reset scroll position to top with smooth animation (same as scrollToStart)
         if (scrollContainerRef.current) {
@@ -1221,47 +1243,30 @@ const ShopListScreen: React.FC = () => {
                   position: "relative",
                   display: "inline-block",
                   cursor: "pointer",
+                  touchAction: "none", // Prevent default touch actions like scrolling/zooming on the button
                 }}
                 onClick={() => {
-                  // Close modal if open
-                  if (selectedShop) {
-                    setSelectedShop(null);
-                  }
-                  // If same floor is selected, deselect (show all shops)
-                  // Otherwise, select the clicked floor
-                  if (selectedFloor === "3F") {
-                    setSelectedFloor(null);
-                  } else {
-                    setSelectedFloor("3F");
-                  }
-                }}
-                onMouseEnter={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "1";
-                }}
-                onMouseLeave={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  // Keep highlight visible if this floor is selected
-                  if (selectedFloor !== "3F" && highlight) {
-                    highlight.style.opacity = "0";
+                  // Only allow mouse clicks if no touch interaction is active
+                  if (!activeTouchRef.current) {
+                    handleFloorSelect("3F");
                   }
                 }}
                 onTouchStart={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "1";
+                  // If another button is already being touched, ignore this touch
+                  if (activeTouchRef.current && activeTouchRef.current !== "3F") return;
+                  activeTouchRef.current = "3F";
                 }}
                 onTouchEnd={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  // Keep highlight visible if this floor is selected
-                  if (selectedFloor !== "3F" && highlight) {
-                    highlight.style.opacity = "0";
+                  // Only process if this was the active touch
+                  if (activeTouchRef.current === "3F") {
+                    e.preventDefault(); // Prevent ghost click
+                    handleFloorSelect("3F");
+                    activeTouchRef.current = null;
                   }
                 }}
                 onTouchCancel={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  // Keep highlight visible if this floor is selected
-                  if (selectedFloor !== "3F" && highlight) {
-                    highlight.style.opacity = "0";
+                  if (activeTouchRef.current === "3F") {
+                    activeTouchRef.current = null;
                   }
                 }}
               >
@@ -1306,47 +1311,27 @@ const ShopListScreen: React.FC = () => {
                   position: "relative",
                   display: "inline-block",
                   cursor: "pointer",
+                  touchAction: "none",
                 }}
                 onClick={() => {
-                  // Close modal if open
-                  if (selectedShop) {
-                    setSelectedShop(null);
-                  }
-                  // If same floor is selected, deselect (show all shops)
-                  // Otherwise, select the clicked floor
-                  if (selectedFloor === "2F") {
-                    setSelectedFloor(null);
-                  } else {
-                    setSelectedFloor("2F");
-                  }
-                }}
-                onMouseEnter={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "1";
-                }}
-                onMouseLeave={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  // Keep highlight visible if this floor is selected
-                  if (selectedFloor !== "2F" && highlight) {
-                    highlight.style.opacity = "0";
+                  if (!activeTouchRef.current) {
+                    handleFloorSelect("2F");
                   }
                 }}
                 onTouchStart={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "1";
+                  if (activeTouchRef.current && activeTouchRef.current !== "2F") return;
+                  activeTouchRef.current = "2F";
                 }}
                 onTouchEnd={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  // Keep highlight visible if this floor is selected
-                  if (selectedFloor !== "2F" && highlight) {
-                    highlight.style.opacity = "0";
+                  if (activeTouchRef.current === "2F") {
+                    e.preventDefault();
+                    handleFloorSelect("2F");
+                    activeTouchRef.current = null;
                   }
                 }}
                 onTouchCancel={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  // Keep highlight visible if this floor is selected
-                  if (selectedFloor !== "2F" && highlight) {
-                    highlight.style.opacity = "0";
+                  if (activeTouchRef.current === "2F") {
+                    activeTouchRef.current = null;
                   }
                 }}
               >
@@ -1391,47 +1376,27 @@ const ShopListScreen: React.FC = () => {
                   position: "relative",
                   display: "inline-block",
                   cursor: "pointer",
+                  touchAction: "none",
                 }}
                 onClick={() => {
-                  // Close modal if open
-                  if (selectedShop) {
-                    setSelectedShop(null);
-                  }
-                  // If same floor is selected, deselect (show all shops)
-                  // Otherwise, select the clicked floor
-                  if (selectedFloor === "1F") {
-                    setSelectedFloor(null);
-                  } else {
-                    setSelectedFloor("1F");
-                  }
-                }}
-                onMouseEnter={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "1";
-                }}
-                onMouseLeave={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  // Keep highlight visible if this floor is selected
-                  if (selectedFloor !== "1F" && highlight) {
-                    highlight.style.opacity = "0";
+                  if (!activeTouchRef.current) {
+                    handleFloorSelect("1F");
                   }
                 }}
                 onTouchStart={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  if (highlight) highlight.style.opacity = "1";
+                  if (activeTouchRef.current && activeTouchRef.current !== "1F") return;
+                  activeTouchRef.current = "1F";
                 }}
                 onTouchEnd={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  // Keep highlight visible if this floor is selected
-                  if (selectedFloor !== "1F" && highlight) {
-                    highlight.style.opacity = "0";
+                  if (activeTouchRef.current === "1F") {
+                    e.preventDefault();
+                    handleFloorSelect("1F");
+                    activeTouchRef.current = null;
                   }
                 }}
                 onTouchCancel={(e) => {
-                  const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                  // Keep highlight visible if this floor is selected
-                  if (selectedFloor !== "1F" && highlight) {
-                    highlight.style.opacity = "0";
+                  if (activeTouchRef.current === "1F") {
+                    activeTouchRef.current = null;
                   }
                 }}
               >

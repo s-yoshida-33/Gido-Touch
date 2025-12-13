@@ -177,6 +177,9 @@ contextBridge.exposeInMainWorld('wspApi', {
   getRightTopVideoAsset() {
     return ipcRenderer.invoke('wsp:get-right-top-video-asset');
   },
+  getBaseUrl() {
+    return ipcRenderer.invoke('wsp:get-cms-base-url');
+  },
 });
 
 contextBridge.exposeInMainWorld('logger', {

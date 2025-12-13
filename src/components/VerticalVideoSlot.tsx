@@ -27,13 +27,9 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         });
       }
       if (imgRef.current && asset) {
-        // Force image reload by appending query param
-        const src = imgRef.current.src;
-        // Don't append if data url
-        if (!src.startsWith('data:')) {
-           const separator = src.includes('?') ? '&' : '?';
-           imgRef.current.src = `${src}${separator}t=${Date.now()}`;
-        }
+        // Force image reload using cache (reset to original asset source)
+        logInfo('video', 'Refreshing image with cache', { src: asset.src });
+        imgRef.current.src = asset.src;
       }
     }
   }, [forceReload, asset]);

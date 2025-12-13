@@ -371,11 +371,14 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
               initialScale={1}
               minScale={1}
               maxScale={4}
-              limitToBounds={currentScale > 1}
+              limitToBounds={true}
+              disablePadding={true}
               centerOnInit={true}
               wheel={{ step: 0.05 }}
               doubleClick={{ disabled: true }}
-              panning={{ disabled: currentScale === 1 }}
+              panning={{ disabled: currentScale <= 1.01 }}
+              alignmentAnimation={{ disabled: true }}
+              velocityAnimation={{ disabled: true }}
               onInit={(ref) => { transformRef.current = ref; setCurrentScale(ref.state.scale); }}
               onTransformed={(ref) => { setCurrentScale(ref.state.scale); }}
             >

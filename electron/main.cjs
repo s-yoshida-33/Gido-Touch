@@ -353,7 +353,7 @@ function updateFloorSetting(floor) {
 /**
  * Check if a port is available by attempting to connect to it.
  */
-function isPortAvailable(port, host = '127.0.0.1') {
+function isPortAvailable(port, host = 'localhost') {
   return new Promise((resolve) => {
     const socket = new net.Socket();
     const timeout = 1000; // 1 second timeout
@@ -386,7 +386,7 @@ function isPortAvailable(port, host = '127.0.0.1') {
  * Find an available port within the specified range by checking HTTP connectivity.
  * Returns the first port that responds to HTTP requests successfully.
  */
-async function findAvailablePortInRange(minPort, maxPort, path = '/', host = '127.0.0.1') {
+async function findAvailablePortInRange(minPort, maxPort, path = '/', host = 'localhost') {
   logger.debug('Starting port detection', { minPort, maxPort, path, host });
   
   for (let port = minPort; port <= maxPort; port++) {
@@ -465,9 +465,9 @@ async function getCmsBaseUrl() {
   logger.debug('Getting CMS base URL', { portRange });
 
   if (portRange && portRange.min && portRange.max) {
-    const port = await findAvailablePortInRange(portRange.min, portRange.max, '/current-timeline', '127.0.0.1');
+    const port = await findAvailablePortInRange(portRange.min, portRange.max, '/current-timeline', 'localhost');
     if (port) {
-      const baseUrl = `http://127.0.0.1:${port}`;
+      const baseUrl = `http://localhost:${port}`;
       logger.info('CMS base URL determined', { baseUrl, port, portRange });
       return baseUrl;
     } else {
@@ -478,7 +478,7 @@ async function getCmsBaseUrl() {
   }
 
   // Fallback to default (8080)
-  const fallbackUrl = 'http://127.0.0.1:8080';
+  const fallbackUrl = 'http://localhost:8080';
   logger.info('Using CMS fallback URL', { fallbackUrl });
   return fallbackUrl;
 }
@@ -1630,6 +1630,13 @@ ipcMain.handle('wsp:get-current-timeline', async () => {
     });
     return null;
   }
+});
+
+/**
+ * IPC handler: return CMS base URL.
+ */
+ipcMain.handle('wsp:get-cms-base-url', async () => {
+  return await getCachedCmsBaseUrl();
 });
 
 /**

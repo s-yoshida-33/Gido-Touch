@@ -79,12 +79,19 @@ export function useCurrentAsset(
       const nextAsset = mapToCurrentAsset(data.current_timeline);
       
       if (nextAsset) {
-          logInfo('video', 'Asset updated via SSE', {
-            assetId: nextAsset.id,
-            src: nextAsset.src,
-            name: nextAsset.name
+          setAsset(prevAsset => {
+            // Prevent unnecessary updates if the asset hasn't changed
+            if (prevAsset && prevAsset.id === nextAsset.id && prevAsset.startTime === nextAsset.startTime) {
+              return prevAsset;
+            }
+
+            logInfo('video', 'Asset updated via SSE', {
+              assetId: nextAsset.id,
+              src: nextAsset.src,
+              name: nextAsset.name
+            });
+            return nextAsset;
           });
-          setAsset(nextAsset);
       } else {
          logWarn('video', 'Failed to map timeline item to asset via SSE');
          setAsset(null);
@@ -106,20 +113,18 @@ export function useCurrentAsset(
   useEffect(() => {
     const fetchInitial = async () => {
       try {
-        // TODO: Make base URL configurable via sseClient or config
-        const response = await fetch('http://localhost:8080/api/current-timeline');
-        if (response.ok) {
-          const json = await response.json();
-          if (json.current_timeline) {
+        if (window.wspApi) {
+          const json = await window.wspApi.getCurrentTimeline();
+          if (json && json.current_timeline) {
              const initialAsset = mapToCurrentAsset(json.current_timeline);
              if (initialAsset) {
                 setAsset(initialAsset);
-                logInfo('video', 'Initial asset fetched via REST', { assetId: initialAsset.id });
+                logInfo('video', 'Initial asset fetched via IPC', { assetId: initialAsset.id });
              }
           }
         }
       } catch (e: any) {
-        logWarn('video', 'Failed to fetch initial timeline via REST', e?.message || e);
+        logWarn('video', 'Failed to fetch initial timeline via IPC', e?.message || e);
       } finally {
         setIsLoading(false);
       }

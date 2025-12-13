@@ -38,8 +38,6 @@ export interface HeartbeatEvent {
 
 type SseListener<T> = (data: T) => void;
 
-import { getApiBaseUrl } from '../config';
-
 // ... existing code ...
 
 class SseClient {
@@ -57,7 +55,17 @@ class SseClient {
 
     this.isConnecting = true;
     try {
-      const baseUrl = await getApiBaseUrl();
+      let baseUrl = 'http://localhost:8080';
+      
+      // Try to get URL from wspApi (Electron IPC)
+      if (window.wspApi) {
+        try {
+          baseUrl = await window.wspApi.getBaseUrl();
+        } catch (e) {
+          console.warn('[SSE] Failed to get CMS base URL from wspApi, using fallback', e);
+        }
+      }
+      
       const url = `${baseUrl}/api/events`;
       console.log(`[SSE] Connecting to ${url}`);
       
