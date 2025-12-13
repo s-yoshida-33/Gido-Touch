@@ -1,9 +1,25 @@
 // src/components/ShopPin.tsx
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import type { ShopPosition } from "../types/shop";
 import type { AnimationConfig } from "../types/locationIcon";
 import speechBubbleIcon from "../assets/shop-location.svg";
+
+const dropInVariants: Variants = {
+  hidden: { 
+    y: -100, 
+    opacity: 0 
+  },
+  visible: { 
+    y: 0, 
+    opacity: 1,
+    transition: { 
+      type: "spring",
+      stiffness: 300,
+      damping: 20
+    }
+  }
+};
 
 interface ShopPinProps {
   position: ShopPosition;
@@ -17,6 +33,7 @@ interface ShopPinProps {
   usePixelPosition?: boolean;
   pixelX?: number;
   pixelY?: number;
+  delay?: number;
 }
 
 function buildShadowStyle(shadow?: ShopPosition['shadow']): React.CSSProperties {
@@ -167,7 +184,8 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   style,
   usePixelPosition = false,
   pixelX,
-  pixelY
+  pixelY,
+  delay = 0
 }) => {
   if (position.enabled === false) {
     return null;
@@ -226,16 +244,26 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   const left = usePixelPosition && pixelX !== undefined ? `${pixelX}px` : `${position.x}%`;
   const top = usePixelPosition && pixelY !== undefined ? `${pixelY}px` : `${position.y}%`;
 
-  // Wrapper style: positions the pin on the map
-  const wrapperStyle: React.CSSProperties = {
+  // Outer style: positions the drop-in animation wrapper on the map
+  const outerStyle: React.CSSProperties = {
     position: "absolute",
     left,
     top,
+    zIndex: isSelected ? 1000 : 100,
+    pointerEvents: "none", 
+    width: 0,
+    height: 0,
+    overflow: "visible",
+  };
+
+  // Inner style: handles centering, scaling, and visual effects
+  const innerStyle: React.CSSProperties = {
+    position: "absolute",
+    left: 0,
+    top: 0,
     // Center the element on the coordinate using translate
     transform: `translate(-50%, -50%) scale(${inverseScale})`,
     transformOrigin: "center center",
-    zIndex: isSelected ? 1000 : 100,
-    pointerEvents: "none", 
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -244,8 +272,8 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   };
 
   if (isSelected) {
-    wrapperStyle.filter = wrapperStyle.filter
-      ? `${wrapperStyle.filter}, drop-shadow(0 0 8px rgba(0, 122, 255, 0.8))`
+    innerStyle.filter = innerStyle.filter
+      ? `${innerStyle.filter}, drop-shadow(0 0 8px rgba(0, 122, 255, 0.8))`
       : "drop-shadow(0 0 8px rgba(0, 122, 255, 0.8))";
   }
 
@@ -342,19 +370,35 @@ export const ShopPin: React.FC<ShopPinProps> = ({
     const animationProps = buildAnimationProps(fixedAmplitude, animation);
     return (
       <motion.div
-        style={wrapperStyle as any} 
-        initial={animationProps.initial}
-        animate={animationProps.animate}
-        transition={animationProps.transition}
+        style={outerStyle as any}
+        variants={dropInVariants}
+        initial="hidden"
+        animate="visible"
+        transition={{ delay: delay, type: "spring", stiffness: 300, damping: 20 }}
       >
-        {renderContent()}
+        <motion.div
+          style={innerStyle as any} 
+          initial={animationProps.initial}
+          animate={animationProps.animate}
+          transition={animationProps.transition}
+        >
+          {renderContent()}
+        </motion.div>
       </motion.div>
     );
   }
 
-  return (
-    <div style={wrapperStyle}>
-      {renderContent()}
-    </div>
+    return (
+    <motion.div
+      style={outerStyle as any}
+      variants={dropInVariants}
+      initial="hidden"
+      animate="visible"
+      transition={{ delay: delay, type: "spring", stiffness: 300, damping: 20 }}
+    >
+      <div style={innerStyle}>
+        {renderContent()}
+      </div>
+    </motion.div>
   );
 };
