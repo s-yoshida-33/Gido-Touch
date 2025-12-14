@@ -7,12 +7,13 @@ import { getLocationIconSettingsForFloor, DEFAULT_LOCATION_ICON_SETTINGS_PER_FLO
 import type { FloorId, FloorLayout } from "../types/floorLayout";
 import { ImageSettingsTab } from "../components/ImageSettingsTab";
 import { ShopPositionSettingsTab } from "../components/ShopPositionSettingsTab";
+import { CurrentFloorSettingsTab } from "../components/CurrentFloorSettingsTab";
 import iconSvg from "../assets/icon.svg";
 import type { ImageSettings } from "../types/imageSettings";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
 
-type TabType = "image" | "shopPosition";
+type TabType = "image" | "shopPosition" | "floorSettings";
 
 interface UnifiedSettingsScreenProps {
   floor: FloorId;
@@ -25,6 +26,8 @@ interface UnifiedSettingsScreenProps {
   shopPositions: ShopPositionSettings;
   onSaveShopPositions: (settings: ShopPositionSettings) => Promise<void> | void;
   shops: Shop[];
+  currentFloorSetting: string;
+  onSaveCurrentFloorSetting: (floor: string) => void;
 }
 
 const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
@@ -38,6 +41,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   shopPositions: initialShopPositions,
   onSaveShopPositions,
   shops,
+  currentFloorSetting: initialCurrentFloorSetting,
+  onSaveCurrentFloorSetting,
 }) => {
   const [visible, setVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("image");
@@ -50,6 +55,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     useState<LocationIconSettingsPerFloor>(initialLocationIconSettings || DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR);
   const [imageSettings, setImageSettings] = useState<ImageSettings>(initialImageSettings);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings>(initialShopPositions);
+  const [currentFloorSetting, setCurrentFloorSetting] = useState<string>(initialCurrentFloorSetting);
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
 
   // Transform wrapper ref for programmatic control
@@ -110,6 +116,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setLocationIconSettings(initialLocationIconSettings);
         setImageSettings(initialImageSettings);
         setShopPositions(initialShopPositions);
+        setCurrentFloorSetting(initialCurrentFloorSetting);
         setErrors({});
         // Reset transform when opening settings
         // 設定画面を開くときは"floor"タブが選択されるので、3840×2160のコンテンツを中央に配置
@@ -136,8 +143,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setLocationIconSettings(initialLocationIconSettings);
       setImageSettings(initialImageSettings);
       setShopPositions(initialShopPositions);
+      setCurrentFloorSetting(initialCurrentFloorSetting);
     }
-  }, [visible, initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions]);
+  }, [visible, initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting]);
 
   const handleClose = () => {
     setVisible(false);
@@ -150,6 +158,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setLocationIconSettings(initialLocationIconSettings);
     setImageSettings(initialImageSettings);
     setShopPositions(initialShopPositions);
+    setCurrentFloorSetting(initialCurrentFloorSetting);
     setErrors({});
     // Reset transform - 現在のactiveTabに応じて適切な中央位置を計算
     if (transformRef.current && previewContainerRef.current) {
@@ -183,6 +192,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         onSaveImageSettings(imageSettings),
         onSaveShopPositions(shopPositions),
       ]);
+      onSaveCurrentFloorSetting(currentFloorSetting);
       handleClose();
     } catch (e) {
       console.error("Failed to save settings", e);
@@ -333,6 +343,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             {[
               { id: "image" as TabType, label: "画像" },
               { id: "shopPosition" as TabType, label: "座標設定" },
+              { id: "floorSettings" as TabType, label: "フロア設定" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -415,7 +426,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                   shopPositions={activeTab === "shopPosition" ? shopPositions : undefined}
                   shops={activeTab === "shopPosition" ? shops : undefined}
                   selectedShopId={activeTab === "shopPosition" ? selectedShopId : undefined}
-                  showOnlyMap={activeTab === "shopPosition"}
+                  showOnlyMap={activeTab === "shopPosition" || activeTab === "floorSettings"}
+                  currentFloorSetting={currentFloorSetting}
                 />
               )}
             </TransformComponent>
@@ -518,6 +530,12 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onSelectedShopIdChange={setSelectedShopId}
               locationIconSettings={locationIconSettings}
               onChangeLocationIconSettings={setLocationIconSettings}
+            />
+          )}
+          {activeTab === "floorSettings" && (
+            <CurrentFloorSettingsTab
+              currentFloorSetting={currentFloorSetting}
+              onChangeCurrentFloorSetting={setCurrentFloorSetting}
             />
           )}
         </div>

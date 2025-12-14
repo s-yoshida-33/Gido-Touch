@@ -34,6 +34,10 @@ interface ElectronAPI {
   setFloor: (floor: string) => void;
   onFloorChanged: (cb: (floor: string) => void) => void;
 
+  getCurrentFloorSetting: () => Promise<string>;
+  saveCurrentFloorSetting: (setting: string) => Promise<string>;
+  onCurrentFloorSettingUpdated: (cb: (setting: string) => void) => () => void;
+
   getLocationIconSettings: () => Promise<LocationIconSettings>;
   saveLocationIconSettings: (
     settings: LocationIconSettings

@@ -93,7 +93,7 @@ export const GENRE_ENGLISH: Record<string, string> = {
 // Location icon settings (speech bubble and location icon)
 export const DEFAULT_LOCATION_ICON_SETTINGS: LocationIconSettings = {
   speechBubble: {
-    enabled: false,
+    enabled: true,
     xPercent: 50,
     yPercent: 40,
     size: 96,
@@ -113,7 +113,7 @@ export const DEFAULT_LOCATION_ICON_SETTINGS: LocationIconSettings = {
     },
   },
   location: {
-    enabled: false,
+    enabled: true,
     xPercent: 50,
     yPercent: 50,
     size: 72,

@@ -178,6 +178,110 @@ const IconConfigSection: React.FC<{
             />
             <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 14, fontWeight: 500 }}>アニメーション</span>
           </label>
+
+          {config.animation?.enabled && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>タイプ</div>
+                <select 
+                  value={config.animation?.type ?? "floating"} 
+                  onChange={(e) => {
+                    const currentAnim = config.animation ?? { enabled: true, type: "floating", duration: 2.2, amplitude: 18 };
+                    update({ animation: { ...currentAnim, type: e.target.value as AnimationType } });
+                  }} 
+                  style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
+                >
+                  <option value="floating" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>フローティング</option>
+                  <option value="pulse" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>パルス</option>
+                  <option value="bounce" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>バウンス</option>
+                  <option value="blink" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>点滅・波紋</option>
+                  <option value="none" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>なし</option>
+                </select>
+              </div>
+              
+              <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>期間 (秒)</div>
+                    <input 
+                      type="number" 
+                      min={0.1} 
+                      step={0.1} 
+                      value={config.animation?.duration ?? 2.2} 
+                      onChange={(e) => {
+                        const currentAnim = config.animation ?? { enabled: true, type: "floating", duration: 2.2, amplitude: 18 };
+                        update({ animation: { ...currentAnim, duration: Math.max(0.1, Number(e.target.value) || 2.2) } });
+                      }} 
+                      style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }} 
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅</div>
+                    <input 
+                      type="number" 
+                      value={config.animation?.amplitude ?? 18} 
+                      onChange={(e) => {
+                        const currentAnim = config.animation ?? { enabled: true, type: "floating", duration: 2.2, amplitude: 18 };
+                        update({ animation: { ...currentAnim, amplitude: Number(e.target.value) || 0 } });
+                      }} 
+                      style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }} 
+                    />
+                  </div>
+              </div>
+
+              {config.animation?.type === "blink" && (
+                <>
+                  <div>
+                    <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋の色 (RGB/HEX)</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                      <span style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRight: "none", borderTopLeftRadius: 6, borderBottomLeftRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13, userSelect: "none" }}>#</span>
+                      <input 
+                        type="text" 
+                        value={(config.animation?.rippleColor || "#FFFFFF").replace(/^#/, "")} 
+                        onChange={(e) => {
+                          const currentAnim = config.animation ?? { enabled: true, type: "floating", duration: 2.2, amplitude: 18 };
+                          update({ animation: { ...currentAnim, rippleColor: `#${e.target.value.replace(/[^0-9A-Fa-f]/g, "").toUpperCase()}` } });
+                        }} 
+                        placeholder="FFFFFF" 
+                        maxLength={6} 
+                        style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderLeft: "none", borderTopRightRadius: 6, borderBottomRightRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }} 
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>波紋サイズ (倍率)</div>
+                      <input 
+                        type="number" 
+                        min={1} 
+                        step={0.1} 
+                        value={config.animation?.rippleSize ?? 1.5} 
+                        onChange={(e) => {
+                          const currentAnim = config.animation ?? { enabled: true, type: "floating", duration: 2.2, amplitude: 18 };
+                          update({ animation: { ...currentAnim, rippleSize: Math.max(1, Number(e.target.value) || 1.5) } });
+                        }} 
+                        style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }} 
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>中心サイズ (倍率)</div>
+                      <input 
+                        type="number" 
+                        min={0.1} 
+                        max={2} 
+                        step={0.05} 
+                        value={config.animation?.rippleCenterSize ?? 0.95} 
+                        onChange={(e) => {
+                          const currentAnim = config.animation ?? { enabled: true, type: "floating", duration: 2.2, amplitude: 18 };
+                          update({ animation: { ...currentAnim, rippleCenterSize: Math.max(0.1, Number(e.target.value) || 0.95) } });
+                        }} 
+                        style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }} 
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </fieldset>
@@ -327,6 +431,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        
         {/* Floor Selection */}
         <div>
           <label style={{ display: "block", color: "rgba(255, 255, 255, 0.8)", fontSize: 13, marginBottom: 8, fontWeight: 500 }}>フロア選択</label>

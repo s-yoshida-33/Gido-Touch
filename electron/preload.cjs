@@ -39,6 +39,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
       callback(floor);
     });
   },
+  getCurrentFloorSetting() {
+    return ipcRenderer.invoke('get-current-floor-setting');
+  },
+  saveCurrentFloorSetting(setting) {
+    return ipcRenderer.invoke('save-current-floor-setting', setting);
+  },
+  onCurrentFloorSettingUpdated(callback) {
+    const listener = (_event, updated) => callback(updated);
+    ipcRenderer.on('current-floor-setting-updated', listener);
+
+    return () => {
+      ipcRenderer.removeListener('current-floor-setting-updated', listener);
+    };
+  },
   getLocationIconSettings() {
     return ipcRenderer.invoke('get-location-icon-settings');
   },

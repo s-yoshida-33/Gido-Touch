@@ -73,6 +73,7 @@ interface GidoAppProps {
   shops?: Shop[];
   selectedShopId?: string | null;
   showOnlyMap?: boolean;
+  currentFloorSetting?: string;
 }
 
 const GidoApp: React.FC<GidoAppProps> = ({
@@ -84,6 +85,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
   shops: previewShops,
   selectedShopId,
   showOnlyMap = false,
+  currentFloorSetting: propCurrentFloorSetting,
 }) => {
   const [shops, setShops] = useState<Shop[]>([]);
   const shopsRef = useRef<Shop[]>([]); // Keep track of shops for error handling
@@ -278,6 +280,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
           shopPositions={shopPositions}
           shops={previewShops}
           selectedShopId={selectedShopId}
+          currentFloorSetting={propCurrentFloorSetting}
         />
       </div>
     );
@@ -310,6 +313,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
           shopPositions={shopPositions}
           shops={previewShops}
           selectedShopId={selectedShopId}
+          currentFloorSetting={propCurrentFloorSetting}
         />
 
         <div
@@ -453,7 +457,8 @@ const ShopPinsOverlay: React.FC<{
   shopPositions?: ShopPositionSettings;
   shops?: Shop[];
   selectedShopId?: string | null;
-}> = ({ floor, floorMap, locationIconSettings, shopPositions, shops, selectedShopId }) => {
+  currentFloorSetting?: string;
+}> = ({ floor, floorMap, locationIconSettings, shopPositions, shops, selectedShopId, currentFloorSetting: propCurrentFloorSetting }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageMetrics, setImageMetrics] = useState<{ 
@@ -509,6 +514,22 @@ const ShopPinsOverlay: React.FC<{
   const safeShops = shops || [];
   const positions = safeShopPositions.positions || {};
 
+  // Check if we should show location icons
+  const [currentFloorSetting, setCurrentFloorSetting] = useState<string>(propCurrentFloorSetting || "1F");
+  
+  useEffect(() => {
+    if (propCurrentFloorSetting) {
+      setCurrentFloorSetting(propCurrentFloorSetting);
+      return;
+    }
+    if (typeof window !== "undefined" && window.localStorage) {
+      const saved = localStorage.getItem("gido-current-floor-setting");
+      if (saved) setCurrentFloorSetting(saved);
+    }
+  }, [propCurrentFloorSetting]);
+
+  const showLocationIcons = normalizedFloor === currentFloorSetting;
+
   return (
     <div
       ref={containerRef}
@@ -542,7 +563,7 @@ const ShopPinsOverlay: React.FC<{
         }}
       />
 
-      <LocationIconsOverlay settings={locationIconSettings} />
+      {showLocationIcons && <LocationIconsOverlay settings={locationIconSettings} />}
 
       {shopPositions && imageMetrics && Object.entries(positions)
         .filter(([shopId]) => {

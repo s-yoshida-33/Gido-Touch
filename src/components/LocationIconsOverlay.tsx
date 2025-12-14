@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import type { LocationIconSettings, IconPositionConfig, AnimationConfig } from "../types/locationIcon";
 
 import SpeechBubbleSvg from "../assets/user-locaition.svg";
-import LocationSvg from "../assets/location.svg";
+import LocationSvg from "../assets/Location.svg";
 
 interface Props {
   settings: LocationIconSettings;
@@ -204,20 +204,27 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings }) => {
     );
   };
 
+  // ドロップインアニメーション用の Variants (ShopPinと同じ) - 使用しなくなったため削除
+  // const dropInVariants = { ... };
+
   return (
     <>
       {speechBubble.enabled && (
         <motion.div
           key={speechBubbleAnimationKey}
           style={speechBubbleWrapperStyle}
-          {...buildAnimationProps(speechBubble.animation)}
         >
-          {renderRippleAnimation(speechBubble, "speech-bubble")}
-          <img
-            src={SpeechBubbleSvg}
-            alt="Current location speech bubble"
-            style={buildImageStyle(speechBubble)}
-          />
+          <motion.div
+            style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}
+            {...buildAnimationProps(speechBubble.animation)}
+          >
+            {renderRippleAnimation(speechBubble, "speech-bubble")}
+            <img
+              src={SpeechBubbleSvg}
+              alt="Current location speech bubble"
+              style={buildImageStyle(speechBubble)}
+            />
+          </motion.div>
         </motion.div>
       )}
 
@@ -225,14 +232,18 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings }) => {
         <motion.div
           key={locationAnimationKey}
           style={locationWrapperStyle}
-          {...buildAnimationProps(location.animation)}
         >
-          {renderRippleAnimation(location, "location")}
-          <img
-            src={LocationSvg}
-            alt="Current location pin"
-            style={buildImageStyle(location)}
-          />
+          <motion.div
+            style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}
+            {...buildAnimationProps(location.animation)}
+          >
+            {renderRippleAnimation(location, "location")}
+            <img
+              src={LocationSvg}
+              alt="Current location pin"
+              style={buildImageStyle(location)}
+            />
+          </motion.div>
         </motion.div>
       )}
     </>

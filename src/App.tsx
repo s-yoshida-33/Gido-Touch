@@ -51,11 +51,15 @@ const App: React.FC = () => {
   const [imageSettings, setImageSettings] = useState<ImageSettings>(DEFAULT_IMAGE_SETTINGS);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings>({ positions: {} });
   const [shops, setShops] = useState<Shop[]>([]);
+  
+  // Current floor setting (lifted from ShopPositionSettingsTab)
+  const [currentFloorSetting, setCurrentFloorSetting] = useState<string>("1F");
 
   // Load initial settings from Electron and subscribe to updates
   useEffect(() => {
     let unsubscribeUpdated: (() => void) | undefined;
     let unsubscribeFloorLayout: (() => void) | undefined;
+    let unsubscribeCurrentFloorSetting: (() => void) | undefined;
 
     // Start SSE connection
     sseClient.connect();
@@ -75,15 +79,16 @@ const App: React.FC = () => {
               speechBubble: {
                 ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
                 ...saved.speechBubble,
-                enabled: DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled, // Always use default enabled value
+                enabled: saved.speechBubble?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled,
                 shadow: saved.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
                 animation: saved.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
               },
               location: {
                 ...DEFAULT_LOCATION_ICON_SETTINGS.location,
                 ...saved.location,
-                enabled: DEFAULT_LOCATION_ICON_SETTINGS.location.enabled, // Always use default enabled value
+                enabled: saved.location?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.location.enabled,
                 shadow: saved.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
+                animation: saved.location?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.location.animation,
               },
             };
             // Convert to per-floor format
@@ -102,7 +107,7 @@ const App: React.FC = () => {
                 speechBubble: {
                   ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
                   ...settings.speechBubble,
-                  enabled: DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled, // Always use default enabled value
+                  enabled: settings.speechBubble?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled,
                   shadow: settings.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
                   animation: settings.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
                 },
@@ -111,6 +116,7 @@ const App: React.FC = () => {
                   ...settings.location,
                   enabled: DEFAULT_LOCATION_ICON_SETTINGS.location.enabled, // Always use default enabled value
                   shadow: settings.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
+                  animation: settings.location?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.location.animation,
                 },
               };
             });
@@ -151,6 +157,14 @@ const App: React.FC = () => {
         }
       }
 
+      // Load current floor setting from Electron
+      if (api.getCurrentFloorSetting) {
+        const saved = await api.getCurrentFloorSetting();
+        if (saved) {
+          setCurrentFloorSetting(saved);
+        }
+      }
+
       // Load shops
       try {
         const shopData = await fetchShops({ forceReload: true }); // Initial full load
@@ -186,15 +200,16 @@ const App: React.FC = () => {
               speechBubble: {
                 ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
                 ...updated.speechBubble,
-                enabled: DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled, // Always use default enabled value
+                enabled: updated.speechBubble?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled,
                 shadow: updated.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
                 animation: updated.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
               },
               location: {
                 ...DEFAULT_LOCATION_ICON_SETTINGS.location,
                 ...updated.location,
-                enabled: DEFAULT_LOCATION_ICON_SETTINGS.location.enabled, // Always use default enabled value
+                enabled: updated.location?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.location.enabled,
                 shadow: updated.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
+                animation: updated.location?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.location.animation,
               },
             };
             // Convert to per-floor format
@@ -213,7 +228,7 @@ const App: React.FC = () => {
                 speechBubble: {
                   ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
                   ...settings.speechBubble,
-                  enabled: DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled, // Always use default enabled value
+                  enabled: settings.speechBubble?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled,
                   shadow: settings.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
                   animation: settings.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
                 },
@@ -222,6 +237,7 @@ const App: React.FC = () => {
                   ...settings.location,
                   enabled: DEFAULT_LOCATION_ICON_SETTINGS.location.enabled, // Always use default enabled value
                   shadow: settings.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
+                  animation: settings.location?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.location.animation,
                 },
               };
             });
@@ -253,11 +269,18 @@ const App: React.FC = () => {
           setShopPositions(updated);
         });
       }
+
+      if (api.onCurrentFloorSettingUpdated) {
+        unsubscribeCurrentFloorSetting = api.onCurrentFloorSettingUpdated((setting) => {
+          setCurrentFloorSetting(setting);
+        });
+      }
     }
 
     return () => {
       if (unsubscribeUpdated) unsubscribeUpdated();
       if (unsubscribeFloorLayout) unsubscribeFloorLayout();
+      if (unsubscribeCurrentFloorSetting) unsubscribeCurrentFloorSetting();
     };
   }, []);
 
@@ -315,9 +338,20 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveCurrentFloorSetting = (newFloor: string) => {
+    setCurrentFloorSetting(newFloor);
+    const api = window.electronAPI;
+    if (api && api.saveCurrentFloorSetting) {
+      api.saveCurrentFloorSetting(newFloor);
+    }
+  };
+
   return (
     <>
-      <ShopListScreen />
+      <ShopListScreen 
+        currentFloorSetting={currentFloorSetting}
+        locationIconSettings={locationSettings}
+      />
       <UnifiedSettingsScreen
         floor={floor}
         onSaveFloor={handleSaveFloor}
@@ -329,6 +363,8 @@ const App: React.FC = () => {
         shopPositions={shopPositions}
         onSaveShopPositions={handleSaveShopPositions}
         shops={shops}
+        currentFloorSetting={currentFloorSetting}
+        onSaveCurrentFloorSetting={handleSaveCurrentFloorSetting}
       />
       <VersionInfoScreen onClose={() => {}} />
     </>

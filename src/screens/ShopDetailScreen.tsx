@@ -22,6 +22,10 @@ import iconTime from "../assets/icon-time.svg";
 import iconTel from "../assets/icon-tel.svg";
 import type { Shop } from "../types/shop";
 import { ShopPin } from "../components/ShopPin";
+import { LocationIconsOverlay } from "../components/LocationIconsOverlay";
+import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
+import { getLocationIconSettingsForFloor } from "../config";
+import type { FloorId } from "../types/floorLayout";
 
 // Constants for consistent scaling (must match GidoApp)
 const REFERENCE_MAP_WIDTH = 1920;
@@ -168,7 +172,9 @@ const MapWithPinsComponent: React.FC<{
   shopLogo?: string;
   shopId?: string;
   currentScale: number;
-}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentScale }) => {
+  currentFloorSetting: string;
+  locationIconSettings: LocationIconSettingsPerFloor;
+}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentScale, currentFloorSetting, locationIconSettings }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageMetrics, setImageMetrics] = useState<{ 
@@ -211,6 +217,8 @@ const MapWithPinsComponent: React.FC<{
   }, [mapImage, updateMetrics]);
 
   const shouldShowPin = shopPosition && shopPosition.floor === normalizedFloor && imageMetrics;
+  const showLocationIcons = normalizedFloor === currentFloorSetting;
+  const currentFloorIconSettings = getLocationIconSettingsForFloor(locationIconSettings, normalizedFloor as FloorId);
 
   // Calculate Render Props
   let renderPosition = shopPosition;
@@ -264,6 +272,8 @@ const MapWithPinsComponent: React.FC<{
         style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
       />
       
+      {showLocationIcons && <LocationIconsOverlay settings={currentFloorIconSettings} />}
+
       {shouldShowPin && renderPosition && (
         <ShopPin
           position={renderPosition}
@@ -308,9 +318,11 @@ interface ShopDetailScreenProps {
   shop: Shop;
   onClose: () => void;
   language?: "ja" | "en";
+  currentFloorSetting: string;
+  locationIconSettings: LocationIconSettingsPerFloor;
 }
 
-const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, language = "ja" }) => {
+const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, language = "ja", currentFloorSetting, locationIconSettings }) => {
   const transformRef = useRef<any>(null);
   const [currentScale, setCurrentScale] = useState(1);
   const [zoomInHovered, setZoomInHovered] = useState(false);
@@ -391,6 +403,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                   shopLogo={shop.shopLogo}
                   shopId={shop.shopId || shop.number}
                   currentScale={currentScale}
+                  currentFloorSetting={currentFloorSetting}
+                  locationIconSettings={locationIconSettings}
                 />
               </TransformComponent>
             </TransformWrapper>

@@ -128,6 +128,7 @@ function loadSettings() {
   
   const base = {
     floor: '1F',
+    currentFloorSetting: '1F',
     locationIcons: DEFAULT_LOCATION_ICON_SETTINGS,
     floorLayout: DEFAULT_FLOOR_LAYOUT,
     imageSettings: {
@@ -192,6 +193,7 @@ function loadSettings() {
 
     const merged = {
       floor: typeof parsed.floor === 'string' ? parsed.floor : base.floor,
+      currentFloorSetting: typeof parsed.currentFloorSetting === 'string' ? parsed.currentFloorSetting : base.currentFloorSetting,
       locationIcons: {
         speechBubble: deepMerge(
           base.locationIcons.speechBubble,
@@ -284,6 +286,15 @@ function saveSettings(partial) {
   }
 
   return next;
+}
+
+/**
+ * Broadcast current floor setting changes to renderer processes
+ */
+function broadcastCurrentFloorSetting(setting) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('current-floor-setting-updated', setting);
+  }
 }
 
 /**
@@ -713,6 +724,7 @@ function createMainWindow() {
       floor: settings.floor,
     });
     broadcastFloor(settings.floor);
+    broadcastCurrentFloorSetting(settings.currentFloorSetting);
     broadcastLocationIconSettings(settings.locationIcons);
     broadcastFloorLayout(settings.floorLayout);
   });
@@ -874,6 +886,19 @@ ipcMain.handle('save-location-icon-settings', (_event, locationIcons) => {
   const settings = saveSettings({ locationIcons });
   broadcastLocationIconSettings(settings.locationIcons);
   return settings.locationIcons;
+});
+
+ipcMain.handle('get-current-floor-setting', () => {
+  const settings = loadSettings();
+  logger.debug('IPC get-current-floor-setting', { setting: settings.currentFloorSetting });
+  return settings.currentFloorSetting || '1F';
+});
+
+ipcMain.handle('save-current-floor-setting', (_event, currentFloorSetting) => {
+  logger.info('IPC save-current-floor-setting', { currentFloorSetting });
+  const settings = saveSettings({ currentFloorSetting });
+  broadcastCurrentFloorSetting(settings.currentFloorSetting);
+  return settings.currentFloorSetting;
 });
 
 /**

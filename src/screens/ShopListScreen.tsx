@@ -11,6 +11,7 @@ import button2FHighlight from "../assets/button-2F-highlight.svg";
 import button3FHighlight from "../assets/button-3F-highlight.svg";
 import buttonPrevHighlight from "../assets/button-prev-highlight.svg";
 import buttonNextHighlight from "../assets/button-next-highlight.svg";
+import iconCurrentFloor from "../assets/icon-current-floor.svg";
 import selectLanguageSelectedEn from "../assets/select-language-selected-en.svg";
 import selectLanguageSelectedJp from "../assets/select-language-selected-jp.svg";
 import openTime from "../assets/open-time.svg";
@@ -21,6 +22,7 @@ import { sseClient } from "../api/sseClient";
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
+import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 
 /**
  * Build image path using shop_id if photo is relative or filename only
@@ -269,6 +271,11 @@ function normalizeFloor(value: string): string {
   return m ? `${m[1]}F` : value;
 }
 
+interface ShopListScreenProps {
+  currentFloorSetting: string;
+  locationIconSettings: LocationIconSettingsPerFloor;
+}
+
 /**
  * Shop list screen
  * Screen size: 3840×2160
@@ -278,7 +285,7 @@ function normalizeFloor(value: string): string {
  * Action space: 1140×2160 (right side)
  * Action space background: Black
  */
-const ShopListScreen: React.FC = () => {
+const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings }) => {
   // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
@@ -528,7 +535,7 @@ const ShopListScreen: React.FC = () => {
       if (timeSinceLastActivity >= IDLE_TIMEOUT_MS) {
         // 30 seconds of inactivity - refresh to default state
         setSelectedShop(null);
-        setSelectedFloor(null);
+        setSelectedFloor(null); // Reset to no selection
         setSelectedLanguage("ja"); // Reset to default Japanese (also saves to localStorage)
         setIsLanguageModalOpen(false);
         
@@ -1169,6 +1176,8 @@ const ShopListScreen: React.FC = () => {
                 shop={selectedShop} 
                 onClose={() => setSelectedShop(null)} 
                 language={selectedLanguage}
+                currentFloorSetting={currentFloorSetting}
+                locationIconSettings={locationIconSettings}
               />
             </motion.div>
           )}
@@ -1295,6 +1304,26 @@ const ShopListScreen: React.FC = () => {
                     pointerEvents: "none",
                   }}
                 />
+                
+                {/* Current Location Icon */}
+                {currentFloorSetting === "3F" && (
+                  <img 
+                    src={iconCurrentFloor}
+                    alt="Current Floor"
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                    style={{
+                      position: "absolute",
+                      top: "5%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      zIndex: 5,
+                      pointerEvents: "none",
+                      width: "50%", // Adjust size relative to button
+                      height: "auto",
+                    }}
+                  />
+                )}
               </div>
               {/* TODO: Add FOOD FOREST button */}
             </div>
@@ -1360,6 +1389,26 @@ const ShopListScreen: React.FC = () => {
                     pointerEvents: "none",
                   }}
                 />
+                
+                {/* Current Location Icon */}
+                {currentFloorSetting === "2F" && (
+                  <img 
+                    src={iconCurrentFloor}
+                    alt="Current Floor"
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                    style={{
+                      position: "absolute",
+                      top: "5%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      zIndex: 5,
+                      pointerEvents: "none",
+                      width: "50%", // Adjust size relative to button
+                      height: "auto",
+                    }}
+                  />
+                )}
               </div>
               {/* TODO: Add RESTAURANT button */}
             </div>
@@ -1425,6 +1474,26 @@ const ShopListScreen: React.FC = () => {
                     pointerEvents: "none",
                   }}
                 />
+
+                {/* Current Location Icon */}
+                {currentFloorSetting === "1F" && (
+                  <img 
+                    src={iconCurrentFloor}
+                    alt="Current Floor"
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                    style={{
+                      position: "absolute",
+                      top: "5%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      zIndex: 5,
+                      pointerEvents: "none",
+                      width: "50%", // Adjust size relative to button
+                      height: "auto",
+                    }}
+                  />
+                )}
               </div>
               {/* TODO: Add SUZAKA 蔵 button */}
             </div>
