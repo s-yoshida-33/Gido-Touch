@@ -328,6 +328,10 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   // Ref to track active touch on floor buttons to prevent multi-touch highlighting
   const activeTouchRef = useRef<string | null>(null);
 
+  // Fade overlay state for idle timeout
+  const [isFadeActive, setIsFadeActive] = useState(false);
+  const isResettingRef = useRef(false);
+
   // Helper to handle floor selection
   const handleFloorSelect = (floor: string) => {
     // Close modal if open
@@ -367,6 +371,19 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       localStorage.setItem("gido-selected-language", lang);
     }
   };
+
+  // State refs for idle check (to access current state in interval)
+  const selectedShopRef = useRef(selectedShop);
+  const selectedFloorRef = useRef(selectedFloor);
+  const selectedLanguageRef = useRef(selectedLanguage);
+  const isLanguageModalOpenRef = useRef(isLanguageModalOpen);
+
+  useEffect(() => {
+    selectedShopRef.current = selectedShop;
+    selectedFloorRef.current = selectedFloor;
+    selectedLanguageRef.current = selectedLanguage;
+    isLanguageModalOpenRef.current = isLanguageModalOpen;
+  }, [selectedShop, selectedFloor, selectedLanguage, isLanguageModalOpen]);
 
   // Initialize language to Japanese on mount (force reset to Japanese)
   useEffect(() => {
@@ -533,23 +550,59 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       const timeSinceLastActivity = now - lastActivityTimeRef.current;
 
       if (timeSinceLastActivity >= IDLE_TIMEOUT_MS) {
-        // 30 seconds of inactivity - refresh to default state
-        setSelectedShop(null);
-        setSelectedFloor(null); // Reset to no selection
-        setSelectedLanguage("ja"); // Reset to default Japanese (also saves to localStorage)
-        setIsLanguageModalOpen(false);
-        
-        // Note: Do NOT trigger refreshTrigger here, as it forces CMS content to reset/reload.
-        // We only want to reset the UI selection state, not the background content loop.
-        console.log('[ShopListScreen] Idle timeout: Resetting UI state');
-        
-        // Reset scroll position to top with smooth animation (same as scrollToStart)
-        if (scrollContainerRef.current) {
-          smoothScrollTo(0, 800);
+        // Check if already in default state to avoid unnecessary refresh/fade
+        const isDefaultState =
+          selectedShopRef.current === null &&
+          selectedFloorRef.current === null &&
+          selectedLanguageRef.current === "ja" &&
+          isLanguageModalOpenRef.current === false &&
+          (scrollContainerRef.current ? scrollContainerRef.current.scrollLeft < 5 : true);
+
+        if (isDefaultState) {
+          // Already in default state, just reset timer to avoid loop
+          lastActivityTimeRef.current = Date.now();
+          return;
         }
-        
-        // Reset activity time after refresh
-        lastActivityTimeRef.current = Date.now();
+
+        if (!isResettingRef.current) {
+          // Start fade out
+          isResettingRef.current = true;
+          console.log('[ShopListScreen] Idle timeout: Starting fade out');
+          setIsFadeActive(true);
+
+          // Wait for fade out (1 second), then reset state
+          setTimeout(() => {
+            // 30 seconds of inactivity - refresh to default state
+            setSelectedShop(null);
+            setSelectedFloor(null); // Reset to no selection
+            setSelectedLanguage("ja"); // Reset to default Japanese (also saves to localStorage)
+            setIsLanguageModalOpen(false);
+            
+            // Note: Do NOT trigger refreshTrigger here, as it forces CMS content to reset/reload.
+            // We only want to reset the UI selection state, not the background content loop.
+            console.log('[ShopListScreen] Idle timeout: Resetting UI state');
+            
+            // Reset scroll position to top instantly (since screen is black)
+            if (scrollContainerRef.current) {
+              // smoothScrollTo(0, 800); 
+              // Instead of smooth scroll, just jump to top since we are hidden by fade
+              scrollContainerRef.current.scrollLeft = 0;
+            }
+            
+            // Reset activity time after refresh
+            lastActivityTimeRef.current = Date.now();
+
+            // Start fade in
+            requestAnimationFrame(() => {
+              setIsFadeActive(false);
+              
+              // Allow interaction again after fade in completes
+              setTimeout(() => {
+                isResettingRef.current = false;
+              }, 1000);
+            });
+          }, 1000);
+        }
       }
     }, 1000); // Check every second
 
@@ -1615,6 +1668,22 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         onClose={() => setIsLanguageModalOpen(false)}
         buttonRef={languageButtonRef}
         onLanguageChange={(lang) => setSelectedLanguage(lang)}
+      />
+
+      {/* Fade overlay for idle timeout refresh */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          backgroundColor: "#FFFFFF",
+          opacity: isFadeActive ? 1 : 0,
+          pointerEvents: isFadeActive ? "auto" : "none",
+          transition: "opacity 1s ease-in-out",
+          zIndex: 9999,
+        }}
       />
     </div>
   );
