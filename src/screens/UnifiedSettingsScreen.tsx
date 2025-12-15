@@ -192,7 +192,11 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         onSaveImageSettings(imageSettings),
         onSaveShopPositions(shopPositions),
       ]);
+      // currentFloorSettingの保存は同期的に行われる（App.tsx内でstate更新）が、
+      // Electronへの保存も確実に行われるように呼び出す。
+      // onSaveCurrentFloorSetting自体はvoidを返すが、内部でIPCを呼ぶ。
       onSaveCurrentFloorSetting(currentFloorSetting);
+      
       handleClose();
     } catch (e) {
       console.error("Failed to save settings", e);
@@ -417,7 +421,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 height: `${window.screen.height >= 2160 ? 2160 : 1080}px`,
               }}
             >
-              {activeTab !== "image" && (
+              {activeTab === "shopPosition" && (
                 <GidoApp
                   locationIconSettings={getLocationIconSettingsForFloor(locationIconSettings, floor)}
                   previewFloor={floor}
@@ -426,7 +430,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                   shopPositions={activeTab === "shopPosition" ? shopPositions : undefined}
                   shops={activeTab === "shopPosition" ? shops : undefined}
                   selectedShopId={activeTab === "shopPosition" ? selectedShopId : undefined}
-                  showOnlyMap={activeTab === "shopPosition" || activeTab === "floorSettings"}
+                  showOnlyMap={true}
                   currentFloorSetting={currentFloorSetting}
                 />
               )}

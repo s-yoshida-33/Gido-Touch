@@ -45,6 +45,46 @@ const App: React.FC = () => {
     DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR
   );
 
+  // DEBUG STATE
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const addDebug = (msg: string) => setDebugLog(prev => [...prev.slice(-19), msg]);
+
+  // Debug Window Drag State
+  const [debugPos, setDebugPos] = useState({ x: 20, y: 20 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        setDebugPos({
+          x: e.clientX - dragOffset.x,
+          y: e.clientY - dragOffset.y
+        });
+      }
+    };
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragOffset]);
+
+  const handleDebugMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - debugPos.x,
+      y: e.clientY - debugPos.y
+    });
+  };
+
   // Floor and floor layout state for unified settings
   const [floor, setFloor] = useState<FloorId>("1F");
   const [floorLayout, setFloorLayout] = useState<FloorLayout>(DEFAULT_FLOOR_LAYOUT);
@@ -69,100 +109,132 @@ const App: React.FC = () => {
       if (!api) return;
 
       // Load location icon settings
-      if (api.getLocationIconSettings) {
-        const saved = await api.getLocationIconSettings();
-        if (saved) {
-          // Check if saved is per-floor format or old single format
-          if ('speechBubble' in saved && 'location' in saved && !('1F' in saved)) {
-            // Old format: single LocationIconSettings - convert to per-floor format
-            const mergedSettings: LocationIconSettings = {
-              speechBubble: {
-                ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
-                ...saved.speechBubble,
-                enabled: saved.speechBubble?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled,
-                shadow: saved.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
-                animation: saved.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
-              },
-              location: {
-                ...DEFAULT_LOCATION_ICON_SETTINGS.location,
-                ...saved.location,
-                enabled: saved.location?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.location.enabled,
-                shadow: saved.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
-                animation: saved.location?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.location.animation,
-              },
-            };
-            // Convert to per-floor format
-            const perFloorSettings: LocationIconSettingsPerFloor = {
-              "1F": mergedSettings,
-              "2F": mergedSettings,
-              "3F": mergedSettings,
-              "4F": mergedSettings,
-            };
-            setLocationSettings(perFloorSettings);
-          } else {
-            // New format: LocationIconSettingsPerFloor
-            const perFloorSettings: LocationIconSettingsPerFloor = { ...DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR };
-            Object.entries(saved as unknown as LocationIconSettingsPerFloor).forEach(([floorId, settings]) => {
-              perFloorSettings[floorId] = {
+      try {
+        if (api.getLocationIconSettings) {
+          const saved = await api.getLocationIconSettings();
+          if (saved) {
+            // Check if saved is per-floor format or old single format
+            if ('speechBubble' in saved && 'location' in saved && !('1F' in saved)) {
+              // Old format: single LocationIconSettings - convert to per-floor format
+              const mergedSettings: LocationIconSettings = {
                 speechBubble: {
                   ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
-                  ...settings.speechBubble,
-                  enabled: settings.speechBubble?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled,
-                  shadow: settings.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
-                  animation: settings.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
+                  ...saved.speechBubble,
+                  enabled: saved.speechBubble?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled,
+                  shadow: saved.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
+                  animation: saved.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
                 },
                 location: {
                   ...DEFAULT_LOCATION_ICON_SETTINGS.location,
-                  ...settings.location,
-                  enabled: DEFAULT_LOCATION_ICON_SETTINGS.location.enabled, // Always use default enabled value
-                  shadow: settings.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
-                  animation: settings.location?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.location.animation,
+                  ...saved.location,
+                  enabled: saved.location?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.location.enabled,
+                  shadow: saved.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
+                  animation: saved.location?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.location.animation,
                 },
               };
-            });
-            setLocationSettings(perFloorSettings);
+              // Convert to per-floor format
+              const perFloorSettings: LocationIconSettingsPerFloor = {
+                "1F": mergedSettings,
+                "2F": mergedSettings,
+                "3F": mergedSettings,
+                "4F": mergedSettings,
+              };
+              setLocationSettings(perFloorSettings);
+            } else {
+              // New format: LocationIconSettingsPerFloor
+              const perFloorSettings: LocationIconSettingsPerFloor = { ...DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR };
+              Object.entries(saved as unknown as LocationIconSettingsPerFloor).forEach(([floorId, settings]) => {
+                perFloorSettings[floorId] = {
+                  speechBubble: {
+                    ...DEFAULT_LOCATION_ICON_SETTINGS.speechBubble,
+                    ...settings.speechBubble,
+                    enabled: settings.speechBubble?.enabled ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.enabled,
+                    shadow: settings.speechBubble?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.shadow,
+                    animation: settings.speechBubble?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.speechBubble.animation,
+                  },
+                  location: {
+                    ...DEFAULT_LOCATION_ICON_SETTINGS.location,
+                    ...settings.location,
+                    enabled: DEFAULT_LOCATION_ICON_SETTINGS.location.enabled, // Always use default enabled value
+                    shadow: settings.location?.shadow ?? DEFAULT_LOCATION_ICON_SETTINGS.location.shadow,
+                    animation: settings.location?.animation ?? DEFAULT_LOCATION_ICON_SETTINGS.location.animation,
+                  },
+                };
+              });
+              setLocationSettings(perFloorSettings);
+            }
           }
         }
+      } catch (e) {
+        console.error("Failed to load location settings", e);
       }
 
       // Load floor
-      if (api.getFloor) {
-        const currentFloor = await api.getFloor();
-        if (currentFloor) {
-          setFloor(currentFloor as FloorId);
+      try {
+        if (api.getFloor) {
+          const currentFloor = await api.getFloor();
+          if (currentFloor) {
+            setFloor(currentFloor as FloorId);
+          }
         }
+      } catch (e) {
+        console.error("Failed to load floor", e);
       }
 
       // Load floor layout
-      if (api.getFloorLayout) {
-        const layout = await api.getFloorLayout();
-        if (layout) {
-          setFloorLayout(layout);
+      try {
+        if (api.getFloorLayout) {
+          const layout = await api.getFloorLayout();
+          if (layout) {
+            setFloorLayout(layout);
+          }
         }
+      } catch (e) {
+        console.error("Failed to load floor layout", e);
       }
 
       // Load image settings
-      if (api.getImageSettings) {
-        const saved = await api.getImageSettings();
-        if (saved) {
-          setImageSettings(saved);
+      try {
+        if (api.getImageSettings) {
+          const saved = await api.getImageSettings();
+          if (saved) {
+            setImageSettings(saved);
+          }
         }
+      } catch (e) {
+        console.error("Failed to load image settings", e);
       }
 
       // Load shop positions
-      if (api.getShopPositions) {
-        const saved = await api.getShopPositions();
-        if (saved) {
-          setShopPositions(saved);
+      try {
+        if (api.getShopPositions) {
+          const saved = await api.getShopPositions();
+          if (saved) {
+            setShopPositions(saved);
+          }
         }
+      } catch (e) {
+        console.error("Failed to load shop positions", e);
       }
 
       // Load current floor setting from Electron
-      if (api.getCurrentFloorSetting) {
-        const saved = await api.getCurrentFloorSetting();
-        if (saved) {
-          setCurrentFloorSetting(saved);
+      try {
+        if (api.getCurrentFloorSetting) {
+          const saved = await api.getCurrentFloorSetting();
+          addDebug(`Floor loaded from IPC: ${JSON.stringify(saved)}`);
+          if (saved) {
+            setCurrentFloorSetting(saved);
+          }
         }
+        
+        // Detailed Debug
+        if (api.getDebugSettingsStatus) {
+           const status = await api.getDebugSettingsStatus();
+           addDebug(`DEBUG STATUS:\nPath: ${status.path}\nExists: ${status.exists}\nINTERNAL: ${JSON.stringify(status.internalDebug)}\nLoaded: ${JSON.stringify(status.loadSettingsResult)}`);
+        }
+      } catch (e: any) {
+        console.error("Failed to load current floor setting", e);
+        addDebug(`Floor load error: ${e.message}`);
       }
 
       // Load shops
@@ -348,6 +420,48 @@ const App: React.FC = () => {
 
   return (
     <>
+      <div style={{
+        position: 'fixed',
+        top: debugPos.y,
+        left: debugPos.x,
+        zIndex: 99999,
+        background: 'rgba(0,0,0,0.9)',
+        color: 'lime',
+        border: '1px solid lime',
+        borderRadius: '4px',
+        width: '600px',
+        maxHeight: '80vh',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
+      }}>
+        {/* Header for dragging */}
+        <div 
+          onMouseDown={handleDebugMouseDown}
+          style={{
+            padding: '10px',
+            background: 'rgba(0,255,0,0.2)',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            fontWeight: 'bold',
+            borderBottom: '1px solid lime',
+            userSelect: 'none',
+            flexShrink: 0
+          }}
+        >
+          Debug Log (CurrentFloor: {currentFloorSetting})
+        </div>
+        
+        {/* Content area */}
+        <div style={{
+          padding: '10px',
+          overflowY: 'auto',
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          whiteSpace: 'pre-wrap'
+        }}>
+          {debugLog.map((log, i) => <div key={i} style={{marginBottom: '4px', borderBottom: '1px solid rgba(0,255,0,0.1)'}}>{log}</div>)}
+        </div>
+      </div>
       <ShopListScreen 
         currentFloorSetting={currentFloorSetting}
         locationIconSettings={locationSettings}

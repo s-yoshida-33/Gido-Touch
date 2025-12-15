@@ -272,7 +272,7 @@ const MapWithPinsComponent: React.FC<{
         style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
       />
       
-      {showLocationIcons && <LocationIconsOverlay settings={currentFloorIconSettings} />}
+      {showLocationIcons && <LocationIconsOverlay settings={currentFloorIconSettings} imageMetrics={imageMetrics} />}
 
       {shouldShowPin && renderPosition && (
         <ShopPin

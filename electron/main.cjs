@@ -21,8 +21,19 @@ const isDev = !app.isPackaged;
 let patchWindow = null;
 let mainWindow = null;
 
-// Default location icon settings (for both speech bubble and location pin)
-const DEFAULT_LOCATION_ICON_SETTINGS = {
+// DEBUG: Track internal state of loadSettings
+let lastLoadSettingsDebug = {
+  timestamp: null,
+  rawPreview: null,
+  parsedValue: null,
+  parsedType: null,
+  checkResult: null,
+  finalValue: null,
+  error: null
+};
+
+// Default location icon settings (single floor)
+const DEFAULT_LOCATION_ICON_SETTINGS_SINGLE = {
   speechBubble: {
     enabled: true,
     xPercent: 50,
@@ -57,6 +68,14 @@ const DEFAULT_LOCATION_ICON_SETTINGS = {
       opacity: 0.5,
     },
   },
+};
+
+// Default location icon settings per floor
+const DEFAULT_LOCATION_ICON_SETTINGS = {
+  "1F": JSON.parse(JSON.stringify(DEFAULT_LOCATION_ICON_SETTINGS_SINGLE)),
+  "2F": JSON.parse(JSON.stringify(DEFAULT_LOCATION_ICON_SETTINGS_SINGLE)),
+  "3F": JSON.parse(JSON.stringify(DEFAULT_LOCATION_ICON_SETTINGS_SINGLE)),
+  "4F": JSON.parse(JSON.stringify(DEFAULT_LOCATION_ICON_SETTINGS_SINGLE)),
 };
 
 // Default ShopList layout (columns and rows per column for each floor)
@@ -171,7 +190,11 @@ function loadSettings() {
       return base;
     }
 
-    const raw = fs.readFileSync(settingsPath, 'utf-8');
+    let raw = fs.readFileSync(settingsPath, 'utf-8');
+    // Remove BOM if present
+    if (raw.charCodeAt(0) === 0xFEFF) {
+      raw = raw.slice(1);
+    }
     const parsed = JSON.parse(raw);
 
     // Deep merge function to ensure all nested properties are preserved
@@ -193,17 +216,34 @@ function loadSettings() {
 
     const merged = {
       floor: typeof parsed.floor === 'string' ? parsed.floor : base.floor,
-      currentFloorSetting: typeof parsed.currentFloorSetting === 'string' ? parsed.currentFloorSetting : base.currentFloorSetting,
-      locationIcons: {
-        speechBubble: deepMerge(
-          base.locationIcons.speechBubble,
-          parsed.locationIcons?.speechBubble || {}
-        ),
-        location: deepMerge(
-          base.locationIcons.location,
-          parsed.locationIcons?.location || {}
-        ),
-      },
+      currentFloorSetting: parsed.currentFloorSetting !== undefined ? String(parsed.currentFloorSetting) : base.currentFloorSetting,
+      locationIcons: (() => {
+        const parsedLoc = parsed.locationIcons || {};
+        const mergedIcons = { ...base.locationIcons };
+        
+        // Check if parsed data has new format (has keys like "1F", "2F" etc.)
+        // We prioritize new format if any floor key exists
+        const hasNewFormat = ['1F', '2F', '3F', '4F'].some(f => parsedLoc[f]);
+        
+        if (hasNewFormat) {
+          // New format: merge per floor
+          ['1F', '2F', '3F', '4F'].forEach(floor => {
+            if (parsedLoc[floor]) {
+              mergedIcons[floor] = deepMerge(base.locationIcons[floor], parsedLoc[floor]);
+            }
+          });
+        } else if (parsedLoc.speechBubble) {
+          // Old format only: migrate to all floors
+          // This fallback runs ONLY if no floor keys are found, preventing overwrite of new settings by old garbage
+          const migratedSingle = deepMerge(DEFAULT_LOCATION_ICON_SETTINGS_SINGLE, parsedLoc);
+          ['1F', '2F', '3F', '4F'].forEach(floor => {
+            mergedIcons[floor] = migratedSingle;
+          });
+        }
+        // If neither, mergedIcons remains as defaults (base.locationIcons)
+        
+        return mergedIcons;
+      })(),
       floorLayout: parsed.floorLayout
         ? {
             ...base.floorLayout,
@@ -249,15 +289,33 @@ function loadSettings() {
         : base.shopPositions,
     };
 
+    // DEBUG: Record internal state
+    lastLoadSettingsDebug = {
+      timestamp: new Date().toISOString(),
+      rawPreview: raw.substring(0, 100),
+      parsedValue: parsed.currentFloorSetting,
+      parsedType: typeof parsed.currentFloorSetting,
+      checkResult: typeof parsed.currentFloorSetting === 'string',
+      finalValue: merged.currentFloorSetting,
+      error: null
+    };
 
     logger.debug('Settings loaded', {
       floor: merged.floor,
-      hasAnimation: !!merged.locationIcons.speechBubble.animation,
-      animationEnabled: merged.locationIcons.speechBubble.animation?.enabled,
+      currentFloorSetting: merged.currentFloorSetting,
+      // Safely access one floor for debug log
+      hasAnimation1F: !!merged.locationIcons['1F']?.speechBubble?.animation,
     });
 
     return merged;
   } catch (error) {
+    // DEBUG: Record error
+    lastLoadSettingsDebug = {
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      stack: error.stack
+    };
+
     logger.error('Failed to load settings, using defaults', {
       error: error?.message,
     });
@@ -278,6 +336,9 @@ function saveSettings(partial) {
     fs.writeFileSync(settingsPath, JSON.stringify(next, null, 2), 'utf-8');
     logger.info('Settings saved', {
       floor: next.floor,
+      currentFloorSetting: next.currentFloorSetting,
+      hasLocationIcons: !!next.locationIcons,
+      locationIconFloors: next.locationIcons ? Object.keys(next.locationIcons) : [],
     });
   } catch (error) {
     logger.error('Failed to save settings', {
@@ -832,6 +893,46 @@ function createAppMenu() {
 /**
  * IPC handlers for settings and app info.
  */
+ipcMain.handle('debug:get-settings-status', () => {
+  const settingsPath = getSettingsPath();
+  const exists = fs.existsSync(settingsPath);
+  let content = null;
+  let parsed = null;
+  let error = null;
+
+  if (exists) {
+    try {
+      let raw = fs.readFileSync(settingsPath, 'utf-8');
+      // Remove BOM if present
+      if (raw.charCodeAt(0) === 0xFEFF) {
+        raw = raw.slice(1);
+      }
+      content = raw.substring(0, 200) + (raw.length > 200 ? '...' : '');
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      error = e.message;
+    }
+  }
+
+  const loadedSettings = loadSettings();
+
+  return {
+    path: settingsPath,
+    exists,
+    contentPreview: content,
+    jsonParseResult: parsed ? {
+      currentFloorSetting: parsed.currentFloorSetting,
+      typeOfFloor: typeof parsed.currentFloorSetting
+    } : null,
+    loadSettingsResult: {
+      currentFloorSetting: loadedSettings.currentFloorSetting,
+      typeOfFloor: typeof loadedSettings.currentFloorSetting
+    },
+    internalDebug: lastLoadSettingsDebug,
+    error
+  };
+});
+
 ipcMain.handle('settings:get-floor', () => {
   const settings = loadSettings();
   logger.debug('IPC settings:get-floor', { floor: settings.floor });

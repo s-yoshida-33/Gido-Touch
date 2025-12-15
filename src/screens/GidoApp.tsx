@@ -563,7 +563,7 @@ const ShopPinsOverlay: React.FC<{
         }}
       />
 
-      {showLocationIcons && <LocationIconsOverlay settings={locationIconSettings} />}
+      {showLocationIcons && <LocationIconsOverlay settings={locationIconSettings} imageMetrics={imageMetrics} />}
 
       {shopPositions && imageMetrics && Object.entries(positions)
         .filter(([shopId]) => {

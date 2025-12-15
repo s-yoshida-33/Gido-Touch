@@ -73,6 +73,7 @@ interface ElectronAPI {
   getShopPositions: () => Promise<ShopPositionSettings>;
   saveShopPositions: (settings: ShopPositionSettings) => Promise<ShopPositionSettings>;
   onShopPositionsUpdated: (cb: (settings: ShopPositionSettings) => void) => () => void;
+  getDebugSettingsStatus: () => Promise<any>;
   manualUpdateCheck: () => void;
   oneClickUpdate: () => void;
   quitApp: () => void;

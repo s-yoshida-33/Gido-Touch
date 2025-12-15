@@ -25,6 +25,10 @@ contextBridge.exposeInMainWorld('appInfo', {
 });
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  // DEBUG API
+  getDebugSettingsStatus() {
+    return ipcRenderer.invoke('debug:get-settings-status');
+  },
   getBridgeBaseUrl() {
     return ipcRenderer.invoke('get-bridge-base-url');
   },
