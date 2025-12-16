@@ -1818,6 +1818,15 @@ ipcMain.on('startup-wait-completed', () => {
   createMainWindow();
 });
 
+// Renderer ready for updates
+ipcMain.on('check-for-updates-ready', () => {
+  logger.info('Renderer is ready for updates');
+  // Only check for updates if not in dev mode (or force check)
+  if (!isDev) {
+    checkForUpdates(false);
+  }
+});
+
 // Manual update check
 ipcMain.on('menu:check-updates', () => {
   checkForUpdates(true);
@@ -1871,8 +1880,7 @@ app.whenReady().then(() => {
   // Skip update check in development mode
   if (!isDev) {
     createPatchWindow();
-    logger.info('Starting initial update check');
-    checkForUpdates(false);
+    // checkForUpdates(false); // Removed auto-check, waiting for renderer signal
   } else {
     logger.info('Skipping update check in development mode');
     // In dev mode, open main window immediately without patch window

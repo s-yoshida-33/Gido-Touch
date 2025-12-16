@@ -20,8 +20,8 @@ export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = (
       <div style={{ padding: 16, backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <label style={{ display: "block", color: "rgba(255, 255, 255, 0.8)", fontSize: 13, fontWeight: 500 }}>
-            カレントフロア設定（現在地）
-          </label>
+          カレントフロア設定（現在地）
+        </label>
           <select
             value={currentFloorSetting}
             onChange={(e) => handleCurrentFloorChange(e.target.value)}

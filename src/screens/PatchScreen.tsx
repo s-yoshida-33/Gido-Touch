@@ -51,6 +51,11 @@ export function PatchScreen() {
       setTotal(data.total);
       setSpeed(data.speed);
     });
+
+    // Notify main process that we are ready for updates
+    if (window.updater.checkForUpdatesReady) {
+      window.updater.checkForUpdatesReady();
+    }
   }, []);
 
   useEffect(() => {

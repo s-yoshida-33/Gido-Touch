@@ -1,6 +1,8 @@
 import type { WspCurrentTimelineResponse } from '../types/wsp';
 
-type SseEventType = 'connected' | 'switch' | 'preload' | 'update' | 'heartbeat';
+type SseEventType = 'connected' | 'switch' | 'preload' | 'update' | 'heartbeat' | 'status_change';
+
+export type SseConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 // Event payload types based on API.md
 // Exporting types to suppress unused errors (TS6196) and for potential future usage
@@ -45,8 +47,20 @@ class SseClient {
   private listeners: Map<SseEventType, Set<SseListener<any>>> = new Map();
   private reconnectTimer: number | undefined;
   private isConnecting: boolean = false;
+  private _status: SseConnectionStatus = 'disconnected';
 
   constructor() {}
+
+  public get status(): SseConnectionStatus {
+    return this._status;
+  }
+
+  private setStatus(status: SseConnectionStatus) {
+    if (this._status !== status) {
+      this._status = status;
+      this.notifyListeners('status_change', { status });
+    }
+  }
 
   public async connect() {
     if (this.eventSource || this.isConnecting) {
@@ -54,6 +68,8 @@ class SseClient {
     }
 
     this.isConnecting = true;
+    this.setStatus('connecting');
+
     try {
       let baseUrl = 'http://localhost:8080';
       
@@ -74,12 +90,14 @@ class SseClient {
       this.eventSource.onopen = () => {
         console.log('[SSE] Connection opened');
         this.isConnecting = false;
+        this.setStatus('connected');
       };
 
       this.eventSource.onerror = (error) => {
         console.error('[SSE] Connection error:', error);
         this.disconnect();
         this.isConnecting = false;
+        this.setStatus('error');
         // Reconnect after 3 seconds
         this.reconnectTimer = window.setTimeout(() => {
           this.connect();
@@ -95,6 +113,7 @@ class SseClient {
     } catch (e) {
       console.error('[SSE] Failed to connect:', e);
       this.isConnecting = false;
+      this.setStatus('error');
       // Reconnect after 3 seconds
       this.reconnectTimer = window.setTimeout(() => {
         this.connect();
@@ -124,6 +143,7 @@ class SseClient {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = undefined;
     }
+    this.setStatus('disconnected');
   }
 
   public on<T>(type: SseEventType, listener: SseListener<T>) {

@@ -14,6 +14,7 @@ import type { ShopPositionSettings } from "./types/shopPosition";
 import type { Shop } from "./types/shop";
 import { fetchShops } from "./repositories/shopRepository";
 import { sseClient } from "./api/sseClient";
+import type { SseConnectionStatus } from "./api/sseClient";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
 
@@ -49,10 +50,40 @@ const App: React.FC = () => {
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const addDebug = (msg: string) => setDebugLog(prev => [...prev.slice(-19), msg]);
 
-  // Debug Window Drag State
+  // Debug Window Drag & Resize State
   const [debugPos, setDebugPos] = useState({ x: 20, y: 20 });
+  const [debugSize, setDebugSize] = useState({ w: 600, h: 400 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDebugVisible, setIsDebugVisible] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>("");
+  
+  // API Status State
+  const [sseStatus, setSseStatus] = useState<SseConnectionStatus>('disconnected');
+  const [bridgeBaseUrl, setBridgeBaseUrl] = useState<string>("Loading...");
+  const [cmsBaseUrl, setCmsBaseUrl] = useState<string>("Loading...");
+  const [bridgeStatus, setBridgeStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  const [cmsStatus, setCmsStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+
+  useEffect(() => {
+    // Sync initial status
+    try {
+        setSseStatus(sseClient.status);
+    } catch (e) {
+        console.error("Failed to get sseClient status", e);
+    }
+
+    // Subscribe to SSE status changes
+    const unsubscribeStatus = sseClient.on('status_change', (data: { status: SseConnectionStatus }) => {
+      setSseStatus(data.status);
+      addDebug(`SSE Status: ${data.status}`);
+    });
+    
+    return () => {
+      unsubscribeStatus();
+    };
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -61,21 +92,36 @@ const App: React.FC = () => {
           x: e.clientX - dragOffset.x,
           y: e.clientY - dragOffset.y
         });
+      } else if (isResizing) {
+        setDebugSize({
+          w: Math.max(300, e.clientX - debugPos.x),
+          h: Math.max(200, e.clientY - debugPos.y)
+        });
       }
     };
     const handleMouseUp = () => {
       setIsDragging(false);
+      setIsResizing(false);
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle debug log with Ctrl + Shift + D
+      if (e.ctrlKey && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+        setIsDebugVisible(prev => !prev);
+      }
     };
 
-    if (isDragging) {
+    if (isDragging || isResizing) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     }
+    window.addEventListener('keydown', handleKeyDown);
+    
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isDragging, dragOffset]);
+  }, [isDragging, isResizing, dragOffset, debugPos]);
 
   const handleDebugMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
@@ -83,6 +129,11 @@ const App: React.FC = () => {
       x: e.clientX - debugPos.x,
       y: e.clientY - debugPos.y
     });
+  };
+
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsResizing(true);
   };
 
   // Floor and floor layout state for unified settings
@@ -105,8 +156,30 @@ const App: React.FC = () => {
     sseClient.connect();
 
     const init = async () => {
+      addDebug("App: Initializing...");
       const api = window.electronAPI;
-      if (!api) return;
+      if (!api) {
+        addDebug("App: No Electron API found");
+        return;
+      }
+
+      // Load API Base URLs for Debug
+      try {
+        if (api.getBridgeBaseUrl) {
+            const url = await api.getBridgeBaseUrl();
+            setBridgeBaseUrl(url);
+            setBridgeStatus('connected');
+        }
+        if (window.wspApi && window.wspApi.getBaseUrl) {
+            const url = await window.wspApi.getBaseUrl();
+            setCmsBaseUrl(url);
+            setCmsStatus('connected');
+        }
+      } catch (e: any) {
+        addDebug(`App: Failed to load API URLs: ${e.message}`);
+        setBridgeStatus('error');
+        setCmsStatus('error');
+      }
 
       // Load location icon settings
       try {
@@ -219,6 +292,13 @@ const App: React.FC = () => {
 
       // Load current floor setting from Electron
       try {
+        // App Version
+        // The appInfo is directly on window, not under electronAPI
+        if (window.appInfo?.getVersion) {
+            const v = await window.appInfo.getVersion();
+            setAppVersion(v);
+        }
+
         if (api.getCurrentFloorSetting) {
           const saved = await api.getCurrentFloorSetting();
           addDebug(`Floor loaded from IPC: ${JSON.stringify(saved)}`);
@@ -420,6 +500,7 @@ const App: React.FC = () => {
 
   return (
     <>
+      {isDebugVisible && (
       <div style={{
         position: 'fixed',
         top: debugPos.y,
@@ -429,8 +510,10 @@ const App: React.FC = () => {
         color: 'lime',
         border: '1px solid lime',
         borderRadius: '4px',
-        width: '600px',
-        maxHeight: '80vh',
+        width: `${debugSize.w}px`,
+        height: `${debugSize.h}px`,
+        maxHeight: '90vh',
+        maxWidth: '90vw',
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
@@ -445,23 +528,119 @@ const App: React.FC = () => {
             fontWeight: 'bold',
             borderBottom: '1px solid lime',
             userSelect: 'none',
+            flexShrink: 0,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
+          <span>Debug Log (CurrentFloor: {currentFloorSetting})</span>
+          <span style={{ fontSize: '10px', opacity: 0.8 }}>Ctrl+Shift+D to toggle</span>
+        </div>
+        
+        {/* System Info Section */}
+        <div style={{
+          padding: '8px 10px',
+          borderBottom: '1px solid rgba(0,255,0,0.2)',
+          fontSize: '11px',
+          background: 'rgba(255,255,255,0.05)',
+          flexShrink: 0
+        }}>
+          <div>Version: {appVersion || 'Unknown'} | Window: {window.innerWidth}x{window.innerHeight}</div>
+          <div>Location Icon ({currentFloorSetting}): {
+            (() => {
+              const current = locationSettings[currentFloorSetting];
+              if (!current) return 'None';
+              return `SB:${current.speechBubble?.enabled ? 'ON' : 'OFF'}(${current.speechBubble?.animation?.type || 'none'}), Loc:${current.location?.enabled ? 'ON' : 'OFF'}`;
+            })()
+          }</div>
+        </div>
+
+        {/* Scrollable Content Container */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          {/* API Status Section */}
+          <details style={{
+            padding: '8px 10px',
+            borderBottom: '1px solid rgba(0,255,0,0.2)',
+            fontSize: '11px',
+            background: 'rgba(255,255,255,0.05)',
+            cursor: 'pointer'
+          }}>
+            <summary style={{fontWeight: 'bold', color: 'cyan'}}>API Status</summary>
+            <div style={{marginTop: '4px', paddingLeft: '10px'}}>
+              <div>SSE Status: <span style={{color: sseStatus === 'connected' ? 'lime' : 'red'}}>{sseStatus}</span></div>
+              <div>Bridge (8090): <span style={{color: bridgeStatus === 'connected' ? 'lime' : bridgeStatus === 'error' ? 'red' : 'yellow'}}>{bridgeStatus}</span> ({bridgeBaseUrl})</div>
+              <div>CMS (8080): <span style={{color: cmsStatus === 'connected' ? 'lime' : cmsStatus === 'error' ? 'red' : 'yellow'}}>{cmsStatus}</span> ({cmsBaseUrl})</div>
+            </div>
+          </details>
+
+          {/* Settings Details Section */}
+          <details style={{
+            padding: '8px 10px',
+            borderBottom: '1px solid rgba(0,255,0,0.2)',
+            fontSize: '11px',
+            background: 'rgba(255,255,255,0.05)',
+            cursor: 'pointer'
+          }}>
+            <summary style={{fontWeight: 'bold', color: 'orange'}}>Full Settings</summary>
+            <div style={{marginTop: '4px', paddingLeft: '10px', whiteSpace: 'pre-wrap'}}>
+              <details>
+                <summary>Location Settings ({currentFloorSetting})</summary>
+                <pre>{JSON.stringify(locationSettings[currentFloorSetting], null, 2)}</pre>
+              </details>
+              <details>
+                <summary>Floor Layout ({floor})</summary>
+                <pre>{JSON.stringify(floorLayout[floor], null, 2)}</pre>
+              </details>
+              <details>
+                <summary>Image Settings</summary>
+                <pre>{JSON.stringify(imageSettings, null, 2)}</pre>
+              </details>
+              <details>
+                <summary>Shop Positions ({floor})</summary>
+                <pre>{JSON.stringify({
+                  count: Object.keys(shopPositions.positions || {}).filter(k => shopPositions.positions[k]?.floor === floor).length,
+                  positions: Object.fromEntries(Object.entries(shopPositions.positions || {}).filter(([,v]) => v.floor === floor))
+                }, null, 2)}</pre>
+              </details>
+            </div>
+          </details>
+
+          {/* Log Content area */}
+          <div style={{
+            padding: '10px',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            whiteSpace: 'pre-wrap'
+          }}>
+            {debugLog.map((log, i) => <div key={i} style={{marginBottom: '4px', borderBottom: '1px solid rgba(0,255,0,0.1)'}}>{log}</div>)}
+          </div>
+        </div>
+
+        {/* Resizer Handle */}
+        <div 
+          onMouseDown={handleResizeMouseDown}
+          style={{
+            width: '100%',
+            height: '10px',
+            background: 'rgba(0,255,0,0.1)',
+            cursor: 'se-resize',
+            borderTop: '1px solid rgba(0,255,0,0.3)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
             flexShrink: 0
           }}
         >
-          Debug Log (CurrentFloor: {currentFloorSetting})
-        </div>
-        
-        {/* Content area */}
-        <div style={{
-          padding: '10px',
-          overflowY: 'auto',
-          fontFamily: 'monospace',
-          fontSize: '12px',
-          whiteSpace: 'pre-wrap'
-        }}>
-          {debugLog.map((log, i) => <div key={i} style={{marginBottom: '4px', borderBottom: '1px solid rgba(0,255,0,0.1)'}}>{log}</div>)}
+          <div style={{width: '20px', height: '2px', background: 'lime', borderRadius: '1px'}}></div>
         </div>
       </div>
+      )}
       <ShopListScreen 
         currentFloorSetting={currentFloorSetting}
         locationIconSettings={locationSettings}
