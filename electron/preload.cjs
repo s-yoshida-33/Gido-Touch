@@ -186,6 +186,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('shop-positions-updated', listener);
     };
   },
+  getLocalMediaTextSettings() {
+    return ipcRenderer.invoke('get-local-media-text-settings');
+  },
+  saveLocalMediaTextSettings(settings) {
+    return ipcRenderer.invoke('save-local-media-text-settings', settings);
+  },
+  onLocalMediaTextSettingsUpdated(callback) {
+    const listener = (_event, updated) => callback(updated);
+    ipcRenderer.on('local-media-text-settings-updated', listener);
+
+    return () => {
+      ipcRenderer.removeListener('local-media-text-settings-updated', listener);
+    };
+  },
 });
 
 contextBridge.exposeInMainWorld('wspApi', {

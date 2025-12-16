@@ -8,12 +8,14 @@ import type { FloorId, FloorLayout } from "../types/floorLayout";
 import { ImageSettingsTab } from "../components/ImageSettingsTab";
 import { ShopPositionSettingsTab } from "../components/ShopPositionSettingsTab";
 import { CurrentFloorSettingsTab } from "../components/CurrentFloorSettingsTab";
+import { LocalMediaSettingsTab } from "../components/LocalMediaSettingsTab";
 import iconSvg from "../assets/icon.svg";
 import type { ImageSettings } from "../types/imageSettings";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
+import type { LocalMediaTextSettings } from "../types/global";
 
-type TabType = "image" | "shopPosition" | "floorSettings";
+type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia";
 
 interface UnifiedSettingsScreenProps {
   floor: FloorId;
@@ -28,6 +30,8 @@ interface UnifiedSettingsScreenProps {
   shops: Shop[];
   currentFloorSetting: string;
   onSaveCurrentFloorSetting: (floor: string) => void;
+  localMediaTextSettings: LocalMediaTextSettings;
+  onSaveLocalMediaTextSettings: (settings: LocalMediaTextSettings) => Promise<void> | void;
 }
 
 const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
@@ -43,6 +47,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   shops,
   currentFloorSetting: initialCurrentFloorSetting,
   onSaveCurrentFloorSetting,
+  localMediaTextSettings: initialLocalMediaTextSettings,
+  onSaveLocalMediaTextSettings,
 }) => {
   const [visible, setVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("image");
@@ -56,6 +62,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [imageSettings, setImageSettings] = useState<ImageSettings>(initialImageSettings);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings>(initialShopPositions);
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>(initialCurrentFloorSetting);
+  const [localMediaTextSettings, setLocalMediaTextSettings] = useState<LocalMediaTextSettings>(initialLocalMediaTextSettings || {});
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
 
   // Transform wrapper ref for programmatic control
@@ -117,6 +124,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setImageSettings(initialImageSettings);
         setShopPositions(initialShopPositions);
         setCurrentFloorSetting(initialCurrentFloorSetting);
+        setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
         setErrors({});
         // Reset transform when opening settings
         // 設定画面を開くときは"floor"タブが選択されるので、3840×2160のコンテンツを中央に配置
@@ -134,7 +142,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, calculateOtherTabCenterPosition]);
+  }, [initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, calculateOtherTabCenterPosition]);
 
   // Sync with external changes when screen is closed
   useEffect(() => {
@@ -144,8 +152,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setImageSettings(initialImageSettings);
       setShopPositions(initialShopPositions);
       setCurrentFloorSetting(initialCurrentFloorSetting);
+      setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
     }
-  }, [visible, initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting]);
+  }, [visible, initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings]);
 
   const handleClose = () => {
     setVisible(false);
@@ -159,6 +168,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setImageSettings(initialImageSettings);
     setShopPositions(initialShopPositions);
     setCurrentFloorSetting(initialCurrentFloorSetting);
+    setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
     setErrors({});
     // Reset transform - 現在のactiveTabに応じて適切な中央位置を計算
     if (transformRef.current && previewContainerRef.current) {
@@ -191,6 +201,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         onSaveLocationIconSettings(locationIconSettings),
         onSaveImageSettings(imageSettings),
         onSaveShopPositions(shopPositions),
+        onSaveLocalMediaTextSettings(localMediaTextSettings),
       ]);
       // currentFloorSettingの保存は同期的に行われる（App.tsx内でstate更新）が、
       // Electronへの保存も確実に行われるように呼び出す。
@@ -348,6 +359,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               { id: "image" as TabType, label: "画像" },
               { id: "shopPosition" as TabType, label: "座標設定" },
               { id: "floorSettings" as TabType, label: "フロア設定" },
+              { id: "localMedia" as TabType, label: "ローカルメディア設定" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -540,6 +552,12 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             <CurrentFloorSettingsTab
               currentFloorSetting={currentFloorSetting}
               onChangeCurrentFloorSetting={setCurrentFloorSetting}
+            />
+          )}
+          {activeTab === "localMedia" && (
+            <LocalMediaSettingsTab
+              settings={localMediaTextSettings}
+              onChangeSettings={setLocalMediaTextSettings}
             />
           )}
         </div>

@@ -181,6 +181,7 @@ function loadSettings() {
       // },
     },
     shopPositions: defaultShopPositions,
+    localMediaTextSettings: {},
   };
 
   try {
@@ -287,6 +288,7 @@ function loadSettings() {
               : base.shopPositions.positions,
           }
         : base.shopPositions,
+      localMediaTextSettings: parsed.localMediaTextSettings || base.localMediaTextSettings,
     };
 
     // DEBUG: Record internal state
@@ -410,6 +412,24 @@ function updateFloorLayout(floor, partialLayout) {
 function broadcastLocationIconSettings(locationIcons) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('location-icon-settings-updated', locationIcons);
+  }
+}
+
+/**
+ * Broadcast shop positions changes to renderer processes
+ */
+function broadcastShopPositions(shopPositions) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('shop-positions-updated', shopPositions);
+  }
+}
+
+/**
+ * Broadcast local media text settings changes to renderer processes
+ */
+function broadcastLocalMediaTextSettings(settings) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('local-media-text-settings-updated', settings);
   }
 }
 
@@ -788,6 +808,7 @@ function createMainWindow() {
     broadcastCurrentFloorSetting(settings.currentFloorSetting);
     broadcastLocationIconSettings(settings.locationIcons);
     broadcastFloorLayout(settings.floorLayout);
+    broadcastLocalMediaTextSettings(settings.localMediaTextSettings);
   });
 
   mainWindow.on('closed', () => {
@@ -1213,6 +1234,19 @@ ipcMain.handle('save-shop-positions', (_event, shopPositions) => {
   }
   
   return settings.shopPositions;
+});
+
+ipcMain.handle('get-local-media-text-settings', () => {
+  logger.info('IPC get-local-media-text-settings');
+  const settings = loadSettings();
+  return settings.localMediaTextSettings || {};
+});
+
+ipcMain.handle('save-local-media-text-settings', (_event, localMediaTextSettings) => {
+  logger.info('IPC save-local-media-text-settings');
+  const settings = saveSettings({ localMediaTextSettings });
+  broadcastLocalMediaTextSettings(settings.localMediaTextSettings);
+  return settings.localMediaTextSettings;
 });
 
 /**

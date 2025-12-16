@@ -1254,18 +1254,15 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         <div
           style={{
             width: "1080px",
-            height: "608px",
             marginTop: "30px",
             marginLeft: "30px",
             marginRight: "30px",
             marginBottom: "0px",
             boxSizing: "border-box",
-            overflow: "hidden",
-            borderRadius: "30px",
             alignSelf: "flex-start",
           }}
         >
-          <IndependentVideoPlayer forceReload={refreshTrigger} />
+          <IndependentVideoPlayer forceReload={refreshTrigger} videoHeight="608px" language={selectedLanguage} />
         </div>
 
         {/* Spacer between top video and middle buttons */}

@@ -15,6 +15,7 @@ import type { Shop } from "./types/shop";
 import { fetchShops } from "./repositories/shopRepository";
 import { sseClient } from "./api/sseClient";
 import type { SseConnectionStatus } from "./api/sseClient";
+import type { LocalMediaTextSettings } from "./types/global";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
 
@@ -142,6 +143,7 @@ const App: React.FC = () => {
   const [imageSettings, setImageSettings] = useState<ImageSettings>(DEFAULT_IMAGE_SETTINGS);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings>({ positions: {} });
   const [shops, setShops] = useState<Shop[]>([]);
+  const [localMediaTextSettings, setLocalMediaTextSettings] = useState<LocalMediaTextSettings>({});
   
   // Current floor setting (lifted from ShopPositionSettingsTab)
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>("1F");
@@ -290,6 +292,18 @@ const App: React.FC = () => {
         console.error("Failed to load shop positions", e);
       }
 
+      // Load local media text settings
+      try {
+        if (api.getLocalMediaTextSettings) {
+          const saved = await api.getLocalMediaTextSettings();
+          if (saved) {
+            setLocalMediaTextSettings(saved);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load local media text settings", e);
+      }
+
       // Load current floor setting from Electron
       try {
         // App Version
@@ -422,6 +436,12 @@ const App: React.FC = () => {
         });
       }
 
+      if (api.onLocalMediaTextSettingsUpdated) {
+        api.onLocalMediaTextSettingsUpdated((updated) => {
+          setLocalMediaTextSettings(updated);
+        });
+      }
+
       if (api.onCurrentFloorSettingUpdated) {
         unsubscribeCurrentFloorSetting = api.onCurrentFloorSettingUpdated((setting) => {
           setCurrentFloorSetting(setting);
@@ -487,6 +507,20 @@ const App: React.FC = () => {
       }
     } catch (e) {
       console.error("Failed to save shop positions", e);
+    }
+  };
+
+  const handleSaveLocalMediaTextSettings = async (settings: LocalMediaTextSettings) => {
+    const api = window.electronAPI;
+    if (!api) return;
+
+    try {
+      const saved = await api.saveLocalMediaTextSettings(settings);
+      if (saved) {
+        setLocalMediaTextSettings(saved);
+      }
+    } catch (e) {
+      console.error("Failed to save local media text settings", e);
     }
   };
 
@@ -658,6 +692,8 @@ const App: React.FC = () => {
         shops={shops}
         currentFloorSetting={currentFloorSetting}
         onSaveCurrentFloorSetting={handleSaveCurrentFloorSetting}
+        localMediaTextSettings={localMediaTextSettings}
+        onSaveLocalMediaTextSettings={handleSaveLocalMediaTextSettings}
       />
       <VersionInfoScreen onClose={() => {}} />
     </>

@@ -2,6 +2,7 @@
 import React from 'react';
 import { useIndependentVideo } from '../hooks/useIndependentVideo';
 import { logInfo, logError, logWarn } from '../logs/logging';
+import type { LocalMediaTextSettings } from '../types/global';
 
 /**
  * Check if a URL is a video file
@@ -21,11 +22,32 @@ function isImageFile(url: string): boolean {
   return imageExtensions.some(ext => urlLower.includes(ext));
 }
 
-interface IndependentVideoPlayerProps {
-  forceReload?: number;
+/**
+ * Extract filename from path/URL
+ */
+function extractFilename(path: string): string {
+  try {
+    if (path.startsWith('file://')) {
+      const url = new URL(path);
+      return decodeURIComponent(url.pathname.split('/').pop() || '');
+    }
+    return path.split(/[/\\]/).pop() || path;
+  } catch {
+    return path;
+  }
 }
 
-const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({ forceReload = 0 }) => {
+interface IndependentVideoPlayerProps {
+  forceReload?: number;
+  videoHeight?: string | number;
+  language?: "ja" | "en";
+}
+
+const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({ 
+  forceReload = 0,
+  videoHeight = '100%',
+  language = "ja",
+}) => {
   const { videoSettings, isLoading } = useIndependentVideo();
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
@@ -35,6 +57,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({ forceRe
   const [mediaFiles, setMediaFiles] = React.useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [isLoadingMedia, setIsLoadingMedia] = React.useState(true);
+  const [textSettings, setTextSettings] = React.useState<LocalMediaTextSettings>({});
 
   // Load media files from local directory
   React.useEffect(() => {
@@ -92,6 +115,29 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({ forceRe
       isMounted = false;
     };
   }, [forceReload]);
+
+  // Load text settings
+  React.useEffect(() => {
+    const api = window.electronAPI;
+    if (!api) return;
+
+    // Initial load
+    if (api.getLocalMediaTextSettings) {
+      api.getLocalMediaTextSettings().then(settings => {
+        setTextSettings(settings);
+      }).catch(err => console.error("Failed to load text settings", err));
+    }
+
+    // Subscribe to updates
+    const unsubscribe = api.onLocalMediaTextSettingsUpdated ? 
+      api.onLocalMediaTextSettingsUpdated((settings) => {
+        setTextSettings(settings);
+      }) : undefined;
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   // Handle media playback - loop through files
   React.useEffect(() => {
@@ -198,61 +244,85 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({ forceRe
     const currentFile = mediaFiles[currentIndex];
     const isVideo = currentFile && isVideoFile(currentFile);
     const isImage = currentFile && isImageFile(currentFile);
+    const filename = extractFilename(currentFile);
+    const currentText = textSettings[filename];
+
+    // Determine text to display based on language
+    const line1 = (language === 'en' && currentText?.line1En) ? currentText.line1En : currentText?.line1;
+    const line2 = (language === 'en' && currentText?.line2En) ? currentText.line2En : currentText?.line2;
 
     return (
-      <div
-        ref={containerRef}
-        style={{
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-          backgroundColor: '#000000',
-          overflow: 'hidden',
-          borderRadius: '30px',
-        }}
-      >
-        {isVideo && (
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'block',
-              objectFit: 'cover',
-              backgroundColor: '#000000',
-            }}
-            onError={(e) => {
-              logError('video', 'Video playback error', {
-                file: currentFile,
-                error: e.currentTarget.error?.message,
-              });
-              // Move to next file on error
-              setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
-            }}
-          />
-        )}
-        {isImage && (
-          <img
-            ref={imgRef}
-            alt=""
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'block',
-              objectFit: 'cover',
-              backgroundColor: '#000000',
-            }}
-            onError={(_e) => {
-              logError('video', 'Image load error', {
-                file: currentFile,
-              });
-              // Move to next file on error
-              setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
-            }}
-          />
+      <div style={{ width: '100%', height: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div
+          ref={containerRef}
+          style={{
+            width: '100%',
+            height: videoHeight,
+            position: 'relative',
+            backgroundColor: '#000000',
+            overflow: 'hidden',
+            borderRadius: '30px',
+            minHeight: 0, // Flexbox nesting fix
+          }}
+        >
+          {isVideo && (
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'block',
+                objectFit: 'cover',
+                backgroundColor: '#000000',
+              }}
+              onError={(e) => {
+                logError('video', 'Video playback error', {
+                  file: currentFile,
+                  error: e.currentTarget.error?.message,
+                });
+                // Move to next file on error
+                setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
+              }}
+            />
+          )}
+          {isImage && (
+            <img
+              ref={imgRef}
+              alt=""
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'block',
+                objectFit: 'cover',
+                backgroundColor: '#000000',
+              }}
+              onError={(_e) => {
+                logError('video', 'Image load error', {
+                  file: currentFile,
+                  });
+                // Move to next file on error
+                setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
+              }}
+            />
+          )}
+        </div>
+        {/* Text Area */}
+        {(line1 || line2) && (
+          <div style={{ marginTop: 12, marginLeft: 8 }}>
+            {line1 && (
+              <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#ffffff', marginBottom: 4 }}>
+                {line1}
+              </div>
+            )}
+            {line2 && (
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffffff' }}>
+                {line2}
+              </div>
+            )}
+          </div>
         )}
       </div>
     );

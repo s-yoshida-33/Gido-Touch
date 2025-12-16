@@ -12,6 +12,13 @@ import type { ImageSettings } from "./imageSettings";
 import type { VideoSettings } from "./videoSettings";
 import type { ShopPositionSettings } from "./shopPosition";
 
+export type LocalMediaTextSettings = Record<string, { 
+  line1: string; 
+  line2: string;
+  line1En?: string;
+  line2En?: string;
+}>;
+
 type ColumnPadding = {
   top?: number;
   right?: number;
@@ -73,6 +80,13 @@ interface ElectronAPI {
   getShopPositions: () => Promise<ShopPositionSettings>;
   saveShopPositions: (settings: ShopPositionSettings) => Promise<ShopPositionSettings>;
   onShopPositionsUpdated: (cb: (settings: ShopPositionSettings) => void) => () => void;
+  getLocalMediaTextSettings: () => Promise<LocalMediaTextSettings>;
+  saveLocalMediaTextSettings: (
+    settings: LocalMediaTextSettings
+  ) => Promise<LocalMediaTextSettings>;
+  onLocalMediaTextSettingsUpdated: (
+    cb: (settings: LocalMediaTextSettings) => void
+  ) => () => void;
   getDebugSettingsStatus: () => Promise<any>;
   manualUpdateCheck: () => void;
   oneClickUpdate: () => void;
