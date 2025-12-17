@@ -13,7 +13,9 @@ import { DEFAULT_IMAGE_SETTINGS } from "./types/imageSettings";
 import type { ShopPositionSettings } from "./types/shopPosition";
 import type { Shop } from "./types/shop";
 import { fetchShops } from "./repositories/shopRepository";
-import { sseClient } from "./api/sseClient";
+import { sseClient, shopSseClient } from "./api/sseClient";
+import type { ShopsEvent } from "./api/sseClient";
+import { convertSseShopDataToShop } from "./utils/shopConverter";
 import type { SseConnectionStatus } from "./api/sseClient";
 import type { LocalMediaTextSettings } from "./types/global";
 
@@ -153,9 +155,72 @@ const App: React.FC = () => {
     let unsubscribeUpdated: (() => void) | undefined;
     let unsubscribeFloorLayout: (() => void) | undefined;
     let unsubscribeCurrentFloorSetting: (() => void) | undefined;
+    let unsubscribeShops: (() => void) | undefined;
 
     // Start SSE connection
     sseClient.connect();
+    shopSseClient.connect();
+
+    // Subscribe to SSE shops update (handle 'shops' event)
+    unsubscribeShops = shopSseClient.on<ShopsEvent | any[]>('shops', (payload) => {
+       let shopList: any[] = [];
+       
+       if (payload && Array.isArray((payload as any).data)) {
+         shopList = (payload as any).data;
+       } else if (Array.isArray(payload)) {
+         shopList = payload;
+       } else if (payload && typeof payload === 'object' && 'items' in payload && Array.isArray((payload as any).items)) {
+          shopList = (payload as any).items;
+       }
+
+       if (shopList.length > 0) {
+         try {
+           const newShops: Shop[] = shopList.map((item: any) => convertSseShopDataToShop(item));
+           
+           // Filter shops
+           const filtered = newShops.filter((shop: Shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
+           
+           // Exclude "イオン堺北花田店"
+           const excluded = filtered.filter((shop: Shop) => !(shop.name || "").includes("イオン堺北花田店"));
+           
+           // Clean shop names
+           const cleaned = excluded.map((s: Shop) => ({
+             ...s,
+             name: (s.name || "").replace(/【.*?】/g, "").trim(),
+           }));
+           
+           setShops(cleaned);
+           addDebug(`App: Shops updated via SSE shops event (${cleaned.length} items)`);
+         } catch (e: any) {
+           console.error("Failed to process shops event", e);
+           addDebug(`App: Failed to process shops SSE: ${e.message}`);
+         }
+       }
+    });
+
+    // Handle generic 'update' event as a trigger to reload shops (fallback for legacy/different event type)
+    const unsubscribeUpdate = shopSseClient.on('update', () => {
+        addDebug("App: Received 'update' event, triggering fetchShops...");
+        // Re-fetch shops manually if 'update' event is received without payload
+        // This restores the previous behavior for 'update' event
+        const reloadShops = async () => {
+            try {
+                const data = await fetchShops({ forceReload: true });
+                // ... same filtering logic ...
+                const filtered = data.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
+                const excluded = filtered.filter((shop) => !(shop.name || "").includes("イオン堺北花田店"));
+                const cleaned = excluded.map((s) => ({
+                    ...s,
+                    name: (s.name || "").replace(/【.*?】/g, "").trim(),
+                }));
+                setShops(cleaned);
+                addDebug(`App: Shops reloaded via update event (${cleaned.length} items)`);
+            } catch(e: any) {
+                console.error("Failed to reload shops on update event", e);
+            }
+        };
+        reloadShops();
+    });
 
     const init = async () => {
       addDebug("App: Initializing...");
@@ -453,6 +518,8 @@ const App: React.FC = () => {
       if (unsubscribeUpdated) unsubscribeUpdated();
       if (unsubscribeFloorLayout) unsubscribeFloorLayout();
       if (unsubscribeCurrentFloorSetting) unsubscribeCurrentFloorSetting();
+      if (unsubscribeShops) unsubscribeShops();
+      unsubscribeUpdate();
     };
   }, []);
 

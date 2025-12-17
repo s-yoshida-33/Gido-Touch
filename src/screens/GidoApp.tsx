@@ -12,7 +12,9 @@ import openTimeImage from "../assets/open-time.svg";
 
 import { APP_CONFIG } from "../config";
 import { fetchShops } from "../repositories/shopRepository";
-import { sseClient } from "../api/sseClient";
+import { shopSseClient } from "../api/sseClient";
+import type { ShopsEvent } from "../api/sseClient";
+import { convertSseShopDataToShop } from "../utils/shopConverter";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 
 import type { LocationIconSettings, LocationIconSettingsPerFloor } from "../types/locationIcon";
@@ -233,18 +235,53 @@ const GidoApp: React.FC<GidoAppProps> = ({
     loadShops(false);
 
     // Subscribe to SSE events for real-time updates
-    const unsubscribeUpdate = sseClient.on('update', () => {
+    const unsubscribeShops = shopSseClient.on<ShopsEvent | any[]>('shops', (payload) => {
+      console.log('[GidoApp] SSE shops received', payload);
+      
+      let shopList: any[] = [];
+      
+      if (payload && !Array.isArray(payload) && 'data' in payload && Array.isArray((payload as any).data)) {
+        shopList = (payload as any).data;
+      } else if (Array.isArray(payload)) {
+        shopList = payload;
+      } else if (payload && typeof payload === 'object' && 'items' in payload && Array.isArray((payload as any).items)) {
+         shopList = (payload as any).items;
+      }
+
+      if (shopList.length > 0) {
+        try {
+          const newShops = shopList.map((item: any) => convertSseShopDataToShop(item));
+          
+          const cleaned = newShops.map((s: Shop) => ({
+            ...s,
+            name: (s.name || "").replace(/【.*?】/g, "").trim(),
+          }));
+
+          setShops(cleaned);
+          setError(null);
+          logInfo("shopList", "Shop data updated via SSE", {
+            count: cleaned.length,
+          });
+        } catch (e) {
+          console.error('[GidoApp] Failed to process shops event', e);
+        }
+      }
+    });
+
+    // Fallback: If 'update' event is received (legacy behavior), reload shops via API
+    const unsubscribeUpdate = shopSseClient.on('update', () => {
       console.log('[GidoApp] SSE update received, reloading shops...');
       loadShops(true);
     });
 
-    const unsubscribeConnected = sseClient.on('connected', () => {
+    const unsubscribeConnected = shopSseClient.on('connected', () => {
       console.log('[GidoApp] SSE connected, reloading shops...');
       loadShops(true);
     });
 
     return () => {
       cancelled = true;
+      unsubscribeShops();
       unsubscribeUpdate();
       unsubscribeConnected();
     };

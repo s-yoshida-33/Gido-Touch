@@ -18,7 +18,9 @@ import openTime from "../assets/open-time.svg";
 import prev from "../assets/button-prev.svg";
 import next from "../assets/button-next.svg";
 import { fetchShops } from "../repositories/shopRepository";
-import { sseClient } from "../api/sseClient";
+import { shopSseClient } from "../api/sseClient";
+import type { ShopsEvent } from "../api/sseClient";
+import { convertSseShopDataToShop } from "../utils/shopConverter";
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
@@ -31,11 +33,7 @@ import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 function buildImagePath(photo: string | undefined, shopId: string | undefined): string {
   if (!photo) {
     // If no photo but shop_id is available, try to build path from shop_id
-    if (shopId) {
-      // This is a fallback - API should provide photo, but if not, we can try to construct it
-      // However, we don't know the base path, so return empty
-      return "";
-    }
+    // Note: We don't have the base path here, so we return empty if photo is missing.
     return "";
   }
   
@@ -83,12 +81,13 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
       return `files/shop/${shopId}/${cleanPhoto}`;
     }
     
-    // If it's a relative path, prepend shop_id folder
-    // But check if it already starts with files/shop
-    if (cleanPhoto.startsWith("files/shop/")) {
-      return cleanPhoto;
+    // Default legacy behavior: prepend files/shop/{shopId}/
+    if (shopId) {
+        return `files/shop/${shopId}/${cleanPhoto}`;
     }
-    return `files/shop/${shopId}/${cleanPhoto}`;
+    
+    // Fallback
+    return photo;
   }
   
   return photo;
@@ -101,6 +100,11 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
   const [imageUrl, setImageUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
 
+  // Debug logging
+  // useEffect(() => {
+  //   console.log(`[ShopImage] photo: ${photo}, shopId: ${shopId}`);
+  // }, [photo, shopId]);
+
   useEffect(() => {
     if (!photo) {
       setIsLoading(false);
@@ -108,7 +112,9 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
     }
 
     const loadImage = async () => {
+      // If photo path is relative or just a filename, build the full path first
       const imagePath = buildImagePath(photo, shopId);
+      
       if (!imagePath) {
         setIsLoading(false);
         return;
@@ -119,6 +125,8 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
       if (electronAPI && electronAPI.getShopImage) {
         try {
           // Use Electron IPC to load image as data URL
+          // Note: getShopImage likely reads the file from disk. 
+          // If the file on disk is updated, it should return the new content.
           const dataUrl = await electronAPI.getShopImage(imagePath);
           if (dataUrl) {
             setImageUrl(dataUrl);
@@ -131,15 +139,24 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
       }
 
       // Fallback to file:// URL (works in Electron, not in browser)
-      const fileUrl = toFileUrl(imagePath);
+      let fileUrl = toFileUrl(imagePath);
+      
       setImageUrl(fileUrl);
+      
       setIsLoading(false);
     };
 
     loadImage();
-  }, [photo, shopId]);
+  }, [photo, shopId]); // Depend on photo and shopId. If they change, reload.
 
   if (!photo || (!imageUrl && !isLoading)) {
+    // Debug info in UI if image fails
+    // return (
+    //   <div style={{ color: "red", fontSize: "12px", overflow: "hidden" }}>
+    //     {photo}<br/>{imageUrl}
+    //   </div>
+    // );
+
     return (
       <span style={{ color: "#000000", fontSize: "24px", fontWeight: 700 }}>
         Image
@@ -467,18 +484,78 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     loadShops(false);
 
     // Subscribe to SSE events for real-time updates
-    const unsubscribeUpdate = sseClient.on('update', () => {
-      console.log('[ShopListScreen] SSE update received, reloading shops...');
+    const unsubscribeShops = shopSseClient.on<ShopsEvent | any[]>('shops', async (payload) => {
+      let shopList: any[] = [];
+      
+      if (payload && !Array.isArray(payload) && 'data' in payload && Array.isArray((payload as any).data)) {
+        // Expected format: { type: 'shops', data: [...] }
+        shopList = (payload as any).data;
+      } else if (Array.isArray(payload)) {
+        // Fallback format: [...] (direct array)
+        shopList = payload;
+      } else if (payload && typeof payload === 'object' && 'items' in payload && Array.isArray((payload as any).items)) {
+         // Potential legacy format: { items: [...] }
+         shopList = (payload as any).items;
+      }
+
+      if (shopList.length > 0) {
+        try {
+          const newShops: Shop[] = shopList.map((item: any) => convertSseShopDataToShop(item));
+
+          // Filter shops: only "飲食店・食品" or "グルメ" genre
+          const filtered = newShops.filter((shop: Shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
+
+          // Exclude "イオン堺北花田店"
+          const excluded = filtered.filter((shop: Shop) => !(shop.name || "").includes("イオン堺北花田店"));
+
+          // Clean shop names (remove furigana in brackets)
+          const cleaned = excluded.map((s: Shop) => ({
+            ...s,
+            name: (s.name || "").replace(/【.*?】/g, "").trim(),
+          }));
+
+          // Load shop positions and merge with shop data
+          const api = window.electronAPI;
+          if (api && api.getShopPositions) {
+            try {
+              const shopPositions = await api.getShopPositions();
+              const shopsWithPositions = cleaned.map((shop: Shop) => {
+                const shopId = shop.shopId || shop.number;
+                if (shopId && shopPositions.positions[shopId]) {
+                  return {
+                    ...shop,
+                    position: shopPositions.positions[shopId],
+                  };
+                }
+                return shop;
+              });
+              setShops(shopsWithPositions);
+            } catch (e) {
+              console.error("Failed to load shop positions for SSE update:", e);
+              setShops(cleaned);
+            }
+          } else {
+            setShops(cleaned);
+          }
+          setError(null);
+        } catch (e) {
+          console.error('[ShopListScreen] Failed to process shops event', e);
+        }
+      }
+    });
+
+    // Fallback: If 'update' event is received (legacy behavior), reload shops via API
+    const unsubscribeUpdate = shopSseClient.on('update', () => {
       loadShops(true);
     });
 
-    const unsubscribeConnected = sseClient.on('connected', () => {
-      console.log('[ShopListScreen] SSE connected, reloading shops...');
+    const unsubscribeConnected = shopSseClient.on('connected', () => {
       loadShops(true);
     });
 
     return () => {
       cancelled = true;
+      unsubscribeShops();
       unsubscribeUpdate();
       unsubscribeConnected();
     };
@@ -1169,7 +1246,15 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                             boxSizing: "border-box",
                           }}
                         >
-                          <ShopImage photo={shop.photo2 || shop.photo1} shopId={shop.shopId} />
+                          <ShopImage 
+                            // Prioritize shopLogo over photo1 for the list view if needed
+                            // But original code was: photo={shop.photo2 || shop.photo1}
+                            // User says logo is shopLogo (logo.png) and brand image is photo2 (brand_image.jpg)
+                            // If photo2 is brand image, and it's not showing, maybe we should check what's actually in photo2
+                            // Update: Use photo2 if available, otherwise shopLogo (as fallback for brand image)
+                            photo={shop.photo2 || shop.shopLogo} 
+                            shopId={shop.shopId} 
+                          />
                         </div>
                         {/* Content area */}
                         <div

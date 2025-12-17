@@ -5,13 +5,13 @@ import type { BridgeShop, Shop, FloorId } from "../types/shop";
 import { logInfo, logWarn, logError } from "../logs/logging";
 
 // Normalize floor id string (you can extend this if needed)
-function normalizeFloorId(value: string): FloorId {
+export function normalizeFloorId(value: string): FloorId {
   if (!value) return "";
   return value.trim().toUpperCase(); // e.g. "1f" -> "1F"
 }
 
 // Parse floors from BridgeShop into FloorId[]
-function parseFloorsFromBridge(
+export function parseFloorsFromBridge(
   rawFloors: unknown,
   fallbackFloor: string
 ): FloorId[] {
