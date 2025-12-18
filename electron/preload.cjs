@@ -200,6 +200,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('local-media-text-settings-updated', listener);
     };
   },
+  getAudioSettings() {
+    return ipcRenderer.invoke('get-audio-settings');
+  },
+  saveAudioSettings(settings) {
+    return ipcRenderer.invoke('save-audio-settings', settings);
+  },
+  onAudioSettingsUpdated(callback) {
+    const listener = (_event, updated) => callback(updated);
+    ipcRenderer.on('audio-settings-updated', listener);
+
+    return () => {
+      ipcRenderer.removeListener('audio-settings-updated', listener);
+    };
+  },
 });
 
 contextBridge.exposeInMainWorld('wspApi', {

@@ -11,8 +11,9 @@ import type { LocationIconSettings } from "./locationIcon";
 import type { ImageSettings } from "./imageSettings";
 import type { VideoSettings } from "./videoSettings";
 import type { ShopPositionSettings } from "./shopPosition";
+import type { AudioSettings } from "./audioSettings";
 
-export type LocalMediaTextSettings = Record<string, { 
+export type LocalMediaTextSettings = Record<string, {  
   line1: string; 
   line2: string;
   line1En?: string;
@@ -87,6 +88,9 @@ interface ElectronAPI {
   onLocalMediaTextSettingsUpdated: (
     cb: (settings: LocalMediaTextSettings) => void
   ) => () => void;
+  getAudioSettings: () => Promise<AudioSettings>;
+  saveAudioSettings: (settings: AudioSettings) => Promise<AudioSettings>;
+  onAudioSettingsUpdated: (cb: (settings: AudioSettings) => void) => () => void;
   getDebugSettingsStatus: () => Promise<any>;
   manualUpdateCheck: () => void;
   oneClickUpdate: () => void;

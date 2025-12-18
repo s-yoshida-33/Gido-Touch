@@ -165,6 +165,10 @@ function loadSettings() {
       loop: true,
       autoplay: true,
     },
+    audioSettings: {
+      cmsMuted: true,
+      localMediaMuted: false,
+    },
     portRanges: {
       bridge: {
         min: 8090,
@@ -268,6 +272,12 @@ function loadSettings() {
             autoplay: typeof parsed.videoSettings.autoplay === 'boolean' ? parsed.videoSettings.autoplay : base.videoSettings.autoplay,
           }
         : base.videoSettings,
+      audioSettings: parsed.audioSettings
+        ? {
+            cmsMuted: typeof parsed.audioSettings.cmsMuted === 'boolean' ? parsed.audioSettings.cmsMuted : base.audioSettings.cmsMuted,
+            localMediaMuted: typeof parsed.audioSettings.localMediaMuted === 'boolean' ? parsed.audioSettings.localMediaMuted : base.audioSettings.localMediaMuted,
+          }
+        : base.audioSettings,
       portRanges: parsed.portRanges
         ? {
             bridge: {
@@ -430,6 +440,15 @@ function broadcastShopPositions(shopPositions) {
 function broadcastLocalMediaTextSettings(settings) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('local-media-text-settings-updated', settings);
+  }
+}
+
+/**
+ * Broadcast audio settings changes to renderer processes
+ */
+function broadcastAudioSettings(settings) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('audio-settings-updated', settings);
   }
 }
 
@@ -809,6 +828,7 @@ function createMainWindow() {
     broadcastLocationIconSettings(settings.locationIcons);
     broadcastFloorLayout(settings.floorLayout);
     broadcastLocalMediaTextSettings(settings.localMediaTextSettings);
+    broadcastAudioSettings(settings.audioSettings);
   });
 
   mainWindow.on('closed', () => {
@@ -1247,6 +1267,19 @@ ipcMain.handle('save-local-media-text-settings', (_event, localMediaTextSettings
   const settings = saveSettings({ localMediaTextSettings });
   broadcastLocalMediaTextSettings(settings.localMediaTextSettings);
   return settings.localMediaTextSettings;
+});
+
+ipcMain.handle('get-audio-settings', () => {
+  logger.info('IPC get-audio-settings');
+  const settings = loadSettings();
+  return settings.audioSettings || { cmsMuted: true, localMediaMuted: false };
+});
+
+ipcMain.handle('save-audio-settings', (_event, audioSettings) => {
+  logger.info('IPC save-audio-settings');
+  const settings = saveSettings({ audioSettings });
+  broadcastAudioSettings(settings.audioSettings);
+  return settings.audioSettings;
 });
 
 /**

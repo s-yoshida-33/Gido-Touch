@@ -1,6 +1,7 @@
 // src/components/IndependentVideoPlayer.tsx
 import React from 'react';
 import { useIndependentVideo } from '../hooks/useIndependentVideo';
+import { useAudioSettings } from '../hooks/useAudioSettings';
 import { logInfo, logError, logWarn } from '../logs/logging';
 import type { LocalMediaTextSettings } from '../types/global';
 
@@ -49,6 +50,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   language = "ja",
 }) => {
   const { videoSettings, isLoading } = useIndependentVideo();
+  const { settings: audioSettings } = useAudioSettings();
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -152,7 +154,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     if (isVideo && videoRef.current) {
       const video = videoRef.current;
       video.src = currentFile;
-      video.muted = true;
+      // Use audio settings for mute state (default: unmute/false)
+      video.muted = audioSettings.localMediaMuted;
       // If only one file, use native loop. Otherwise handle looping manually
       video.loop = mediaFiles.length === 1;
       video.autoplay = true;
@@ -219,6 +222,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     }
   }, [videoSettings, mediaFiles.length]);
 
+  // Handle audio settings updates dynamically
+  React.useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = audioSettings.localMediaMuted;
+    }
+  }, [audioSettings.localMediaMuted]);
+
   // Loading state
   if (isLoading || isLoadingMedia) {
     return (
@@ -269,7 +279,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             <video
               ref={videoRef}
               autoPlay
-              muted
+              muted={audioSettings.localMediaMuted}
               playsInline
               style={{
                 width: '100%',

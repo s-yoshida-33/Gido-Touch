@@ -14,6 +14,7 @@ import type { ImageSettings } from "../types/imageSettings";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
 import type { LocalMediaTextSettings } from "../types/global";
+import { useAudioSettings } from "../hooks/useAudioSettings";
 
 type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia";
 
@@ -64,6 +65,17 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>(initialCurrentFloorSetting);
   const [localMediaTextSettings, setLocalMediaTextSettings] = useState<LocalMediaTextSettings>(initialLocalMediaTextSettings || {});
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+
+  // Audio settings
+  const { settings: audioSettings, saveSettings: saveAudioSettings, isLoading: isAudioSettingsLoading } = useAudioSettings();
+  const [currentAudioSettings, setCurrentAudioSettings] = useState(audioSettings);
+
+  // Sync with loaded audio settings
+  useEffect(() => {
+    if (!isAudioSettingsLoading) {
+      setCurrentAudioSettings(audioSettings);
+    }
+  }, [audioSettings, isAudioSettingsLoading]);
 
   // Transform wrapper ref for programmatic control
   const transformRef = useRef<{
@@ -125,6 +137,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setShopPositions(initialShopPositions);
         setCurrentFloorSetting(initialCurrentFloorSetting);
         setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+        // Note: Audio settings are handled by the hook
         setErrors({});
         // Reset transform when opening settings
         // 設定画面を開くときは"floor"タブが選択されるので、3840×2160のコンテンツを中央に配置
@@ -153,8 +166,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setShopPositions(initialShopPositions);
       setCurrentFloorSetting(initialCurrentFloorSetting);
       setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+      setCurrentAudioSettings(audioSettings);
     }
-  }, [visible, initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings]);
+  }, [visible, initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, audioSettings]);
 
   const handleClose = () => {
     setVisible(false);
@@ -168,9 +182,10 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setImageSettings(initialImageSettings);
     setShopPositions(initialShopPositions);
     setCurrentFloorSetting(initialCurrentFloorSetting);
-    setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
-    setErrors({});
-    // Reset transform - 現在のactiveTabに応じて適切な中央位置を計算
+      setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+      setCurrentAudioSettings(audioSettings);
+      setErrors({});
+      // Reset transform - 現在のactiveTabに応じて適切な中央位置を計算
     if (transformRef.current && previewContainerRef.current) {
       requestAnimationFrame(() => {
         if (transformRef.current && previewContainerRef.current) {
@@ -202,6 +217,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         onSaveImageSettings(imageSettings),
         onSaveShopPositions(shopPositions),
         onSaveLocalMediaTextSettings(localMediaTextSettings),
+        saveAudioSettings(currentAudioSettings),
       ]);
       // currentFloorSettingの保存は同期的に行われる（App.tsx内でstate更新）が、
       // Electronへの保存も確実に行われるように呼び出す。
@@ -558,6 +574,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             <LocalMediaSettingsTab
               settings={localMediaTextSettings}
               onChangeSettings={setLocalMediaTextSettings}
+              audioSettings={currentAudioSettings}
+              onChangeAudioSettings={setCurrentAudioSettings}
             />
           )}
         </div>

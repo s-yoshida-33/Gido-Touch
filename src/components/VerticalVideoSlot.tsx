@@ -1,6 +1,7 @@
 // src/components/VerticalVideoSlot.tsx
 import React from 'react';
 import { useCurrentAsset } from '../hooks/useCurrentAsset';
+import { useAudioSettings } from '../hooks/useAudioSettings';
 import { logInfo, logWarn, logError } from '../logs/logging';
 
 interface VerticalVideoSlotProps {
@@ -9,6 +10,7 @@ interface VerticalVideoSlotProps {
 
 const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }) => {
   const { asset, isLoading } = useCurrentAsset();
+  const { settings: audioSettings } = useAudioSettings();
   
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
@@ -103,6 +105,13 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [asset?.id, asset?.src]);
 
+  // Handle audio settings updates dynamically
+  React.useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = audioSettings.cmsMuted;
+    }
+  }, [audioSettings.cmsMuted]);
+
   // No asset case
   if (!asset) {
     if (!isLoading) {
@@ -180,7 +189,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       key={mediaKey}
       src={asset.src}
       autoPlay
-      muted={false}
+      muted={audioSettings.cmsMuted}
       loop={true}
       playsInline
       style={{
