@@ -17,10 +17,6 @@ import selectLanguageSelectedJp from "../assets/select-language-selected-jp.svg"
 import openTime from "../assets/open-time.svg";
 import prev from "../assets/button-prev.svg";
 import next from "../assets/button-next.svg";
-// fetchShops removed
-// shopSseClient removed
-// ShopsEvent removed
-// convertSseShopDataToShop removed
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
@@ -100,11 +96,6 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
   const [imageUrl, setImageUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Debug logging
-  // useEffect(() => {
-  //   console.log(`[ShopImage] photo: ${photo}, shopId: ${shopId}`);
-  // }, [photo, shopId]);
-
   useEffect(() => {
     if (!photo) {
       setIsLoading(false);
@@ -150,13 +141,6 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
   }, [photo, shopId]); // Depend on photo and shopId. If they change, reload.
 
   if (!photo || (!imageUrl && !isLoading)) {
-    // Debug info in UI if image fails
-    // return (
-    //   <div style={{ color: "red", fontSize: "12px", overflow: "hidden" }}>
-    //     {photo}<br/>{imageUrl}
-    //   </div>
-    // );
-
     return (
       <span style={{ color: "#000000", fontSize: "24px", fontWeight: 700 }}>
         Image
@@ -312,8 +296,6 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   const dragStartXRef = useRef(0);
   const scrollStartXRef = useRef(0);
 
-  const [error, setError] = useState<string | null>(null);
-  
   // Floor filter state
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
   
@@ -337,10 +319,15 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   
   // Ref to track active touch on floor buttons to prevent multi-touch highlighting
   const activeTouchRef = useRef<string | null>(null);
+  // Ref to track touch start position for detecting scroll gestures
+  const touchStartPosRef = useRef<{x: number, y: number} | null>(null);
 
   // Fade overlay state for idle timeout
   const [isFadeActive, setIsFadeActive] = useState(false);
   const isResettingRef = useRef(false);
+
+  // State to track which card is currently being pressed (for animation)
+  const [pressedCardId, setPressedCardId] = useState<string | null>(null);
 
   // Helper to handle floor selection
   const handleFloorSelect = (floor: string) => {
@@ -409,181 +396,6 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       }
     }
   }, []); // Run only on mount
-
-  // Fetch shops from API
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadShops = async (forceReload: boolean = false) => {
-      try {
-        const data = await fetchShops({ forceReload });
-        if (cancelled) return;
-
-        // Check for empty data (likely due to API update in progress)
-        if (data.length === 0 && shopsRef.current.length > 0) {
-          throw new Error("API returned 0 shops");
-        }
-
-        // Filter shops: only "飲食店・食品" or "グルメ" genre
-        const filtered = data.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
-
-        // Exclude "イオン堺北花田店"
-        const excluded = filtered.filter((shop) => !(shop.name || "").includes("イオン堺北花田店"));
-
-        // Clean shop names (remove furigana in brackets)
-        const cleaned = excluded.map((s) => ({
-          ...s,
-          name: (s.name || "").replace(/【.*?】/g, "").trim(),
-        }));
-
-        // Load shop positions and merge with shop data
-        const api = window.electronAPI;
-        if (api && api.getShopPositions) {
-          try {
-            const shopPositions = await api.getShopPositions();
-            const shopsWithPositions = cleaned.map((shop) => {
-              if (shop.shopId && shopPositions.positions[shop.shopId]) {
-                return {
-                  ...shop,
-                  position: shopPositions.positions[shop.shopId],
-                };
-              }
-              return shop;
-            });
-            setShops(shopsWithPositions);
-          } catch (e) {
-            console.error("Failed to load shop positions:", e);
-            setShops(cleaned);
-          }
-        } else {
-          setShops(cleaned);
-        }
-
-        setError(null);
-      } catch (e: any) {
-        console.error(e);
-        if (cancelled) return;
-
-        // If we already have shops, don't show error screen, just keep retrying
-        if (shopsRef.current.length === 0) {
-          const message = e?.message ?? "failed to load";
-          setError(message);
-        } else {
-          console.warn("[ShopListScreen] API Error but keeping existing data:", e);
-        }
-      }
-    };
-
-    loadShops(false);
-
-    // Subscribe to SSE events for real-time updates
-    const unsubscribeShops = shopSseClient.on<ShopsEvent | any[]>('shops', async (payload) => {
-      let shopList: any[] = [];
-      
-      if (payload && !Array.isArray(payload) && 'data' in payload && Array.isArray((payload as any).data)) {
-        // Expected format: { type: 'shops', data: [...] }
-        shopList = (payload as any).data;
-      } else if (Array.isArray(payload)) {
-        // Fallback format: [...] (direct array)
-        shopList = payload;
-      } else if (payload && typeof payload === 'object' && 'items' in payload && Array.isArray((payload as any).items)) {
-         // Potential legacy format: { items: [...] }
-         shopList = (payload as any).items;
-      }
-
-      if (shopList.length > 0) {
-        try {
-          const newShops: Shop[] = shopList.map((item: any) => convertSseShopDataToShop(item));
-
-          // Filter shops: only "飲食店・食品" or "グルメ" genre
-          const filtered = newShops.filter((shop: Shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
-
-          // Exclude "イオン堺北花田店"
-          const excluded = filtered.filter((shop: Shop) => !(shop.name || "").includes("イオン堺北花田店"));
-
-          // Clean shop names (remove furigana in brackets)
-          const cleaned = excluded.map((s: Shop) => ({
-            ...s,
-            name: (s.name || "").replace(/【.*?】/g, "").trim(),
-          }));
-
-          // Load shop positions and merge with shop data
-          const api = window.electronAPI;
-          if (api && api.getShopPositions) {
-            try {
-              const shopPositions = await api.getShopPositions();
-              const shopsWithPositions = cleaned.map((shop: Shop) => {
-                const shopId = shop.shopId || shop.number;
-                if (shopId && shopPositions.positions[shopId]) {
-                  return {
-                    ...shop,
-                    position: shopPositions.positions[shopId],
-                  };
-                }
-                return shop;
-              });
-              setShops(shopsWithPositions);
-            } catch (e) {
-              console.error("Failed to load shop positions for SSE update:", e);
-              setShops(cleaned);
-            }
-          } else {
-            setShops(cleaned);
-          }
-          setError(null);
-        } catch (e) {
-          console.error('[ShopListScreen] Failed to process shops event', e);
-        }
-      }
-    });
-
-    // Fallback: If 'update' event is received (legacy behavior), reload shops via API
-    const unsubscribeUpdate = shopSseClient.on('update', () => {
-      loadShops(true);
-    });
-
-    const unsubscribeConnected = shopSseClient.on('connected', () => {
-      loadShops(true);
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribeShops();
-      unsubscribeUpdate();
-      unsubscribeConnected();
-    };
-  }, []);
-
-  // ショップ位置情報の更新を監視
-  useEffect(() => {
-    const api = window.electronAPI;
-    if (!api || !api.onShopPositionsUpdated) return;
-
-    const unsubscribe = api.onShopPositionsUpdated(async (updatedPositions) => {
-      // 位置情報が更新されたら、ショップデータを再読み込み
-      try {
-        const shopPositions = updatedPositions;
-        setShops((prevShops) => {
-          return prevShops.map((shop) => {
-            const shopId = shop.shopId || shop.number;
-            if (shopId && shopPositions.positions[shopId]) {
-              return {
-                ...shop,
-                position: shopPositions.positions[shopId],
-              };
-            }
-            return shop;
-          });
-        });
-      } catch (e) {
-        console.error("Failed to update shop positions:", e);
-      }
-    });
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
 
   // Idle timeout: Refresh to default shop list after 30 seconds of inactivity
   // Always active - any touch/activity resets the timer
@@ -1115,17 +927,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 boxSizing: "border-box",
               }}
             >
-              {error ? (
-                <div 
-                  style={{ 
-                    padding: "30px", 
-                    color: "red", 
-                    fontSize: "24px",
-                  }}
-                >
-                  Error: {error}
-                </div>
-              ) : filteredShops.length === 0 ? (
+              {filteredShops.length === 0 ? (
                 <div 
                   style={{ 
                     padding: "30px", 
@@ -1170,20 +972,69 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
 
                     // Logic for shop name display
                     const shopName = (selectedLanguage === "en" && shop.nameEn) ? shop.nameEn : shop.name;
+                    
+                    const cardId = shop.shopId || shop.number || "";
+                    const isPressed = pressedCardId === cardId;
 
                     return (
                       <motion.div
-                        key={shop.shopId || shop.number}
-                        onClick={() => setSelectedShop(shop)}
-                        whileHover={{
-                          scale: 1.05,
-                          y: -4,
-                          boxShadow: "0 6px 12px rgba(0, 0, 0, 0.3)",
+                        key={cardId}
+                        onClick={(e) => {
+                          // Only allow mouse clicks if no touch interaction is active
+                          if (!activeTouchRef.current) {
+                            setSelectedShop(shop);
+                          }
                         }}
-                        whileTap={{
-                          scale: 1.02,
-                          y: -2,
-                          boxShadow: "0 4px 8px rgba(0, 0, 0, 0.25)",
+                        onTouchStart={(e) => {
+                           // If another element is already being touched, ignore this touch
+                           if (activeTouchRef.current) return;
+                           
+                           activeTouchRef.current = cardId;
+                           setPressedCardId(cardId);
+                           
+                           if (e.touches.length > 0) {
+                             touchStartPosRef.current = {
+                               x: e.touches[0].clientX,
+                               y: e.touches[0].clientY
+                             };
+                           }
+                        }}
+                        onTouchEnd={(e) => {
+                          // Only process if this was the active touch
+                          if (activeTouchRef.current === cardId) {
+                            // Check for scroll/drag (ignore if moved significantly)
+                            let isTap = true;
+                            if (touchStartPosRef.current && e.changedTouches.length > 0) {
+                              const diffX = Math.abs(e.changedTouches[0].clientX - touchStartPosRef.current.x);
+                              const diffY = Math.abs(e.changedTouches[0].clientY - touchStartPosRef.current.y);
+                              if (diffX > 10 || diffY > 10) {
+                                isTap = false;
+                              }
+                            }
+                            
+                            if (isTap) {
+                              e.preventDefault(); // Prevent ghost click
+                              setSelectedShop(shop);
+                            }
+                            
+                            activeTouchRef.current = null;
+                            touchStartPosRef.current = null;
+                            setPressedCardId(null);
+                          }
+                        }}
+                        onTouchCancel={(e) => {
+                          if (activeTouchRef.current === cardId) {
+                            activeTouchRef.current = null;
+                            touchStartPosRef.current = null;
+                            setPressedCardId(null);
+                          }
+                        }}
+                        animate={{
+                          scale: isPressed ? 1.02 : 1,
+                          y: isPressed ? -2 : 0,
+                          boxShadow: isPressed 
+                            ? "0 4px 8px rgba(0, 0, 0, 0.25)" 
+                            : "0 0 0 rgba(0,0,0,0)" // No shadow by default, or restore original if needed
                         }}
                         transition={{
                           type: "spring",
@@ -1201,6 +1052,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                           flexShrink: 0,
                           position: "relative",
                           cursor: "pointer",
+                          touchAction: "pan-x", // Allow horizontal scroll but prevent other gestures
                         }}
                       >
                         {/* Floor display (top-left) */}
@@ -1702,7 +1554,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                   visibility: "hidden",
                   width: "100%",
                   height: "auto",
-                }}
+                  }}
               />
             </div>
           </div>
@@ -1765,9 +1617,3 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
 };
 
 export default ShopListScreen;
-
-
-
-
-
-
