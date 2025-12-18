@@ -17,10 +17,10 @@ import selectLanguageSelectedJp from "../assets/select-language-selected-jp.svg"
 import openTime from "../assets/open-time.svg";
 import prev from "../assets/button-prev.svg";
 import next from "../assets/button-next.svg";
-import { fetchShops } from "../repositories/shopRepository";
-import { shopSseClient } from "../api/sseClient";
-import type { ShopsEvent } from "../api/sseClient";
-import { convertSseShopDataToShop } from "../utils/shopConverter";
+// fetchShops removed
+// shopSseClient removed
+// ShopsEvent removed
+// convertSseShopDataToShop removed
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
@@ -291,6 +291,7 @@ function normalizeFloor(value: string): string {
 interface ShopListScreenProps {
   currentFloorSetting: string;
   locationIconSettings: LocationIconSettingsPerFloor;
+  shops: Shop[];
 }
 
 /**
@@ -302,7 +303,7 @@ interface ShopListScreenProps {
  * Action space: 1140×2160 (right side)
  * Action space background: Black
  */
-const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings }) => {
+const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops }) => {
   // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
@@ -310,14 +311,6 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   const isDraggingRef = useRef(false);
   const dragStartXRef = useRef(0);
   const scrollStartXRef = useRef(0);
-
-  // Shop data state
-  const [shops, setShops] = useState<Shop[]>([]);
-  const shopsRef = useRef<Shop[]>([]); // Keep track of shops for error handling
-
-  useEffect(() => {
-    shopsRef.current = shops;
-  }, [shops]);
 
   const [error, setError] = useState<string | null>(null);
   

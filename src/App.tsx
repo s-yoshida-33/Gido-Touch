@@ -12,7 +12,8 @@ import type { ImageSettings } from "./types/imageSettings";
 import { DEFAULT_IMAGE_SETTINGS } from "./types/imageSettings";
 import type { ShopPositionSettings } from "./types/shopPosition";
 import type { Shop } from "./types/shop";
-import { fetchShops } from "./repositories/shopRepository";
+import { fetchShops, loadShopsFromCache, saveShopsToCache } from "./repositories/shopRepository";
+import { logInfo, logError } from "./logs/logging";
 import { sseClient, shopSseClient } from "./api/sseClient";
 import type { ShopsEvent } from "./api/sseClient";
 import { convertSseShopDataToShop } from "./utils/shopConverter";
@@ -161,11 +162,82 @@ const App: React.FC = () => {
     sseClient.connect();
     shopSseClient.connect();
 
+    // Helper to process/filter shops
+    const processShops = (rawShops: Shop[]): Shop[] => {
+        // Filter shops: only "飲食店・食品" or "グルメ" genre
+        const filtered = rawShops.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
+        
+        // Exclude "イオン堺北花田店"
+        const excluded = filtered.filter((shop) => !(shop.name || "").includes("イオン堺北花田店"));
+        
+        // Clean shop names
+        return excluded.map((s) => ({
+          ...s,
+          name: (s.name || "").replace(/【.*?】/g, "").trim(),
+        }));
+    };
+
+    // Load Data Strategy (Cache-First + Background Update)
+    const loadData = async (useCache: boolean = true) => {
+        // 1. Load from cache if requested
+        if (useCache) {
+            const cached = loadShopsFromCache();
+            if (cached && cached.length > 0) {
+                // Apply same processing to cached data just in case
+                const processed = processShops(cached);
+                setShops(processed);
+                addDebug(`App: Loaded ${processed.length} shops from cache`);
+            }
+        }
+
+        // 2. Fetch from API (Background Update)
+        try {
+            const data = await fetchShops({ forceReload: true });
+
+            // Guard: If API returns empty list (e.g. DB deleted/empty), keep cache
+            if (data.length === 0) {
+                const cached = loadShopsFromCache();
+                if (cached && cached.length > 0) {
+                    console.warn("API returned empty shops, but cache exists. Keeping cache.");
+                    addDebug("App: API shops empty, keeping cache");
+                    return; 
+                }
+            }
+
+            const processed = processShops(data);
+            
+            // Check if data actually changed could be done here, but for now just update
+            setShops(processed);
+            saveShopsToCache(processed); 
+
+            addDebug(`App: Shops synced from API (${processed.length} items)`);
+        } catch (e: any) {
+            console.error("Failed to load shops:", e);
+            logError("App", "Failed to load shops", { error: e instanceof Error ? e.message : String(e) });
+            addDebug(`App: Failed to load shops: ${e.message}`);
+            
+            // If API fetch fails completely (network error etc), try to ensure cache is displayed if not already
+            const cached = loadShopsFromCache();
+            if (cached && cached.length > 0) {
+                // If we haven't loaded cache yet (maybe useCache was false?), load it now
+                if (shops.length === 0) {
+                     const processed = processShops(cached);
+                     setShops(processed);
+                     addDebug(`App: Loaded ${processed.length} shops from cache (fallback after error)`);
+                }
+            }
+        }
+    };
+
+    // Initial load
+    loadData(true);
+
     // Subscribe to SSE shops update (handle 'shops' event)
     unsubscribeShops = shopSseClient.on<ShopsEvent | any[]>('shops', (payload) => {
+       addDebug("App: Received SSE 'shops' event");
        let shopList: any[] = [];
        
-       if (payload && Array.isArray((payload as any).data)) {
+       if (payload && !Array.isArray(payload) && 'data' in payload && Array.isArray((payload as any).data)) {
          shopList = (payload as any).data;
        } else if (Array.isArray(payload)) {
          shopList = payload;
@@ -176,50 +248,58 @@ const App: React.FC = () => {
        if (shopList.length > 0) {
          try {
            const newShops: Shop[] = shopList.map((item: any) => convertSseShopDataToShop(item));
+           const processed = processShops(newShops);
            
-           // Filter shops
-           const filtered = newShops.filter((shop: Shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
+           setShops(processed);
+           saveShopsToCache(processed);
            
-           // Exclude "イオン堺北花田店"
-           const excluded = filtered.filter((shop: Shop) => !(shop.name || "").includes("イオン堺北花田店"));
-           
-           // Clean shop names
-           const cleaned = excluded.map((s: Shop) => ({
-             ...s,
-             name: (s.name || "").replace(/【.*?】/g, "").trim(),
-           }));
-           
-           setShops(cleaned);
-           addDebug(`App: Shops updated via SSE shops event (${cleaned.length} items)`);
+           addDebug(`App: Shops updated via SSE shops event (${processed.length} items)`);
          } catch (e: any) {
            console.error("Failed to process shops event", e);
+           logError("App", "Failed to process shops event", { error: e instanceof Error ? e.message : String(e) });
            addDebug(`App: Failed to process shops SSE: ${e.message}`);
          }
        }
     });
 
     // Handle generic 'update' event as a trigger to reload shops (fallback for legacy/different event type)
-    const unsubscribeUpdate = shopSseClient.on('update', () => {
-        addDebug("App: Received 'update' event, triggering fetchShops...");
-        // Re-fetch shops manually if 'update' event is received without payload
-        // This restores the previous behavior for 'update' event
-        const reloadShops = async () => {
-            try {
-                const data = await fetchShops({ forceReload: true });
-                // ... same filtering logic ...
-                const filtered = data.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
-                const excluded = filtered.filter((shop) => !(shop.name || "").includes("イオン堺北花田店"));
-                const cleaned = excluded.map((s) => ({
-                    ...s,
-                    name: (s.name || "").replace(/【.*?】/g, "").trim(),
-                }));
-                setShops(cleaned);
-                addDebug(`App: Shops reloaded via update event (${cleaned.length} items)`);
-            } catch(e: any) {
-                console.error("Failed to reload shops on update event", e);
+    const unsubscribeUpdate = shopSseClient.on('update', (payload: any) => {
+        addDebug("App: Received 'update' event");
+        
+        // If payload has type, use it (User's snippet pattern)
+        if (payload && payload.type) {
+            logInfo("app", "Received update event from SSE", { type: payload.type });
+            switch (payload.type) {
+                case "shops":
+                    // If data is included, use it
+                    if (payload.data) {
+                         // Need to parse if it's not already parsed
+                         // Assuming payload.data is array of shops similar to 'shops' event
+                         // But implementation details might vary. 
+                         // For safety, let's just trigger loadData(false) if we are not sure about format,
+                         // OR if we want to follow user's snippet exactly:
+                         /*
+                         const newShops = parseShopsData(payload.data, "1F");
+                         ...
+                         */
+                         // Since we don't have parseShopsData, we will trigger reload.
+                         loadData(false);
+                    } else {
+                        loadData(false);
+                    }
+                    break;
+                case "shop_news":
+                case "event_news":
+                    // Placeholder for future implementation
+                    addDebug(`App: Received ${payload.type} update (not implemented)`);
+                    break;
+                default:
+                    loadData(false);
             }
-        };
-        reloadShops();
+        } else {
+            // Legacy behavior: just reload
+            loadData(false);
+        }
     });
 
     const init = async () => {
@@ -394,27 +474,6 @@ const App: React.FC = () => {
       } catch (e: any) {
         console.error("Failed to load current floor setting", e);
         addDebug(`Floor load error: ${e.message}`);
-      }
-
-      // Load shops
-      try {
-        const shopData = await fetchShops({ forceReload: true }); // Initial full load
-        
-        // Filter shops: only "飲食店・食品" or "グルメ" genre
-        const filtered = shopData.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
-        
-        // Exclude "イオン堺北花田店"
-        const excluded = filtered.filter((shop) => !(shop.name || "").includes("イオン堺北花田店"));
-        
-        // Clean shop names
-        const cleaned = excluded.map((s) => ({
-          ...s,
-          name: (s.name || "").replace(/【.*?】/g, "").trim(),
-        }));
-        
-        setShops(cleaned);
-      } catch (e) {
-        console.error("Failed to load shops:", e);
       }
     };
 
@@ -745,6 +804,7 @@ const App: React.FC = () => {
       <ShopListScreen 
         currentFloorSetting={currentFloorSetting}
         locationIconSettings={locationSettings}
+        shops={shops}
       />
       <UnifiedSettingsScreen
         floor={floor}

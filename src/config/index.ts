@@ -81,6 +81,11 @@ export const GENRE_ORDER: string[] = [
   "サービス",
 ];
 
+// Cache keys for localStorage
+export const CACHE_KEYS = {
+  SHOPS: "app_shops_cache_v1",
+};
+
 // Japanese → English genre dictionary
 export const GENRE_ENGLISH: Record<string, string> = {
   "ファッション": "Fashion",

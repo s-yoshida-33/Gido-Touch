@@ -11,10 +11,11 @@ import food4FMap from "../assets/food-4F-map.svg";
 import openTimeImage from "../assets/open-time.svg";
 
 import { APP_CONFIG } from "../config";
-import { fetchShops } from "../repositories/shopRepository";
-import { shopSseClient } from "../api/sseClient";
-import type { ShopsEvent } from "../api/sseClient";
-import { convertSseShopDataToShop } from "../utils/shopConverter";
+// fetchShops removed
+// shopSseClient removed
+// ShopsEvent removed
+// convertSseShopDataToShop removed
+import { useShops } from "../hooks/useShops"; // Added
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 
 import type { LocationIconSettings, LocationIconSettingsPerFloor } from "../types/locationIcon";
@@ -89,14 +90,9 @@ const GidoApp: React.FC<GidoAppProps> = ({
   showOnlyMap = false,
   currentFloorSetting: propCurrentFloorSetting,
 }) => {
-  const [shops, setShops] = useState<Shop[]>([]);
-  const shopsRef = useRef<Shop[]>([]); // Keep track of shops for error handling
-
-  useEffect(() => {
-    shopsRef.current = shops;
-  }, [shops]);
-
-  const [error, setError] = useState<string | null>(null);
+  // Use custom hook for data fetching with cache strategy
+  const { shops, error: shopsError } = useShops();
+  const error = shopsError ? shopsError.message : null;
 
   const [floor, setFloor] = useState<string>(
     previewFloor ?? APP_CONFIG.floor

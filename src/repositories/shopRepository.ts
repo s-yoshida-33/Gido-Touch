@@ -1,11 +1,39 @@
 // src/repositories/shopRepository.ts
-import { DATA_SOURCE, GENRE_ORDER } from "../config";
+import { DATA_SOURCE, GENRE_ORDER, CACHE_KEYS } from "../config";
 import type { Shop } from "../types/shop";
 import { fetchShopsFromBridge } from "../api/bridgeClient";
 
 export interface GroupedShops {
   genres: string[];
   byGenre: Record<string, Shop[]>;
+}
+
+// --- Cache Logic ---
+
+export function saveShopsToCache(shops: Shop[]): void {
+  try {
+    const json = JSON.stringify(shops);
+    localStorage.setItem(CACHE_KEYS.SHOPS, json);
+    // console.log(`Saved ${shops.length} shops to cache.`);
+  } catch (e) {
+    console.error("Failed to save shops cache:", e);
+  }
+}
+
+export function loadShopsFromCache(): Shop[] | null {
+  try {
+    const json = localStorage.getItem(CACHE_KEYS.SHOPS);
+    if (!json) return null;
+    
+    const shops = JSON.parse(json) as Shop[];
+    // console.log(`Loaded ${shops.length} shops from cache.`);
+    return shops;
+  } catch (e) {
+    console.error("Failed to load shops cache:", e);
+    // エラー時はキャッシュをクリアするなど、安全側に倒す
+    // localStorage.removeItem(CACHE_KEYS.SHOPS);
+    return null;
+  }
 }
 
 // Memory cache
