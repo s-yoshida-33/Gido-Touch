@@ -21,6 +21,7 @@ import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
+import type { ShopPositionSettings } from "../types/shopPosition";
 
 /**
  * Build image path using shop_id if photo is relative or filename only
@@ -276,6 +277,7 @@ interface ShopListScreenProps {
   currentFloorSetting: string;
   locationIconSettings: LocationIconSettingsPerFloor;
   shops: Shop[];
+  shopPositions?: ShopPositionSettings;
 }
 
 /**
@@ -287,7 +289,7 @@ interface ShopListScreenProps {
  * Action space: 1140×2160 (right side)
  * Action space background: Black
  */
-const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops }) => {
+const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions }) => {
   // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
@@ -979,7 +981,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                     return (
                       <motion.div
                         key={cardId}
-                        onClick={(e) => {
+                        onClick={() => {
                           // Only allow mouse clicks if no touch interaction is active
                           if (!activeTouchRef.current) {
                             setSelectedShop(shop);
@@ -1022,7 +1024,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                             setPressedCardId(null);
                           }
                         }}
-                        onTouchCancel={(e) => {
+                        onTouchCancel={() => {
                           if (activeTouchRef.current === cardId) {
                             activeTouchRef.current = null;
                             touchStartPosRef.current = null;
@@ -1156,8 +1158,11 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               }}
             >
               <ShopDetailScreen 
-                shop={selectedShop} 
-                onClose={() => setSelectedShop(null)} 
+                shop={{
+                  ...selectedShop,
+                  position: shopPositions?.positions?.[selectedShop.shopId || selectedShop.number] || selectedShop.position
+                }}
+                onClose={() => setSelectedShop(null)}  
                 language={selectedLanguage}
                 currentFloorSetting={currentFloorSetting}
                 locationIconSettings={locationIconSettings}

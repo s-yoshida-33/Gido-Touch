@@ -805,6 +805,7 @@ const App: React.FC = () => {
         currentFloorSetting={currentFloorSetting}
         locationIconSettings={locationSettings}
         shops={shops}
+        shopPositions={shopPositions}
       />
       <UnifiedSettingsScreen
         floor={floor}
