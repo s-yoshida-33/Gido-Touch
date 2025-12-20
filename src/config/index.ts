@@ -10,14 +10,8 @@ export const APP_CONFIG = {
   // Default floor for this screen (this screen is dedicated to one floor)
   floor: "3F",
 
-  // Layout configuration (4K display assumed)
-  listHeightVh: (800 / 2160) * 100, // ≒ 37vh
-  maxColumns: 3,
-  minColumns: 2,
-  approxRowsPerCol: 20,
-  showGenreMemo: true,
-  numberColWidthVmin: 6,
-  fontSizeVmin: 1.05,
+  // Enable local storage caching
+  enableCache: true,
 };
 
 // Effective API base URL
@@ -165,9 +159,3 @@ export const FLOOR_ROWS_PER_COL: Record<string, number> = {
   "3F": 20,
   "4F": 18,
 };
-
-// Polling intervals
-export const POLLING_INTERVALS = {
-  VIDEO_MS: 500,      // 0.5 second
-};
-

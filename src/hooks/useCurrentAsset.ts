@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { sseClient } from '../api/sseClient';
+import { sseClient, type SwitchEventData } from '../api/sseClient';
 import type { CurrentAsset, WspTimelineItem } from '../types/wsp';
 import { logInfo, logWarn } from '../logs/logging';
-import { POLLING_INTERVALS } from '../config';
 
 interface UseCurrentAssetResult {
   asset: CurrentAsset | null;
@@ -60,10 +59,7 @@ function mapToCurrentAsset(item: ApiTimelineItem | WspTimelineItem): CurrentAsse
  * UPDATE: Now uses SSE to receive real-time updates from the local API.
  * The pollIntervalMs parameter is kept for backward compatibility but ignored.
  */
-export function useCurrentAsset(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _pollIntervalMs: number = POLLING_INTERVALS.VIDEO_MS,
-): UseCurrentAssetResult {
+export function useCurrentAsset(): UseCurrentAssetResult {
   const [asset, setAsset] = useState<CurrentAsset | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 

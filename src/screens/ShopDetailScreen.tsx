@@ -20,6 +20,7 @@ import resetHighlight from "../assets/reset-highlight.svg";
 import iconLocation from "../assets/icon-location.svg";
 import iconTime from "../assets/icon-time.svg";
 import iconTel from "../assets/icon-tel.svg";
+import waonPointIcon from "../assets/waonpoint.svg";
 import type { Shop } from "../types/shop";
 import { ShopPin } from "../components/ShopPin";
 import { LocationIconsOverlay } from "../components/LocationIconsOverlay";
@@ -349,6 +350,10 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
     return "";
   }, [shop, language]);
 
+  const isWaonPointShop = React.useMemo(() => {
+    return shop.genreMemo && shop.genreMemo.includes("WAONPOINT加盟店");
+  }, [shop.genreMemo]);
+
   const getMapImage = () => {
     switch (normalizedFloor) {
       case "1F": return food1FMap;
@@ -538,6 +543,16 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
             
             {/* Scrollable content continues here if description is long */}
           </div>
+
+          {/* Category Area - WAON POINT */}
+          {isWaonPointShop && (
+            <div style={{ flexShrink: 0, width: "100%" }}>
+              <div style={{ width: "640px", height: "1px", backgroundColor: "#D9D9D9", marginLeft: "30px", marginRight: "30px", marginBottom: "30px" }} />
+              <div style={{ marginLeft: "30px", marginRight: "30px", marginBottom: "30px" }}>
+                <img src={waonPointIcon} alt="WAON POINT" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "70px", height: "70px", display: "block" }} />
+              </div>
+            </div>
+          )}
 
           {/* Fixed Footer Info */}
           <div style={{ flexShrink: 0, width: "100%" }}>

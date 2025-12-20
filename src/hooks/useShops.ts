@@ -39,12 +39,8 @@ export const useShops = (useCacheFirst: boolean = true) => {
       if (cached && cached.length > 0) {
         setShops(cached);
         logInfo("shopList", "Loaded shops from cache", { count: cached.length });
-        // APIロード完了までローディングは維持しても良いが、
-        // ユーザー体験的には「表示された」時点でローディング解除するのもあり。
-        // ここではバックグラウンド更新中であることを示すためisLoadingはtrueのままにするか、
-        // あるいはfalseにして裏で更新するか。要件「ユーザーを待たせず」に従い、
-        // ここでは一旦描画させるために何か返すが、状態としてはLoading継続が無難。
-        // ただし、画面が固まらないことが重要。
+        // キャッシュがあれば先に表示（ユーザーを待たせない）
+        setIsLoading(false);
       }
     }
 
