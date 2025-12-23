@@ -1,7 +1,7 @@
 {
   "name": "gido-touch",
   "private": true,
-  "version": "0.1.0-beta.36",
+  "version": "0.1.0-beta.37",
   "type": "module",
   "description": "Floor guide display system",
   "author": "Toei Techno International Inc.",
@@ -18,7 +18,7 @@
   },
   "main": "electron/main.cjs",
   "build": {
-    "appId": "com.tti.gido",
+    "appId": "com.tti.gido-touch",
     "productName": "Gido Touch",
     "copyright": "© 2025 Toei Techno International Inc.",
     "directories": {
