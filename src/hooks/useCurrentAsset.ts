@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { sseClient, type SwitchEventData } from '../api/sseClient';
+import { sseClient, type SwitchEvent } from '../api/sseClient';
 import type { CurrentAsset, WspTimelineItem } from '../types/wsp';
 import { logInfo, logWarn } from '../logs/logging';
 
@@ -8,23 +8,18 @@ interface UseCurrentAssetResult {
   isLoading: boolean;
 }
 
+// Helper types for local mapping if needed, but prefer types from wsp.ts
 interface ApiTimelineItem {
   timeline_index: number;
   start_time: string;
   end_time: string;
   schedule_id: string;
-  data: WspTimelineItem; // The actual item details are nested in 'data'
+  data: WspTimelineItem;
 }
 
-interface SwitchEventData {
-  type: 'switch';
-  timestamp: string;
-  current_timeline: ApiTimelineItem;
-}
-
-function mapToCurrentAsset(item: ApiTimelineItem | WspTimelineItem): CurrentAsset | null {
+function mapToCurrentAsset(item: ApiTimelineItem | WspTimelineItem | any): CurrentAsset | null {
   // Use explicit casting to handle the discriminated union properly with the index signature of WspTimelineItem
-  const timelineItem = ((item as any).data || item) as WspTimelineItem;
+  const timelineItem = (item.data || item) as WspTimelineItem;
   
   if (!timelineItem) return null;
 
@@ -71,8 +66,8 @@ export function useCurrentAsset(): UseCurrentAssetResult {
       setIsLoading(false);
     };
 
-    const handleSwitch = (data: SwitchEventData) => {
-      logInfo('video', 'Content switched via SSE', { timelineIndex: data.current_timeline?.timeline_index });
+    const handleSwitch = (data: SwitchEvent) => {
+      logInfo('video', 'Content switched via SSE', { timelineIndex: (data.current_timeline as any)?.timeline_index });
       
       const nextAsset = mapToCurrentAsset(data.current_timeline);
       

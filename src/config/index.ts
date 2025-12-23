@@ -12,6 +12,15 @@ export const APP_CONFIG = {
 
   // Enable local storage caching
   enableCache: true,
+
+  // Max columns for shop list
+  maxColumns: 3,
+
+  // Font size for shop list (vmin)
+  fontSizeVmin: 2,
+
+  // Height of the shop list area (vh)
+  listHeightVh: 40,
 };
 
 // Effective API base URL
