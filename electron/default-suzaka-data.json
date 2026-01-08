@@ -1,6 +1,11 @@
 {
-  "floor": "4F",
+  "floor": "1F",
   "currentFloorSetting": "2F",
+  "displayFloors": [
+    "1F",
+    "2F",
+    "3F"
+  ],
   "mallId": "suzaka",
   "locationIcons": {
     "1F": {
@@ -1986,32 +1991,32 @@
       "line2En": "カラアゲセンター"
     },
     "20260105-01.mp4": {
-      "line1": "3F [347] 洋食 / フライドチキン",
-      "line2": "ケンタッキーフライドチキン",
+      "line1": "",
+      "line2": "",
       "line2En": ""
     },
     "20260105-02.mp4": {
-      "line1": "3F [340] 洋食 / ステーキ",
-      "line2": "ペッパーランチ",
-      "line2En": "Pepper lunch"
+      "line1": "",
+      "line2": "",
+      "line2En": ""
     },
     "20260105-03.mp4": {
-      "line1": "1F [153] ドリンク / ジュース",
-      "line2": "果汁工房果琳",
-      "line2En": "kajyukobo karin"
+      "line1": "",
+      "line2": "",
+      "line2En": ""
     },
     "20260105-05.mp4": {
-      "line1": "2F [230] 中華 / ラーメン",
-      "line2": "大阪王将"
+      "line1": "",
+      "line2": ""
     },
     "20260105-06.mp4": {
-      "line1": "3F [343] 中華 / ラーメン",
-      "line2": "京都北白川ラーメン魁力屋",
-      "line2En": "kairikiya"
+      "line1": "",
+      "line2": "",
+      "line2En": ""
     },
     "20260105-04.mp4": {
-      "line1": "2F [228] 中華 / ラーメン",
-      "line2": "一風堂"
+      "line1": "",
+      "line2": ""
     }
   }
 }

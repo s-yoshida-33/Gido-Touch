@@ -186,10 +186,10 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       const img = imgRef.current;
       img.src = currentFile;
       
-      // For images, show for 5 seconds then move to next (or loop if only one)
+      // For images, show for 15 seconds then move to next (or loop if only one)
       const timer = setTimeout(() => {
         setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
-      }, 5000);
+      }, 15000);
       
       logInfo('video', 'Showing image from local directory', {
         index: currentIndex,

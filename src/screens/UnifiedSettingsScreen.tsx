@@ -659,6 +659,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onChangeSettings={setLocalMediaTextSettings}
               audioSettings={currentAudioSettings}
               onChangeAudioSettings={setCurrentAudioSettings}
+              shops={shops}
             />
           )}
         </div>
