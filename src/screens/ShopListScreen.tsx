@@ -749,7 +749,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
           }}
         >
           {/* Prev button (left side) */}
-          {canScroll && scrollPercentage > 50 && (
+          {canScroll && scrollPercentage > 40 && (
             <div
               onClick={scrollToStart}
               style={{
@@ -815,7 +815,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             </div>
           )}
           {/* Next button (right side) */}
-          {canScroll && scrollPercentage <= 50 && (
+          {canScroll && scrollPercentage < 60 && (
             <div
               onClick={scrollToEnd}
               style={{
