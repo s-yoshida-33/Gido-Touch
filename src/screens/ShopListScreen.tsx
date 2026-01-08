@@ -280,7 +280,7 @@ interface ShopListScreenProps {
  * Action space background: Black
  */
 const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions, displayFloors = ['1F', '2F', '3F', '4F'] }) => {
-  const { assets, isLoading: isAssetsLoading } = useMall();
+  const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage } = useMall();
   
   // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -337,31 +337,6 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       setSelectedFloor(floor);
     }
   };
-  
-  // Get selected language from localStorage (default to Japanese)
-  const getSelectedLanguage = (): "ja" | "en" => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      const saved = localStorage.getItem("gido-selected-language");
-      if (saved === "en" || saved === "ja") {
-        return saved;
-      }
-    }
-    // Default to Japanese and save to localStorage
-    if (typeof window !== "undefined" && window.localStorage) {
-      localStorage.setItem("gido-selected-language", "ja");
-    }
-    return "ja"; // Default to Japanese
-  };
-  
-  const [selectedLanguage, setSelectedLanguageState] = useState<"ja" | "en">(() => getSelectedLanguage());
-  
-  // Wrapper to save to localStorage when language changes
-  const setSelectedLanguage = (lang: "ja" | "en") => {
-    setSelectedLanguageState(lang);
-    if (typeof window !== "undefined" && window.localStorage) {
-      localStorage.setItem("gido-selected-language", lang);
-    }
-  };
 
   // State refs for idle check (to access current state in interval)
   const selectedShopRef = useRef(selectedShop);
@@ -379,16 +354,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   // Initialize language to Japanese on mount (force reset to Japanese)
   useEffect(() => {
     // Always set to Japanese on mount to ensure default is Japanese
-    if (typeof window !== "undefined" && window.localStorage) {
-      const saved = localStorage.getItem("gido-selected-language");
-      // If language is not Japanese, reset to Japanese
-      if (saved !== "ja") {
-        setSelectedLanguage("ja");
-      } else if (selectedLanguage !== "ja") {
-        // Sync state if localStorage is Japanese but state is not
-        setSelectedLanguageState("ja");
-      }
-    }
+    setSelectedLanguage("ja");
   }, []); // Run only on mount
 
   // Idle timeout: Refresh to default shop list after 30 seconds of inactivity

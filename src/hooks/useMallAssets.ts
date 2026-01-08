@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 
 export type MallId = "suzaka" | "sendai-kamisugi";
+export type Language = "ja" | "en";
 
 // アセットのパス定義
 interface MallAssets {
@@ -39,65 +40,57 @@ interface MallAssets {
     selectLanguageEnHighlight: string;
     selectLanguageSelectedJp: string;
     selectLanguageSelectedEn: string;
+    floorLabels: {
+      [key: string]: string;
+    };
   };
 }
 
-// 共通アセットのインポート (これらはモール間で共通とする)
-// Note: Vite will bundle these unless we specifically want to dynamic import them too,
-// but for now keeping common assets statically imported is safer for performance on critical UI elements.
-import buttonClose from "../assets/button-close.svg";
-import buttonCloseHighlight from "../assets/button-close-highlight.svg";
-import buttonPrev from "../assets/button-prev.svg";
-import buttonPrevHighlight from "../assets/button-prev-highlight.svg";
-import buttonNext from "../assets/button-next.svg";
-import buttonNextHighlight from "../assets/button-next-highlight.svg";
-import zoomIn from "../assets/zoom-in.svg";
-import zoomInHighlight from "../assets/zoom-in-highlight.svg";
-import zoomOut from "../assets/zoom-out.svg";
-import zoomOutHighlight from "../assets/zoom-out-highlight.svg";
-import reset from "../assets/reset.svg";
-import resetHighlight from "../assets/reset-highlight.svg";
-import iconCurrentFloor from "../assets/icon-current-floor.svg";
-import iconLocation from "../assets/icon-location.svg";
-import iconTime from "../assets/icon-time.svg";
-import iconTel from "../assets/icon-tel.svg";
-import waonPointIcon from "../assets/waonpoint.svg";
-import selectLanguageBg from "../assets/select-language-bg.svg";
-import selectLanguageJp from "../assets/select-language-jp.svg";
-import selectLanguageJpHighlight from "../assets/select-language-jp-highlight.svg";
-import selectLanguageEn from "../assets/select-language-en.svg";
-import selectLanguageEnHighlight from "../assets/select-language-en-highlight.svg";
-import selectLanguageSelectedJp from "../assets/select-language-selected-jp.svg";
-import selectLanguageSelectedEn from "../assets/select-language-selected-en.svg";
+// 共通アセットのインポート
+import buttonClose from "../assets/common/button/close.svg";
+import buttonCloseHighlight from "../assets/common/button/close-highlight.svg";
+import buttonPrev from "../assets/common/button/prev.svg";
+import buttonPrevHighlight from "../assets/common/button/prev-highlight.svg";
+import buttonNext from "../assets/common/button/next.svg";
+import buttonNextHighlight from "../assets/common/button/next-highlight.svg";
 
-const COMMON_ASSETS = {
-  buttonClose,
-  buttonCloseHighlight,
-  buttonPrev,
-  buttonPrevHighlight,
-  buttonNext,
-  buttonNextHighlight,
-  zoomIn,
-  zoomInHighlight,
-  zoomOut,
-  zoomOutHighlight,
-  reset,
-  resetHighlight,
-  iconCurrentFloor,
-  iconLocation,
-  iconTime,
-  iconTel,
-  waonPointIcon,
-  selectLanguageBg,
-  selectLanguageJp,
-  selectLanguageJpHighlight,
-  selectLanguageEn,
-  selectLanguageEnHighlight,
-  selectLanguageSelectedJp,
-  selectLanguageSelectedEn,
-};
+// フロアラベル
+import label1F from "../assets/common/label/1F.svg";
+import label2F from "../assets/common/label/2F.svg";
+import label3F from "../assets/common/label/3F.svg";
+import label4F from "../assets/common/label/4F.svg";
 
-export const useMallAssets = (mallId: MallId) => {
+// 日本語用アセット
+import zoomInJa from "../assets/common/button/ja/zoom-in.svg";
+import zoomInHighlightJa from "../assets/common/button/ja/zoom-in-highlight.svg";
+import zoomOutJa from "../assets/common/button/ja/zoom-out.svg";
+import zoomOutHighlightJa from "../assets/common/button/ja/zoom-out-highlight.svg";
+import resetJa from "../assets/common/button/ja/reset.svg";
+import resetHighlightJa from "../assets/common/button/ja/reset-highlight.svg";
+import iconCurrentFloorJa from "../assets/common/current/ja/current.svg";
+
+// 英語用アセット
+import zoomInEn from "../assets/common/button/en/zoom-in.svg";
+import zoomInHighlightEn from "../assets/common/button/en/zoom-in-highlight.svg";
+import zoomOutEn from "../assets/common/button/en/zoom-out.svg";
+import zoomOutHighlightEn from "../assets/common/button/en/zoom-out-highlight.svg";
+import resetEn from "../assets/common/button/en/reset.svg";
+import resetHighlightEn from "../assets/common/button/en/reset-highlight.svg";
+import iconCurrentFloorEn from "../assets/common/current/en/current.svg";
+
+import iconLocation from "../assets/common/icon/location.svg";
+import iconTime from "../assets/common/icon/time.svg";
+import iconTel from "../assets/common/icon/tel.svg";
+import waonPointIcon from "../assets/common/icon/waonpoint.svg";
+import selectLanguageBg from "../assets/common/lang/background.svg";
+import selectLanguageJp from "../assets/common/lang/ja.svg";
+import selectLanguageJpHighlight from "../assets/common/lang/ja-highlight.svg";
+import selectLanguageEn from "../assets/common/lang/en.svg";
+import selectLanguageEnHighlight from "../assets/common/lang/en-highlight.svg";
+import selectLanguageSelectedJp from "../assets/common/lang/selected-ja.svg";
+import selectLanguageSelectedEn from "../assets/common/lang/selected-en.svg";
+
+export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
   const [assets, setAssets] = useState<MallAssets | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -107,15 +100,7 @@ export const useMallAssets = (mallId: MallId) => {
 
     const loadAssets = async () => {
       try {
-        // モールごとのアセットを動的にインポート
-        // Glob importを使用してディレクトリ内のファイルを一括取得も可能だが、
-        // ここでは必要なファイルを明示的に構築するロジックにする。
-        // ただし、フロア構成が不明なため、Globインポートを活用する。
-
         // モールIDに基づいて動的にインポート
-        // ViteのGlob Import機能を使用
-        // 注意: 変数を含むパスでのimportは制限があるため、switch文か、globのパターンマッチを使用する。
-        
         let buttonModules: Record<string, any> = {};
         let mapModules: Record<string, any> = {};
         let openTimeModule: any = null;
@@ -123,7 +108,6 @@ export const useMallAssets = (mallId: MallId) => {
         if (mallId === 'suzaka') {
            buttonModules = import.meta.glob('../assets/malls/suzaka/button/*.svg', { eager: true });
            mapModules = import.meta.glob('../assets/malls/suzaka/maps/*.svg', { eager: true });
-           // open-timeはファイル名固定とするか、globで探す
            const openTimeModules = import.meta.glob('../assets/malls/suzaka/open-time/*.svg', { eager: true });
            openTimeModule = Object.values(openTimeModules)[0]; 
         } else if (mallId === 'sendai-kamisugi') {
@@ -138,9 +122,8 @@ export const useMallAssets = (mallId: MallId) => {
         // ボタンアセットの整理
         const buttons: MallAssets['buttons'] = {};
         Object.entries(buttonModules).forEach(([path, module]: [string, any]) => {
-          // パスからファイル名を抽出 (e.g., "1F.svg", "1F-highlight.svg")
           const fileName = path.split('/').pop() || "";
-          const namePart = fileName.replace('.svg', ''); // "1F" or "1F-highlight"
+          const namePart = fileName.replace('.svg', '');
           
           let floor = "";
           let type: "default" | "highlight" = "default";
@@ -167,11 +150,53 @@ export const useMallAssets = (mallId: MallId) => {
             maps[floor] = module.default;
         });
 
+        // 言語に応じたアセットの選択
+        // 英語アセットがない場合は日本語アセットを使用する (フォールバックは各インポートで処理済み、ここでは論理切り替えのみ)
+        // ※実際にはファイルが存在しないとビルドエラーになるため、ファイルが存在する前提
+        const isEn = language === 'en';
+
+        const commonAssets = {
+          buttonClose,
+          buttonCloseHighlight,
+          buttonPrev,
+          buttonPrevHighlight,
+          buttonNext,
+          buttonNextHighlight,
+          
+          // ja/en のディレクトリ切り替えに対応
+          zoomIn: isEn ? zoomInEn : zoomInJa,
+          zoomInHighlight: isEn ? zoomInHighlightEn : zoomInHighlightJa,
+          zoomOut: isEn ? zoomOutEn : zoomOutJa,
+          zoomOutHighlight: isEn ? zoomOutHighlightEn : zoomOutHighlightJa,
+          reset: isEn ? resetEn : resetJa,
+          resetHighlight: isEn ? resetHighlightEn : resetHighlightJa,
+          iconCurrentFloor: isEn ? iconCurrentFloorEn : iconCurrentFloorJa,
+
+          // ディレクトリ分けされていないものはそのまま (切り替えなし)
+          iconLocation,
+          iconTime,
+          iconTel,
+          waonPointIcon,
+          selectLanguageBg,
+          selectLanguageJp,
+          selectLanguageJpHighlight,
+          selectLanguageEn,
+          selectLanguageEnHighlight,
+          selectLanguageSelectedJp,
+          selectLanguageSelectedEn,
+          floorLabels: {
+            "1F": label1F,
+            "2F": label2F,
+            "3F": label3F,
+            "4F": label4F,
+          },
+        };
+
         setAssets({
           buttons,
           maps,
           openTime: openTimeModule?.default || "",
-          common: COMMON_ASSETS
+          common: commonAssets
         });
         
       } catch (error) {
@@ -186,8 +211,7 @@ export const useMallAssets = (mallId: MallId) => {
     return () => {
       isMounted = false;
     };
-  }, [mallId]);
+  }, [mallId, language]);
 
   return { assets, isLoading };
 };
-

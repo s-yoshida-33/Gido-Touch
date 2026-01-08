@@ -1,10 +1,10 @@
 // src/components/LanguageSelectModal.tsx
 import React, { useRef, useEffect, useState } from "react";
-import selectLanguageBg from "../assets/select-language-bg.svg";
-import selectLanguageJp from "../assets/select-language-jp.svg";
-import selectLanguageJpHighlight from "../assets/select-language-jp-highlight.svg";
-import selectLanguageEn from "../assets/select-language-en.svg";
-import selectLanguageEnHighlight from "../assets/select-language-en-highlight.svg";
+import selectLanguageBg from "../assets/common/lang/background.svg";
+import selectLanguageJp from "../assets/common/lang/ja.svg";
+import selectLanguageJpHighlight from "../assets/common/lang/ja-highlight.svg";
+import selectLanguageEn from "../assets/common/lang/en.svg";
+import selectLanguageEnHighlight from "../assets/common/lang/en-highlight.svg";
 
 interface LanguageSelectModalProps {
   isOpen: boolean;

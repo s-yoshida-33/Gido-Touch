@@ -3,8 +3,8 @@ import React from "react";
 import { motion } from "framer-motion";
 import type { LocationIconSettings, IconPositionConfig, AnimationConfig } from "../types/locationIcon";
 
-import SpeechBubbleSvg from "../assets/user-locaition.svg";
-import LocationSvg from "../assets/Location.svg";
+import SpeechBubbleSvg from "../assets/common/location/user.svg";
+import LocationSvg from "../assets/common/location/location.svg";
 
 const REFERENCE_MAP_WIDTH = 1920;
 

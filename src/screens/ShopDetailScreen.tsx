@@ -375,25 +375,26 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
         <div style={{ flex: 1, width: "1800px", height: "100%", backgroundColor: "#D9D9D9", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div ref={displayAreaRef} style={{ width: "1700px", height: "1580px", backgroundColor: "#FFFFFF", overflow: "hidden", position: "relative" }}>
             <div style={{ position: "absolute", top: "30px", left: "30px", zIndex: 10, pointerEvents: "none" }}>
-               {/* 
-                  Floor Label logic:
-                  If we want to make this dynamic, we should add it to MallAssets.
-                  For now, I'll use a text overlay or generic label if I can't import them.
-                  Actually, let's just render the text "1F" etc if image is missing, or
-                  better: add them to useMallAssets common assets in next step if needed.
-                  For now, I will use a simple text fallback to avoid broken images if imports are missing.
-                  Wait, I should probably restore the imports at the top of this file.
-               */}
-               <div style={{
-                 fontSize: "64px",
-                 fontWeight: "bold",
-                 color: "#333",
-                 backgroundColor: "rgba(255,255,255,0.8)",
-                 padding: "10px 20px",
-                 borderRadius: "10px"
-               }}>
-                 {normalizedFloor}
-               </div>
+               {/* Floor Label */}
+               {assets.common.floorLabels && assets.common.floorLabels[normalizedFloor] ? (
+                 <img 
+                   src={assets.common.floorLabels[normalizedFloor]} 
+                   alt={normalizedFloor} 
+                   draggable={false} 
+                   style={{ display: "block" }} 
+                 />
+               ) : (
+                 <div style={{
+                   fontSize: "64px",
+                   fontWeight: "bold",
+                   color: "#333",
+                   backgroundColor: "rgba(255,255,255,0.8)",
+                   padding: "10px 20px",
+                   borderRadius: "10px"
+                 }}>
+                   {normalizedFloor}
+                 </div>
+               )}
             </div>
             <TransformWrapper
               initialScale={1}
