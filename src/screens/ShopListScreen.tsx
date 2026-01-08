@@ -1164,7 +1164,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             alignSelf: "flex-start",
           }}
         >
-          <IndependentVideoPlayer forceReload={refreshTrigger} videoHeight="608px" language={selectedLanguage} />
+          <IndependentVideoPlayer forceReload={refreshTrigger} videoHeight="608px" language={selectedLanguage} shops={shops} />
         </div>
 
         {/* Spacer between top video and middle buttons */}
@@ -1191,6 +1191,93 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               height: "100%",
             }}
           >
+            {/* 4F button */}
+            {displayFloors.includes("4F") && assets.buttons["4F"] && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "30px",
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  display: "inline-block",
+                  cursor: "pointer",
+                  touchAction: "none",
+                }}
+                onClick={() => {
+                  if (!activeTouchRef.current) {
+                    handleFloorSelect("4F");
+                  }
+                }}
+                onTouchStart={(_e) => {
+                  if (activeTouchRef.current && activeTouchRef.current !== "4F") return;
+                  activeTouchRef.current = "4F";
+                }}
+                onTouchEnd={(e) => {
+                  if (activeTouchRef.current === "4F") {
+                    e.preventDefault();
+                    handleFloorSelect("4F");
+                    activeTouchRef.current = null;
+                  }
+                }}
+                onTouchCancel={(_e) => {
+                  if (activeTouchRef.current === "4F") {
+                    activeTouchRef.current = null;
+                  }
+                }}
+              >
+                <img
+                  src={assets.buttons["4F"].default}
+                  alt="4F"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
+                  style={{
+                    display: "block",
+                  }}
+                />
+                <img
+                  src={assets.buttons["4F"].highlight}
+                  alt="4F Highlight"
+                  className="highlight"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    display: "block",
+                    opacity: selectedFloor === "4F" ? 1 : 0,
+                    transition: "opacity 0.3s ease-in-out",
+                    pointerEvents: "none",
+                  }}
+                />
+                
+                {/* Current Location Icon */}
+                {currentFloorSetting === "4F" && (
+                  <img 
+                    src={assets.common.iconCurrentFloor}
+                    alt="Current Floor"
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                    style={{
+                      position: "absolute",
+                      top: "5%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      zIndex: 5,
+                      pointerEvents: "none",
+                      width: "50%",
+                      height: "auto",
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+            )}
+
             {/* 3F button and FOOD FOREST */}
             {displayFloors.includes("3F") && assets.buttons["3F"] && (
             <div

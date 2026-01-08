@@ -336,7 +336,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
     return null; // Or loading spinner
   }
 
-  const floor = shop.floors && shop.floors.length > 0 ? shop.floors[0] : "";
+  const floor = shop.position?.floor || (shop.floors && shop.floors.length > 0 ? shop.floors[0] : "");
   const normalizedFloor = normalizeFloor(String(floor));
 
   // Language display logic

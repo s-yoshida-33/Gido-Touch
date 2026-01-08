@@ -4,6 +4,8 @@ import { useIndependentVideo } from '../hooks/useIndependentVideo';
 import { useAudioSettings } from '../hooks/useAudioSettings';
 import { logInfo, logError, logWarn } from '../logs/logging';
 import type { LocalMediaTextSettings } from '../types/global';
+import type { Shop } from '../types/shop';
+import { getDefaultMediaSettings } from '../utils/localMediaUtils';
 
 /**
  * Check if a URL is a video file
@@ -42,12 +44,14 @@ interface IndependentVideoPlayerProps {
   forceReload?: number;
   videoHeight?: string | number;
   language?: "ja" | "en";
+  shops?: Shop[];
 }
 
 const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({ 
   forceReload = 0,
   videoHeight = '100%',
   language = "ja",
+  shops = [],
 }) => {
   const { videoSettings, isLoading } = useIndependentVideo();
   const { settings: audioSettings } = useAudioSettings();
@@ -255,7 +259,12 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     const isVideo = currentFile && isVideoFile(currentFile);
     const isImage = currentFile && isImageFile(currentFile);
     const filename = extractFilename(currentFile);
-    const currentText = textSettings[filename];
+    let currentText = textSettings[filename];
+    
+    // If setting is not present, generate default from shops data
+    if (!currentText && shops.length > 0) {
+      currentText = getDefaultMediaSettings(filename, shops);
+    }
 
     // Determine text to display based on language
     const line1 = (language === 'en' && currentText?.line1En) ? currentText.line1En : currentText?.line1;
