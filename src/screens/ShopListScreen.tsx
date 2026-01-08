@@ -297,8 +297,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
 
   // Scroll position state for navigation buttons
-  const [scrollPercentage, setScrollPercentage] = useState(0);
-  const [canScroll, setCanScroll] = useState(false);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
 
   // Force reload trigger state
   const [refreshTrigger, _setRefreshTrigger] = useState(0);
@@ -549,64 +549,79 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     container.style.userSelect = "";
   };
 
-  // Calculate scroll percentage
-  const calculateScrollPercentage = useCallback(() => {
+  // Check scroll state
+  const checkScrollState = useCallback(() => {
     const container = scrollContainerRef.current;
-    if (!container) return { percentage: 0, canScroll: false };
+    if (!container) {
+      setCanScrollPrev(false);
+      setCanScrollNext(false);
+      return;
+    }
     
-    const scrollLeft = container.scrollLeft;
-    const scrollWidth = container.scrollWidth;
-    const clientWidth = container.clientWidth;
-    const maxScroll = scrollWidth - clientWidth;
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    // Round values to avoid sub-pixel precision issues
+    const currentScroll = Math.ceil(scrollLeft);
+    const maxScroll = Math.ceil(scrollWidth - clientWidth);
     
-    if (maxScroll <= 0) return { percentage: 0, canScroll: false };
-    return { percentage: (scrollLeft / maxScroll) * 100, canScroll: true };
+    if (maxScroll <= 0) {
+      setCanScrollPrev(false);
+      setCanScrollNext(false);
+      return;
+    }
+
+    // Show Prev if scrolled more than threshold (approx 1 column width: 376px + 20px gap)
+    // User requested to show buttons when around the 2nd column
+    const threshold = 400;
+
+    setCanScrollPrev(currentScroll > threshold);
+    // Show Next if not at the end (within threshold)
+    setCanScrollNext(currentScroll < maxScroll - threshold);
   }, []);
 
   // Handle scroll event
   const handleScroll = useCallback(() => {
-    const result = calculateScrollPercentage();
-    setScrollPercentage(result.percentage);
-    setCanScroll(result.canScroll);
-  }, [calculateScrollPercentage]);
+    checkScrollState();
+  }, [checkScrollState]);
 
-  // Update scroll percentage on scroll
+  // Setup ResizeObserver to detect container size changes
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
+    // Create ResizeObserver to monitor the scroll container and its content
+    const resizeObserver = new ResizeObserver(() => {
+      checkScrollState();
+    });
+
+    resizeObserver.observe(container);
+    // Also observe the first child (content wrapper) if it exists
+    if (container.firstElementChild) {
+      resizeObserver.observe(container.firstElementChild);
+    }
+
     container.addEventListener("scroll", handleScroll);
+    window.addEventListener("resize", checkScrollState);
+
+    // Initial check
+    checkScrollState();
 
     return () => {
+      resizeObserver.disconnect();
       container.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", checkScrollState);
     };
-  }, [handleScroll]);
+  }, [handleScroll, checkScrollState, filteredShops, selectedFloor]); // Re-run when content changes
 
-  // Recalculate scroll state when content changes
+  // Additional check when content likely changes (animations, etc)
   useLayoutEffect(() => {
-    // Immediately check scroll state (synchronous check)
-    handleScroll();
-    
-    // Also check after a short delay to ensure layout is complete
-    const timer = setTimeout(() => {
-      handleScroll();
-    }, 50);
-
+    checkScrollState();
+    const timer = setTimeout(checkScrollState, 100);
+    const timer2 = setTimeout(checkScrollState, 500); // Check again after animation
     return () => {
       clearTimeout(timer);
+      clearTimeout(timer2);
     };
-  }, [filteredShops, selectedFloor, handleScroll]);
-
-  // Also recalculate when shops data changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handleScroll();
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [shops.length, handleScroll]);
+  }, [filteredShops, selectedFloor, checkScrollState]);
 
   // Smooth scroll animation helper
   const smoothScrollTo = (targetScrollLeft: number, duration: number = 800) => {
@@ -715,7 +730,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
           }}
         >
           {/* Prev button (left side) */}
-          {canScroll && scrollPercentage > 40 && (
+          {canScrollPrev && (
             <div
               onClick={scrollToStart}
               style={{
@@ -781,7 +796,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             </div>
           )}
           {/* Next button (right side) */}
-          {canScroll && scrollPercentage < 60 && (
+          {canScrollNext && (
             <div
               onClick={scrollToEnd}
               style={{

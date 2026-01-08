@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { LocalMediaTextSettings } from '../types/global';
 import type { AudioSettings } from '../types/audioSettings';
 import type { Shop } from '../types/shop';
