@@ -3,20 +3,9 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from
 import { motion, AnimatePresence } from "framer-motion";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
-import button1F from "../assets/button-1F.svg";
-import button2F from "../assets/button-2F.svg";
-import button3F from "../assets/button-3F.svg";
-import button1FHighlight from "../assets/button-1F-highlight.svg";
-import button2FHighlight from "../assets/button-2F-highlight.svg";
-import button3FHighlight from "../assets/button-3F-highlight.svg";
-import buttonPrevHighlight from "../assets/button-prev-highlight.svg";
-import buttonNextHighlight from "../assets/button-next-highlight.svg";
-import iconCurrentFloor from "../assets/icon-current-floor.svg";
-import selectLanguageSelectedEn from "../assets/select-language-selected-en.svg";
-import selectLanguageSelectedJp from "../assets/select-language-selected-jp.svg";
-import openTime from "../assets/open-time.svg";
-import prev from "../assets/button-prev.svg";
-import next from "../assets/button-next.svg";
+
+import { useMall } from "../contexts/MallContext";
+
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
@@ -278,6 +267,7 @@ interface ShopListScreenProps {
   locationIconSettings: LocationIconSettingsPerFloor;
   shops: Shop[];
   shopPositions?: ShopPositionSettings;
+  displayFloors?: string[];
 }
 
 /**
@@ -289,7 +279,9 @@ interface ShopListScreenProps {
  * Action space: 1140×2160 (right side)
  * Action space background: Black
  */
-const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions }) => {
+const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions, displayFloors = ['1F', '2F', '3F', '4F'] }) => {
+  const { assets, isLoading: isAssetsLoading } = useMall();
+  
   // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
@@ -504,26 +496,30 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     };
   }, []); // Always active, no dependencies
 
-  // Filter shops by selected floor
+  // Filter shops by selected floor and display floors
   const filteredShops = React.useMemo(() => {
+    // 1. Filter by Display Floors (universe of valid shops)
+    // Only show shops that exist on at least one of the displayed floors
+    const displayFilteredShops = shops.filter(shop => {
+        if (!shop.floors || shop.floors.length === 0) return false;
+        // Normalize shop floors and check against displayFloors
+        return shop.floors.some(f => displayFloors.includes(normalizeFloor(String(f))));
+    });
+
     if (!selectedFloor) {
-      return shops;
+      return displayFilteredShops;
     }
     
     const normalizedSelectedFloor = normalizeFloor(selectedFloor);
     
-    return shops.filter((shop) => {
-      if (!shop.floors || shop.floors.length === 0) {
-        return false;
-      }
-      
+    return displayFilteredShops.filter((shop) => {
       // Check if any of the shop's floors match the selected floor
       return shop.floors.some((floor) => {
         const normalizedShopFloor = normalizeFloor(String(floor));
         return normalizedShopFloor === normalizedSelectedFloor;
       });
     });
-  }, [shops, selectedFloor]);
+  }, [shops, selectedFloor, displayFloors]);
 
   // Layout: 6 rows per column
   // Card count is dynamically calculated based on the number of shops from API
@@ -708,6 +704,11 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     };
   }, []);
 
+  // Loading state check
+  if (isAssetsLoading || !assets) {
+    return null; // Or loading spinner
+  }
+
   return (
     <div
       style={{
@@ -781,7 +782,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               }}
             >
               <img
-                src={prev}
+                src={assets.common.buttonPrev}
                 alt="最初に移動"
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
@@ -793,7 +794,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 }}
               />
               <img
-                src={buttonPrevHighlight}
+                src={assets.common.buttonPrevHighlight}
                 alt="Highlight"
                 className="highlight"
                 draggable={false}
@@ -847,7 +848,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               }}
             >
               <img
-                src={next}
+                src={assets.common.buttonNext}
                 alt="最後に移動"
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
@@ -859,7 +860,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 }}
               />
               <img
-                src={buttonNextHighlight}
+                src={assets.common.buttonNextHighlight}
                 alt="Highlight"
                 className="highlight"
                 draggable={false}
@@ -1225,6 +1226,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             }}
           >
             {/* 3F button and FOOD FOREST */}
+            {displayFloors.includes("3F") && assets.buttons["3F"] && (
             <div
               style={{
                 display: "flex",
@@ -1265,7 +1267,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 }}
               >
                 <img
-                  src={button3F}
+                  src={assets.buttons["3F"].default}
                   alt="3F"
                   draggable={false}
                   onDragStart={(e) => e.preventDefault()}
@@ -1274,7 +1276,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                   }}
                 />
                 <img
-                  src={button3FHighlight}
+                  src={assets.buttons["3F"].highlight}
                   alt="3F Highlight"
                   className="highlight"
                   draggable={false}
@@ -1293,7 +1295,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 {/* Current Location Icon */}
                 {currentFloorSetting === "3F" && (
                   <img 
-                    src={iconCurrentFloor}
+                    src={assets.common.iconCurrentFloor}
                     alt="Current Floor"
                     draggable={false}
                     onDragStart={(e) => e.preventDefault()}
@@ -1312,7 +1314,10 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               </div>
               {/* TODO: Add FOOD FOREST button */}
             </div>
+            )}
+
             {/* 2F button and RESTAURANT */}
+            {displayFloors.includes("2F") && assets.buttons["2F"] && (
             <div
               style={{
                 display: "flex",
@@ -1350,7 +1355,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 }}
               >
                 <img
-                  src={button2F}
+                  src={assets.buttons["2F"].default}
                   alt="2F"
                   draggable={false}
                   onDragStart={(e) => e.preventDefault()}
@@ -1359,7 +1364,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                   }}
                 />
                 <img
-                  src={button2FHighlight}
+                  src={assets.buttons["2F"].highlight}
                   alt="2F Highlight"
                   className="highlight"
                   draggable={false}
@@ -1378,7 +1383,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 {/* Current Location Icon */}
                 {currentFloorSetting === "2F" && (
                   <img 
-                    src={iconCurrentFloor}
+                    src={assets.common.iconCurrentFloor}
                     alt="Current Floor"
                     draggable={false}
                     onDragStart={(e) => e.preventDefault()}
@@ -1397,7 +1402,10 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               </div>
               {/* TODO: Add RESTAURANT button */}
             </div>
+            )}
+
             {/* 1F button and SUZAKA 蔵 */}
+            {displayFloors.includes("1F") && assets.buttons["1F"] && (
             <div
               style={{
                 display: "flex",
@@ -1435,7 +1443,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 }}
               >
                 <img
-                  src={button1F}
+                  src={assets.buttons["1F"].default}
                   alt="1F"
                   draggable={false}
                   onDragStart={(e) => e.preventDefault()}
@@ -1444,7 +1452,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                   }}
                 />
                 <img
-                  src={button1FHighlight}
+                  src={assets.buttons["1F"].highlight}
                   alt="1F Highlight"
                   className="highlight"
                   draggable={false}
@@ -1463,7 +1471,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 {/* Current Location Icon */}
                 {currentFloorSetting === "1F" && (
                   <img 
-                    src={iconCurrentFloor}
+                    src={assets.common.iconCurrentFloor}
                     alt="Current Floor"
                     draggable={false}
                     onDragStart={(e) => e.preventDefault()}
@@ -1482,6 +1490,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               </div>
               {/* TODO: Add SUZAKA 蔵 button */}
             </div>
+            )}
           </div>
 
           {/* Business hours / language selection area (right side of 1F button) */}
@@ -1496,7 +1505,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             }}
           >
             <img
-              src={openTime}
+              src={assets.openTime}
               alt="Open Time"
               draggable={false}
               onDragStart={(e) => e.preventDefault()}
@@ -1516,7 +1525,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             >
               {/* Japanese selected image */}
               <img
-                src={selectLanguageSelectedJp}
+                src={assets.common.selectLanguageSelectedJp}
                 alt="Select Language"
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
@@ -1533,7 +1542,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               />
               {/* English selected image */}
               <img
-                src={selectLanguageSelectedEn}
+                src={assets.common.selectLanguageSelectedEn}
                 alt="Select Language"
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
@@ -1550,7 +1559,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               />
               {/* Placeholder to maintain size */}
               <img
-                src={selectLanguageSelectedEn}
+                src={assets.common.selectLanguageSelectedEn}
                 alt=""
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}

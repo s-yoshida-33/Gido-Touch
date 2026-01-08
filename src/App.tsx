@@ -150,12 +150,14 @@ const App: React.FC = () => {
   
   // Current floor setting (lifted from ShopPositionSettingsTab)
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>("1F");
+  const [displayFloors, setDisplayFloors] = useState<string[]>(['1F', '2F', '3F', '4F']); // Default all
 
   // Load initial settings from Electron and subscribe to updates
   useEffect(() => {
     let unsubscribeUpdated: (() => void) | undefined;
     let unsubscribeFloorLayout: (() => void) | undefined;
     let unsubscribeCurrentFloorSetting: (() => void) | undefined;
+    let unsubscribeDisplayFloors: (() => void) | undefined;
     let unsubscribeShops: (() => void) | undefined;
 
     // Start SSE connection
@@ -465,6 +467,14 @@ const App: React.FC = () => {
             setCurrentFloorSetting(saved);
           }
         }
+
+        if (api.getDisplayFloors) {
+          const saved = await api.getDisplayFloors();
+          addDebug(`Display floors loaded from IPC: ${JSON.stringify(saved)}`);
+          if (saved) {
+            setDisplayFloors(saved);
+          }
+        }
         
         // Detailed Debug
         if (api.getDebugSettingsStatus) {
@@ -571,12 +581,19 @@ const App: React.FC = () => {
           setCurrentFloorSetting(setting);
         });
       }
+
+      if (api.onDisplayFloorsUpdated) {
+        unsubscribeDisplayFloors = api.onDisplayFloorsUpdated((floors) => {
+          setDisplayFloors(floors);
+        });
+      }
     }
 
     return () => {
       if (unsubscribeUpdated) unsubscribeUpdated();
       if (unsubscribeFloorLayout) unsubscribeFloorLayout();
       if (unsubscribeCurrentFloorSetting) unsubscribeCurrentFloorSetting();
+      if (unsubscribeDisplayFloors) unsubscribeDisplayFloors();
       if (unsubscribeShops) unsubscribeShops();
       unsubscribeUpdate();
     };
@@ -806,6 +823,7 @@ const App: React.FC = () => {
         locationIconSettings={locationSettings}
         shops={shops}
         shopPositions={shopPositions}
+        displayFloors={displayFloors}
       />
       <UnifiedSettingsScreen
         floor={floor}

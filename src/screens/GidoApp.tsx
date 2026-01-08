@@ -4,18 +4,9 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import ShopList from "../components/ShopList";
 import type { Shop } from "../types/shop";
 
-import food1FMap from "../assets/food-1F-map.svg";
-import food2FMap from "../assets/food-2F-map.svg";
-import food3FMap from "../assets/food-3F-map.svg";
-import food4FMap from "../assets/food-4F-map.svg";
-import openTimeImage from "../assets/open-time.svg";
-
+import { useMall } from "../contexts/MallContext";
 import { APP_CONFIG } from "../config";
-// fetchShops removed
-// shopSseClient removed
-// ShopsEvent removed
-// convertSseShopDataToShop removed
-import { useShops } from "../hooks/useShops"; // Added
+import { useShops } from "../hooks/useShops";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 
 import type { LocationIconSettings, LocationIconSettingsPerFloor } from "../types/locationIcon";
@@ -35,14 +26,6 @@ const TOP_HEIGHT_VH = 100 - LIST_HEIGHT_VH;
 // We use 1920px as the standard reference width (Full HD).
 const REFERENCE_MAP_WIDTH = 1920;
 const DEFAULT_PIN_SIZE = 80;
-
-// Map floor id to image asset
-const FLOOR_MAPS: Record<string, string> = {
-  "1F": food1FMap,
-  "2F": food2FMap,
-  "3F": food3FMap,
-  "4F": food4FMap,
-};
 
 type ColumnPadding = {
   top?: number;
@@ -93,6 +76,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
   // Use custom hook for data fetching with cache strategy
   const { shops, error: shopsError } = useShops();
   const error = shopsError ? shopsError.message : null;
+  const { assets, isLoading: isAssetsLoading } = useMall();
 
   const [floor, setFloor] = useState<string>(
     previewFloor ?? APP_CONFIG.floor
@@ -176,9 +160,20 @@ const GidoApp: React.FC<GidoAppProps> = ({
     }
   }, [previewFloorLayout]);
 
+  // Loading check
+  if (isAssetsLoading || !assets) {
+    return <div style={{ width: '100vw', height: '100vh', background: '#fff' }}></div>;
+  }
+
   const floorId = floor as FloorId;
   const customFloorMap = floorId ? imageSettings?.floorMaps?.[floorId] : undefined;
-  const floorMap = customFloorMap || FLOOR_MAPS[floor] || food1FMap;
+  
+  // マップ画像解決ロジック:
+  // 1. Electron等から設定されたカスタムマップ (customFloorMap)
+  // 2. モールアセットから取得したマップ (assets.maps[floor])
+  // 3. フォールバック (assets.maps['1F'])
+  const floorMap = customFloorMap || assets.maps[floor] || assets.maps['1F'];
+  const openTimeImage = imageSettings?.openTimeImage || assets.openTime;
 
   const videoWidthVh = TOP_HEIGHT_VH * (9 / 16);
   const listWidthVh = 100 - videoWidthVh;
@@ -315,7 +310,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
           }}
         >
           <img
-            src={imageSettings?.openTimeImage || openTimeImage}
+            src={openTimeImage}
             alt="Open Time"
             style={{
               maxWidth: "100%",
@@ -325,12 +320,12 @@ const GidoApp: React.FC<GidoAppProps> = ({
             }}
             onLoad={() => {
               logInfo("openTime", "Open-time image loaded", {
-                src: imageSettings?.openTimeImage || openTimeImage,
+                src: openTimeImage,
               });
             }}
             onError={(event) => {
               logError("openTime", "Failed to load open-time image", {
-                src: imageSettings?.openTimeImage || openTimeImage,
+                src: openTimeImage,
               });
               (event.target as HTMLImageElement).style.visibility = "hidden";
             }}

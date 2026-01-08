@@ -23,7 +23,13 @@ export const useShops = (useCacheFirst: boolean = true) => {
 
   // Helper to clean shop data
   const cleanShops = (rawShops: Shop[]): Shop[] => {
-    return rawShops.map((s) => ({
+    // Filter for restaurants only (飲食店, グルメ, フード, カフェ, etc.)
+    const restaurants = rawShops.filter(s => {
+      const g = (s.genre || "").toLowerCase();
+      return g.includes("飲食") || g.includes("グルメ") || g.includes("フード") || g.includes("レストラン") || g.includes("カフェ") || g.includes("喫茶");
+    });
+
+    return restaurants.map((s) => ({
       ...s,
       name: (s.name || "").replace(/【.*?】/g, "").trim(),
     }));

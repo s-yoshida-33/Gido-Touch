@@ -46,6 +46,14 @@ interface ElectronAPI {
   saveCurrentFloorSetting: (setting: string) => Promise<string>;
   onCurrentFloorSettingUpdated: (cb: (setting: string) => void) => () => void;
 
+  getDisplayFloors: () => Promise<string[]>;
+  saveDisplayFloors: (floors: string[]) => Promise<string[]>;
+  onDisplayFloorsUpdated: (cb: (floors: string[]) => void) => () => void;
+
+  getMallId: () => Promise<string>;
+  saveMallId: (mallId: string) => Promise<string>;
+  onMallIdUpdated: (cb: (mallId: string) => void) => () => void;
+
   getLocationIconSettings: () => Promise<LocationIconSettings>;
   saveLocationIconSettings: (
     settings: LocationIconSettings
@@ -95,6 +103,7 @@ interface ElectronAPI {
   manualUpdateCheck: () => void;
   oneClickUpdate: () => void;
   quitApp: () => void;
+  exportCurrentSettingsAsDefault: () => Promise<{ success: boolean; path?: string; error?: string }>;
 }
 
 export type StatusState = 'checking' | 'available' | 'none' | 'downloaded' | 'error';

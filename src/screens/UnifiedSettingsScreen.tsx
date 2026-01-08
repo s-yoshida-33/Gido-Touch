@@ -15,6 +15,7 @@ import type { ShopPositionSettings } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
 import type { LocalMediaTextSettings } from "../types/global";
 import { useAudioSettings } from "../hooks/useAudioSettings";
+import type { MallId } from "../hooks/useMallAssets";
 
 type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia";
 
@@ -63,8 +64,18 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [imageSettings, setImageSettings] = useState<ImageSettings>(initialImageSettings);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings>(initialShopPositions);
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>(initialCurrentFloorSetting);
+  const [displayFloors, setDisplayFloors] = useState<string[]>(['1F', '2F', '3F', '4F']); // Default all
   const [localMediaTextSettings, setLocalMediaTextSettings] = useState<LocalMediaTextSettings>(initialLocalMediaTextSettings || {});
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+
+  // Mall settings
+  const [mallId, setMallId] = useState<MallId>('suzaka');
+  // Load mall setting from electron
+  useEffect(() => {
+    if (window.electronAPI) {
+      window.electronAPI.getMallId().then((id) => setMallId(id as MallId));
+    }
+  }, [visible]);
 
   // Audio settings
   const { settings: audioSettings, saveSettings: saveAudioSettings, isLoading: isAudioSettingsLoading } = useAudioSettings();
@@ -137,6 +148,12 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setShopPositions(initialShopPositions);
         setCurrentFloorSetting(initialCurrentFloorSetting);
         setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+        
+        // Load display floors
+        if (window.electronAPI?.getDisplayFloors) {
+            window.electronAPI.getDisplayFloors().then(setDisplayFloors);
+        }
+
         // Note: Audio settings are handled by the hook
         setErrors({});
         // Reset transform when opening settings
@@ -211,6 +228,12 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
     try {
       setSaving(true);
+      
+      // Save Mall ID first
+      if (window.electronAPI) {
+        await window.electronAPI.saveMallId(mallId);
+      }
+
       await Promise.all([
         onSaveFloor(floor),
         onSaveLocationIconSettings(locationIconSettings),
@@ -224,12 +247,31 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       // onSaveCurrentFloorSetting自体はvoidを返すが、内部でIPCを呼ぶ。
       onSaveCurrentFloorSetting(currentFloorSetting);
       
+      if (window.electronAPI?.saveDisplayFloors) {
+        await window.electronAPI.saveDisplayFloors(displayFloors);
+      }
+      
       handleClose();
     } catch (e) {
       console.error("Failed to save settings", e);
       setErrors({ save: "設定の保存に失敗しました" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExportDefaults = async () => {
+    if (!window.electronAPI?.exportCurrentSettingsAsDefault) return;
+    
+    try {
+        const result = await window.electronAPI.exportCurrentSettingsAsDefault();
+        if (result.success) {
+            alert(`設定をデフォルトファイルとして書き出しました。\n${result.path}`);
+        } else {
+            alert(`書き出しに失敗しました: ${result.error}`);
+        }
+    } catch (e: any) {
+        alert(`エラーが発生しました: ${e.message}`);
     }
   };
 
@@ -304,6 +346,26 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
           <span style={{ color: "#ffffff", fontSize: 16, fontWeight: 600 }}>
             Gido Touch
           </span>
+          
+          {/* Mall Selection */}
+          <div style={{ marginLeft: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: '#aaa', fontSize: 14 }}>モール設定:</span>
+            <select
+              value={mallId}
+              onChange={(e) => setMallId(e.target.value as MallId)}
+              style={{
+                backgroundColor: '#333',
+                color: '#fff',
+                border: '1px solid #555',
+                borderRadius: 4,
+                padding: '4px 8px',
+                fontSize: 14
+              }}
+            >
+              <option value="suzaka">須坂 (ID: suzaka)</option>
+              <option value="sendai-kamisugi">仙台上杉 (ID: sendai-kamisugi)</option>
+            </select>
+          </div>
         </div>
 
         {/* Error Message */}
@@ -315,6 +377,25 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
         {/* Buttons */}
         <div style={{ display: "flex", gap: 12 }}>
+          {/* Dev Mode Export Button */}
+          {import.meta.env.MODE === 'development' && window.electronAPI?.exportCurrentSettingsAsDefault && (
+             <button
+                onClick={handleExportDefaults}
+                style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#e67e22",
+                    border: "none",
+                    borderRadius: 6,
+                    color: "#ffffff",
+                    fontSize: 12,
+                    cursor: "pointer",
+                    marginRight: 12
+                }}
+             >
+                現在の設定をデフォルトとして保存 (Dev)
+             </button>
+          )}
+
           <button
           onClick={handleCancel}
           disabled={saving}
@@ -568,6 +649,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             <CurrentFloorSettingsTab
               currentFloorSetting={currentFloorSetting}
               onChangeCurrentFloorSetting={setCurrentFloorSetting}
+              displayFloors={displayFloors}
+              onChangeDisplayFloors={setDisplayFloors}
             />
           )}
           {activeTab === "localMedia" && (

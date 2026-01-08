@@ -90,7 +90,10 @@ const DEFAULT_FLOOR_LAYOUT = {
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
-  return;
+  // Using 'return' in top-level code isn't valid in CommonJS without a wrapper, 
+  // but Electron handles process exit. 
+  // However, to prevent further execution in this file:
+  process.exit(0);
 }
 
 // On the second launch, it only brings existing windows to the front
@@ -114,40 +117,67 @@ function getSettingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
 }
 
-function loadDefaultShopPositions() {
-  // ビルド時にデフォルトとして使用する店舗位置設定を読み込む
-  // electron/default-shop-positions.json が存在する場合は、それをデフォルト値として使用
-  const defaultShopPositionsPath = path.join(__dirname, 'default-shop-positions.json');
+// Deep merge function to ensure all nested properties are preserved
+const deepMerge = (target, source) => {
+  if (!source) return target;
   
+  const result = { ...target };
+  
+  Object.keys(source).forEach(key => {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      result[key] = deepMerge(target[key] || {}, source[key]);
+    } else if (source[key] !== undefined) {
+      result[key] = source[key];
+    }
+  });
+  
+  return result;
+};
+
+// モールごとのデフォルト設定ファイルを読み込む
+// settings.jsonにmallIdが保存されている場合は、そのモールに対応するデフォルト設定ファイルを読み込む
+// そうでなければ、標準のdefault-settings.jsonを読み込む
+function loadDefaultSettings(mallId) {
+  let defaultSettingsPath;
+  
+  if (mallId) {
+    // try mall specific default first
+    const mallSpecificPath = path.join(__dirname, `default-${mallId}-data.json`);
+    if (fs.existsSync(mallSpecificPath)) {
+        defaultSettingsPath = mallSpecificPath;
+        logger.info(`Loading mall specific default settings: ${mallId}`);
+    }
+  }
+
+  // Fallback to standard default-settings.json if mall specific not found or not specified
+  if (!defaultSettingsPath) {
+      defaultSettingsPath = path.join(__dirname, 'default-settings.json');
+  }
+
   try {
-    if (fs.existsSync(defaultShopPositionsPath)) {
-      const raw = fs.readFileSync(defaultShopPositionsPath, 'utf-8');
-      const parsed = JSON.parse(raw);
-      
-      // 形式を確認
-      if (parsed && typeof parsed === 'object' && parsed.positions) {
-        logger.info('Loaded default shop positions from default-shop-positions.json');
-        return parsed;
-      }
+    if (fs.existsSync(defaultSettingsPath)) {
+       const raw = fs.readFileSync(defaultSettingsPath, 'utf-8');
+       // Remove BOM if present
+       if (raw.charCodeAt(0) === 0xFEFF) {
+         return JSON.parse(raw.slice(1));
+       }
+       const parsed = JSON.parse(raw);
+       logger.info(`Loaded default settings from ${path.basename(defaultSettingsPath)}`);
+       return parsed;
     }
   } catch (error) {
-    logger.warn('Failed to load default shop positions, using empty defaults', {
-      error: error?.message,
-    });
+     logger.warn('Failed to load default settings', { error: error?.message });
   }
-  
-  // デフォルトファイルが存在しない、または読み込みに失敗した場合は空のオブジェクトを返す
-  return {
-    positions: {},
-  };
+  return {};
 }
 
 function loadSettings() {
-  const defaultShopPositions = loadDefaultShopPositions();
-  
-  const base = {
+  // Base default structure
+  let base = {
     floor: '1F',
     currentFloorSetting: '1F',
+    displayFloors: ['1F', '2F', '3F', '4F'], // Default display floors
+    mallId: 'suzaka', // Default mall ID
     locationIcons: DEFAULT_LOCATION_ICON_SETTINGS,
     floorLayout: DEFAULT_FLOOR_LAYOUT,
     imageSettings: {
@@ -178,162 +208,62 @@ function loadSettings() {
         min: 8080,
         max: 8089,
       },
-      // rightTopVideoCms is no longer used - disabled
-      // rightTopVideoCms: {
-      //   min: 8100,
-      //   max: 8109,
-      // },
     },
-    shopPositions: defaultShopPositions,
+    shopPositions: { positions: {} }, // Will be merged with default-shop-positions later
     localMediaTextSettings: {},
   };
 
+  // 1. Load user settings to check if a mallId is already set
+  let userSettings = {};
   try {
     const settingsPath = getSettingsPath();
-    if (!fs.existsSync(settingsPath)) {
-      logger.debug('Settings file does not exist, using defaults');
-      return base;
+    if (fs.existsSync(settingsPath)) {
+      let raw = fs.readFileSync(settingsPath, 'utf-8');
+      if (raw.charCodeAt(0) === 0xFEFF) {
+        raw = raw.slice(1);
+      }
+      userSettings = JSON.parse(raw);
     }
-
-    let raw = fs.readFileSync(settingsPath, 'utf-8');
-    // Remove BOM if present
-    if (raw.charCodeAt(0) === 0xFEFF) {
-      raw = raw.slice(1);
-    }
-    const parsed = JSON.parse(raw);
-
-    // Deep merge function to ensure all nested properties are preserved
-    const deepMerge = (target, source) => {
-      if (!source) return target;
-      
-      const result = { ...target };
-      
-      Object.keys(source).forEach(key => {
-        if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-          result[key] = deepMerge(target[key] || {}, source[key]);
-        } else if (source[key] !== undefined) {
-          result[key] = source[key];
-        }
-      });
-      
-      return result;
-    };
-
-    const merged = {
-      floor: typeof parsed.floor === 'string' ? parsed.floor : base.floor,
-      currentFloorSetting: parsed.currentFloorSetting !== undefined ? String(parsed.currentFloorSetting) : base.currentFloorSetting,
-      locationIcons: (() => {
-        const parsedLoc = parsed.locationIcons || {};
-        const mergedIcons = { ...base.locationIcons };
-        
-        // Check if parsed data has new format (has keys like "1F", "2F" etc.)
-        // We prioritize new format if any floor key exists
-        const hasNewFormat = ['1F', '2F', '3F', '4F'].some(f => parsedLoc[f]);
-        
-        if (hasNewFormat) {
-          // New format: merge per floor
-          ['1F', '2F', '3F', '4F'].forEach(floor => {
-            if (parsedLoc[floor]) {
-              mergedIcons[floor] = deepMerge(base.locationIcons[floor], parsedLoc[floor]);
-            }
-          });
-        } else if (parsedLoc.speechBubble) {
-          // Old format only: migrate to all floors
-          // This fallback runs ONLY if no floor keys are found, preventing overwrite of new settings by old garbage
-          const migratedSingle = deepMerge(DEFAULT_LOCATION_ICON_SETTINGS_SINGLE, parsedLoc);
-          ['1F', '2F', '3F', '4F'].forEach(floor => {
-            mergedIcons[floor] = migratedSingle;
-          });
-        }
-        // If neither, mergedIcons remains as defaults (base.locationIcons)
-        
-        return mergedIcons;
-      })(),
-      floorLayout: parsed.floorLayout
-        ? {
-            ...base.floorLayout,
-            ...parsed.floorLayout,
-          }
-        : base.floorLayout,
-      imageSettings: parsed.imageSettings
-        ? {
-            floorMaps: {
-              ...base.imageSettings.floorMaps,
-              ...parsed.imageSettings.floorMaps,
-            },
-            openTimeImage: parsed.imageSettings.openTimeImage || base.imageSettings.openTimeImage,
-          }
-        : base.imageSettings,
-      videoSettings: parsed.videoSettings
-        ? {
-            enabled: typeof parsed.videoSettings.enabled === 'boolean' ? parsed.videoSettings.enabled : base.videoSettings.enabled,
-            source: typeof parsed.videoSettings.source === 'string' ? parsed.videoSettings.source : base.videoSettings.source,
-            loop: typeof parsed.videoSettings.loop === 'boolean' ? parsed.videoSettings.loop : base.videoSettings.loop,
-            autoplay: typeof parsed.videoSettings.autoplay === 'boolean' ? parsed.videoSettings.autoplay : base.videoSettings.autoplay,
-          }
-        : base.videoSettings,
-      audioSettings: parsed.audioSettings
-        ? {
-            cmsMuted: typeof parsed.audioSettings.cmsMuted === 'boolean' ? parsed.audioSettings.cmsMuted : base.audioSettings.cmsMuted,
-            localMediaMuted: typeof parsed.audioSettings.localMediaMuted === 'boolean' ? parsed.audioSettings.localMediaMuted : base.audioSettings.localMediaMuted,
-          }
-        : base.audioSettings,
-      portRanges: parsed.portRanges
-        ? {
-            bridge: {
-              min: typeof parsed.portRanges.bridge?.min === 'number' ? parsed.portRanges.bridge.min : base.portRanges.bridge.min,
-              max: typeof parsed.portRanges.bridge?.max === 'number' ? parsed.portRanges.bridge.max : base.portRanges.bridge.max,
-            },
-            cms: {
-              min: typeof parsed.portRanges.cms?.min === 'number' ? parsed.portRanges.cms.min : base.portRanges.cms.min,
-              max: typeof parsed.portRanges.cms?.max === 'number' ? parsed.portRanges.cms.max : base.portRanges.cms.max,
-            },
-            // rightTopVideoCms is no longer used - ignored if present in settings file
-          }
-        : base.portRanges,
-      shopPositions: parsed.shopPositions
-        ? {
-            positions: typeof parsed.shopPositions.positions === 'object' && parsed.shopPositions.positions !== null
-              ? parsed.shopPositions.positions
-              : base.shopPositions.positions,
-          }
-        : base.shopPositions,
-      localMediaTextSettings: parsed.localMediaTextSettings || base.localMediaTextSettings,
-    };
-
-    // DEBUG: Record internal state
-    lastLoadSettingsDebug = {
-      timestamp: new Date().toISOString(),
-      rawPreview: raw.substring(0, 100),
-      parsedValue: parsed.currentFloorSetting,
-      parsedType: typeof parsed.currentFloorSetting,
-      checkResult: typeof parsed.currentFloorSetting === 'string',
-      finalValue: merged.currentFloorSetting,
-      error: null
-    };
-
-    logger.debug('Settings loaded', {
-      floor: merged.floor,
-      currentFloorSetting: merged.currentFloorSetting,
-      // Safely access one floor for debug log
-      hasAnimation1F: !!merged.locationIcons['1F']?.speechBubble?.animation,
-    });
-
-    return merged;
   } catch (error) {
-    // DEBUG: Record error
-    lastLoadSettingsDebug = {
-      timestamp: new Date().toISOString(),
-      error: error.message,
-      stack: error.stack
-    };
-
-    logger.error('Failed to load settings, using defaults', {
-      error: error?.message,
-    });
-    // Fallback to base defaults on any error
-    return base;
+    logger.error('Failed to pre-load settings for mallId check', { error: error?.message });
   }
+
+  // 2. Load defaults based on mallId (either from user settings or default 'suzaka')
+  const currentMallId = userSettings.mallId || base.mallId;
+  const loadedDefaults = loadDefaultSettings(currentMallId);
+
+  // Update base with loaded defaults
+  if (Object.keys(loadedDefaults).length > 0) {
+    base = deepMerge(base, loadedDefaults);
+  }
+
+  // 3. Merge user settings over base (base now includes mall-specific defaults)
+  const merged = deepMerge(base, userSettings);
+
+  // Special handling for legacy locationIcons format
+  if (merged.locationIcons) {
+      const parsedLoc = merged.locationIcons;
+      const mergedIcons = { ...base.locationIcons }; // Start with defaults
+      
+      const hasNewFormat = ['1F', '2F', '3F', '4F'].some(f => parsedLoc[f]);
+      
+      if (hasNewFormat) {
+        ['1F', '2F', '3F', '4F'].forEach(floor => {
+          if (parsedLoc[floor]) {
+            mergedIcons[floor] = deepMerge(base.locationIcons[floor] || DEFAULT_LOCATION_ICON_SETTINGS_SINGLE, parsedLoc[floor]);
+          }
+        });
+      } else if (parsedLoc.speechBubble) {
+        // Old format migration
+        const migratedSingle = deepMerge(DEFAULT_LOCATION_ICON_SETTINGS_SINGLE, parsedLoc);
+        ['1F', '2F', '3F', '4F'].forEach(floor => {
+          mergedIcons[floor] = migratedSingle;
+        });
+      }
+      merged.locationIcons = mergedIcons;
+  }
+
+  return merged;
 }
 
 function saveSettings(partial) {
@@ -349,6 +279,7 @@ function saveSettings(partial) {
     logger.info('Settings saved', {
       floor: next.floor,
       currentFloorSetting: next.currentFloorSetting,
+      mallId: next.mallId,
       hasLocationIcons: !!next.locationIcons,
       locationIconFloors: next.locationIcons ? Object.keys(next.locationIcons) : [],
     });
@@ -367,6 +298,24 @@ function saveSettings(partial) {
 function broadcastCurrentFloorSetting(setting) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('current-floor-setting-updated', setting);
+  }
+}
+
+/**
+ * Broadcast display floors changes to renderer processes
+ */
+function broadcastDisplayFloors(floors) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('display-floors-updated', floors);
+  }
+}
+
+/**
+ * Broadcast mall ID changes to renderer processes
+ */
+function broadcastMallId(mallId) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('mall-id-updated', mallId);
   }
 }
 
@@ -791,7 +740,9 @@ function createMainWindow() {
     width: 1920,
     height: 1080,
     fullscreen: true,
+    kiosk: true,
     alwaysOnTop: true,
+    resizable: false,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -801,6 +752,37 @@ function createMainWindow() {
       webSecurity: false, // Allow loading local file:// resources for shop images
     },
   });
+
+  // Set always on top with higher level priority (screen-saver is higher than normal)
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+
+  // Force always-on-top re-application when focus is lost (e.g. TeamViewer tab interaction)
+  mainWindow.on('blur', () => {
+    // Delay slightly to allow OS window switching to complete
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setAlwaysOnTop(true, 'screen-saver');
+        // Optional: mainWindow.focus(); // Use with caution as it might block other interactions
+      }
+    }, 100);
+  });
+
+  // Watchdog to ensure window stays on top periodically
+  // This handles cases where other apps might periodically steal focus or Z-order
+  const focusWatchdog = setInterval(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      // Ensure it's not minimized
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      // Re-apply always-on-top
+      mainWindow.setAlwaysOnTop(true, 'screen-saver');
+      // Bring to front visually
+      mainWindow.moveTop();
+    } else {
+      clearInterval(focusWatchdog);
+    }
+  }, 2000); // Check every 2 seconds
 
   // Enable F12 shortcut to toggle dev tools
   mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -825,6 +807,8 @@ function createMainWindow() {
     });
     broadcastFloor(settings.floor);
     broadcastCurrentFloorSetting(settings.currentFloorSetting);
+    broadcastDisplayFloors(settings.displayFloors);
+    broadcastMallId(settings.mallId);
     broadcastLocationIconSettings(settings.locationIcons);
     broadcastFloorLayout(settings.floorLayout);
     broadcastLocalMediaTextSettings(settings.localMediaTextSettings);
@@ -1041,6 +1025,33 @@ ipcMain.handle('save-current-floor-setting', (_event, currentFloorSetting) => {
   const settings = saveSettings({ currentFloorSetting });
   broadcastCurrentFloorSetting(settings.currentFloorSetting);
   return settings.currentFloorSetting;
+});
+
+ipcMain.handle('get-display-floors', () => {
+  const settings = loadSettings();
+  logger.debug('IPC get-display-floors', { floors: settings.displayFloors });
+  return settings.displayFloors || ['1F', '2F', '3F', '4F'];
+});
+
+ipcMain.handle('save-display-floors', (_event, displayFloors) => {
+  logger.info('IPC save-display-floors', { displayFloors });
+  const settings = saveSettings({ displayFloors });
+  broadcastDisplayFloors(settings.displayFloors);
+  return settings.displayFloors;
+});
+
+// Mall ID IPC handlers
+ipcMain.handle('get-mall-id', () => {
+  const settings = loadSettings();
+  logger.debug('IPC get-mall-id', { mallId: settings.mallId });
+  return settings.mallId || 'suzaka';
+});
+
+ipcMain.handle('save-mall-id', (_event, mallId) => {
+  logger.info('IPC save-mall-id', { mallId });
+  const settings = saveSettings({ mallId });
+  broadcastMallId(settings.mallId);
+  return settings.mallId;
 });
 
 /**
@@ -1282,6 +1293,33 @@ ipcMain.handle('save-audio-settings', (_event, audioSettings) => {
   return settings.audioSettings;
 });
 
+// IPC Handler for exporting current settings as default
+ipcMain.handle('export-current-settings-as-default', async () => {
+  if (!isDev) {
+    logger.warn('Export settings allowed only in dev mode');
+    return { success: false, error: 'Not in dev mode' };
+  }
+
+  try {
+    const currentSettings = loadSettings();
+    const mallId = currentSettings.mallId || 'suzaka';
+    const targetFilename = `default-${mallId}-data.json`;
+    const targetPath = path.join(__dirname, targetFilename);
+
+    // Filter out internal state or runtime-only props if needed
+    // For now, we save everything as default for that mall
+    
+    fs.writeFileSync(targetPath, JSON.stringify(currentSettings, null, 2), 'utf-8');
+    
+    logger.info(`Exported current settings to ${targetFilename}`, { mallId });
+    
+    return { success: true, path: targetPath };
+  } catch (e) {
+    logger.error('Failed to export settings', { error: e.message });
+    return { success: false, error: e.message };
+  }
+});
+
 /**
  * IPC handler for reading shop image files as data URLs
  */
@@ -1468,184 +1506,6 @@ ipcMain.handle('wsp:get-current-asset', async () => {
 ipcMain.handle('wsp:get-right-top-video-asset', async () => {
   logger.debug('wsp:get-right-top-video-asset: right-top video CMS is disabled');
   return null;
-  
-  // Disabled code below - right-top video CMS is no longer used
-  /*
-  try {
-    const baseUrl = await getCachedRightTopVideoCmsBaseUrl();
-    if (!baseUrl) {
-      logger.debug('wsp:get-right-top-video-asset: baseUrl is null, right-top video CMS is disabled');
-      return null;
-    }
-    const url = `${baseUrl}/current-timeline`;
-    logger.info('wsp:get-right-top-video-asset: requesting', { url, baseUrl });
-    
-    let json;
-    try {
-      json = await httpGetJson(url);
-    } catch (httpError) {
-      logger.error('wsp:get-right-top-video-asset: HTTP request failed', {
-        url,
-        baseUrl,
-        error: httpError?.message,
-        errorCode: httpError?.code,
-      });
-      return null;
-    }
-
-    if (!json) {
-      logger.warn('wsp:get-right-top-video-asset: JSON response is null or undefined', {
-        url,
-        baseUrl,
-      });
-      return null;
-    }
-
-    if (!json.current_timeline) {
-      logger.warn('wsp:get-right-top-video-asset: current_timeline is missing', {
-        hasJson: !!json,
-        jsonKeys: json ? Object.keys(json) : [],
-        url,
-        baseUrl,
-        jsonString: JSON.stringify(json).substring(0, 500), // First 500 chars for debugging
-      });
-      return null;
-    }
-
-    const tl = json.current_timeline;
-    // Check both current_timeline.media_assets and current_timeline.data.media_assets
-    let assets = [];
-    if (tl.media_assets && Array.isArray(tl.media_assets)) {
-      assets = tl.media_assets;
-    } else if (tl.data && tl.data.media_assets && Array.isArray(tl.data.media_assets)) {
-      assets = tl.data.media_assets;
-    }
-    
-    logger.info('wsp:get-right-top-video-asset response structure', {
-      hasCurrentTimeline: !!tl,
-      timelineKeys: tl ? Object.keys(tl) : [],
-      hasData: !!(tl && tl.data),
-      dataKeys: tl && tl.data ? Object.keys(tl.data) : [],
-      mediaAssetsCount: assets.length,
-      mediaAssetsLocation: tl.media_assets ? 'timeline.media_assets' : (tl.data && tl.data.media_assets ? 'timeline.data.media_assets' : 'not found'),
-      url,
-      baseUrl,
-    });
-    
-    if (assets.length === 0) {
-      logger.warn('wsp:get-right-top-video-asset: media_assets is empty', {
-        assetsLength: assets.length,
-        url,
-        baseUrl,
-        timelineStructure: {
-          hasMediaAssets: 'media_assets' in tl,
-          hasData: !!(tl && tl.data),
-          hasDataMediaAssets: !!(tl && tl.data && 'media_assets' in tl.data),
-          timelineKeys: Object.keys(tl),
-          dataKeys: tl && tl.data ? Object.keys(tl.data) : [],
-        },
-        timelineString: JSON.stringify(tl).substring(0, 1000), // First 1000 chars for debugging
-      });
-      return null;
-    }
-
-    const asset = assets[0];
-
-    // Determine media type from asset properties or URL extension
-    const mediaType = asset.mediaType || asset.type || '';
-    // Use url if available, otherwise use localPath
-    const assetUrl = asset.url || asset.localPath || '';
-    const urlLower = assetUrl.toLowerCase();
-    
-    // Infer media type from URL extension if not provided
-    let inferredMediaType = mediaType;
-    if (!inferredMediaType) {
-      if (urlLower.match(/\.(mp4|webm|ogg|mov|avi|mkv)$/)) {
-        inferredMediaType = 'video';
-      } else if (urlLower.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/)) {
-        inferredMediaType = 'image';
-      }
-    }
-
-    // Use url if available, otherwise use localPath
-    const assetPath = asset.url || asset.localPath || '';
-    
-    // Check if localPath exists (if it's a file path, not a URL)
-    let finalPath = assetPath;
-    if (assetPath && !assetPath.startsWith('http://') && !assetPath.startsWith('https://') && !assetPath.startsWith('file://')) {
-      // It's a local file path
-      if (!fs.existsSync(assetPath)) {
-        logger.warn('wsp:get-right-top-video-asset: localPath does not exist', {
-          assetId: asset.id,
-          localPath: assetPath,
-          assetUrl: asset.url,
-          assetLocalPath: asset.localPath,
-        });
-        // If url is provided, use it instead
-        if (asset.url) {
-          finalPath = asset.url;
-          logger.info('wsp:get-right-top-video-asset: using url instead of localPath', {
-            assetId: asset.id,
-            url: asset.url,
-          });
-        } else {
-          // File doesn't exist and no URL provided - still return the path but log warning
-          logger.error('wsp:get-right-top-video-asset: localPath does not exist and no url provided', {
-            assetId: asset.id,
-            localPath: assetPath,
-          });
-        }
-      } else {
-        logger.debug('wsp:get-right-top-video-asset: localPath exists', {
-          assetId: asset.id,
-          localPath: assetPath,
-        });
-      }
-    }
-    
-    logger.info('wsp:get-right-top-video-asset: returning first asset', {
-      assetId: asset.id,
-      originalPath: assetPath,
-      finalPath: finalPath,
-      mediaType: inferredMediaType,
-      pathExists: finalPath && !finalPath.startsWith('http') ? fs.existsSync(finalPath) : 'N/A (URL)',
-    });
-
-    // Convert to file:// URL if it's a local path, otherwise use as-is (for HTTP URLs)
-    const src = (finalPath.startsWith('http://') || finalPath.startsWith('https://'))
-      ? finalPath
-      : toFileUrl(finalPath);
-
-    return {
-      id: asset.id,
-      src: src,
-      duration: asset.duration,
-      width: asset.width,
-      height: asset.height,
-      name:
-        (Array.isArray(tl.media_names) && tl.media_names.length > 0)
-          ? tl.media_names[0]
-          : (tl.data && Array.isArray(tl.data.media_names) && tl.data.media_names.length > 0)
-          ? tl.data.media_names[0]
-          : '',
-      startTime: tl.start_time || (tl.data && tl.data.start_time) || '',
-      endTime: tl.end_time || (tl.data && tl.data.end_time) || '',
-      mediaType: inferredMediaType,
-      type: asset.type,
-    };
-  } catch (error) {
-    const baseUrl = await getCachedRightTopVideoCmsBaseUrl().catch(() => 'unknown');
-    logger.error('wsp:get-right-top-video-asset failed', {
-      error: error?.message,
-      errorName: error?.name,
-      errorCode: error?.code,
-      stack: error?.stack,
-      baseUrl,
-      url: baseUrl !== 'unknown' ? `${baseUrl}/current-timeline` : 'unknown',
-    });
-    return null;
-  }
-  */
 });
 
 /**

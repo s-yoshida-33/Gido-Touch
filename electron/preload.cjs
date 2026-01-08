@@ -60,6 +60,34 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('current-floor-setting-updated', listener);
     };
   },
+  getDisplayFloors() {
+    return ipcRenderer.invoke('get-display-floors');
+  },
+  saveDisplayFloors(floors) {
+    return ipcRenderer.invoke('save-display-floors', floors);
+  },
+  onDisplayFloorsUpdated(callback) {
+    const listener = (_event, updated) => callback(updated);
+    ipcRenderer.on('display-floors-updated', listener);
+
+    return () => {
+      ipcRenderer.removeListener('display-floors-updated', listener);
+    };
+  },
+  getMallId() {
+    return ipcRenderer.invoke('get-mall-id');
+  },
+  saveMallId(mallId) {
+    return ipcRenderer.invoke('save-mall-id', mallId);
+  },
+  onMallIdUpdated(callback) {
+    const listener = (_event, updated) => callback(updated);
+    ipcRenderer.on('mall-id-updated', listener);
+
+    return () => {
+      ipcRenderer.removeListener('mall-id-updated', listener);
+    };
+  },
   getLocationIconSettings() {
     return ipcRenderer.invoke('get-location-icon-settings');
   },
@@ -151,6 +179,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   quitApp() {
     ipcRenderer.send('menu:quit');
+  },
+  exportCurrentSettingsAsDefault() {
+    return ipcRenderer.invoke('export-current-settings-as-default');
   },
   getVideoSettings() {
     return ipcRenderer.invoke('get-video-settings');

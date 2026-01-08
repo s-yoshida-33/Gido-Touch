@@ -7,12 +7,19 @@ import App from './App.tsx'
 import './styles/fonts.css'
 import './styles/location-icons.css'
 import { PatchScreen } from './screens/PatchScreen'
+import { MallProvider } from './contexts/MallContext';
 
 // Decide which screen to render based on URL hash
 const isPatchMode = window.location.hash === '#patch';
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
-    {isPatchMode ? <PatchScreen /> : <App />}
+    {isPatchMode ? (
+      <PatchScreen />
+    ) : (
+      <MallProvider>
+        <App />
+      </MallProvider>
+    )}
   </StrictMode>,
 );
