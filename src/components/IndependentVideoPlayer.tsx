@@ -40,6 +40,18 @@ function extractFilename(path: string): string {
   }
 }
 
+/**
+ * Shuffle array using Fisher-Yates algorithm
+ */
+function shuffleArray<T>(array: T[]): T[] {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+}
+
 interface IndependentVideoPlayerProps {
   forceReload?: number;
   videoHeight?: string | number;
@@ -61,9 +73,24 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   
   // Media files list and current index
   const [mediaFiles, setMediaFiles] = React.useState<string[]>([]);
+  const [playlist, setPlaylist] = React.useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [isLoadingMedia, setIsLoadingMedia] = React.useState(true);
   const [textSettings, setTextSettings] = React.useState<LocalMediaTextSettings>({});
+  
+  // Local reload trigger for when mall ID changes
+  const [localReload, setLocalReload] = React.useState(0);
+
+  // Listen for Mall ID updates
+  React.useEffect(() => {
+    const unsubscribe = window.electronAPI?.onMallIdUpdated?.(() => {
+      logInfo('video', 'Mall ID updated, reloading media files');
+      setLocalReload(prev => prev + 1);
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   // Load media files from local directory
   React.useEffect(() => {
@@ -92,13 +119,16 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         logInfo('video', 'Loaded media files from local directory', {
           count: files.length,
           forceReload,
+          localReload
         });
 
         setMediaFiles(files);
-        // Reset index only if it's a reload
-        if (forceReload > 0) {
-          setCurrentIndex(0);
-        }
+        // Shuffle initially
+        setPlaylist(shuffleArray(files));
+        
+        // Reset index
+        setCurrentIndex(0);
+        
         setIsLoadingMedia(false);
         
         // Force reload video element if it exists
@@ -120,7 +150,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [forceReload]);
+  }, [forceReload, localReload]);
 
   // Load text settings
   React.useEffect(() => {
@@ -145,11 +175,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     };
   }, []);
 
-  // Handle media playback - loop through files
+  // Handle media playback - loop through playlist (shuffled)
   React.useEffect(() => {
-    if (mediaFiles.length === 0 || isLoadingMedia) return;
+    if (playlist.length === 0 || isLoadingMedia) return;
 
-    const currentFile = mediaFiles[currentIndex];
+    const currentFile = playlist[currentIndex];
     if (!currentFile) return;
 
     const isVideo = isVideoFile(currentFile);
@@ -161,28 +191,36 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       // Use audio settings for mute state (default: unmute/false)
       video.muted = audioSettings.localMediaMuted;
       // If only one file, use native loop. Otherwise handle looping manually
-      video.loop = mediaFiles.length === 1;
+      video.loop = playlist.length === 1;
       video.autoplay = true;
       
       // When video ends, move to next file (only if multiple files)
       const handleEnded = () => {
-        if (mediaFiles.length > 1) {
-          setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
+        if (playlist.length > 1) {
+          const nextIndex = currentIndex + 1;
+          if (nextIndex >= playlist.length) {
+            // Reached end of playlist, reshuffle and restart
+            logInfo('video', 'Playlist cycle completed, reshuffling');
+            setPlaylist(shuffleArray(mediaFiles));
+            setCurrentIndex(0);
+          } else {
+            setCurrentIndex(nextIndex);
+          }
         }
       };
       
-      if (mediaFiles.length > 1) {
+      if (playlist.length > 1) {
         video.addEventListener('ended', handleEnded);
       }
       
       logInfo('video', 'Playing video from local directory', {
         index: currentIndex,
-        total: mediaFiles.length,
+        total: playlist.length,
         file: currentFile,
       });
 
       return () => {
-        if (mediaFiles.length > 1) {
+        if (playlist.length > 1) {
           video.removeEventListener('ended', handleEnded);
         }
       };
@@ -192,12 +230,22 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       
       // For images, show for 15 seconds then move to next (or loop if only one)
       const timer = setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
+        if (playlist.length > 1) {
+          const nextIndex = currentIndex + 1;
+          if (nextIndex >= playlist.length) {
+            // Reached end of playlist, reshuffle and restart
+            logInfo('video', 'Playlist cycle completed, reshuffling');
+            setPlaylist(shuffleArray(mediaFiles));
+            setCurrentIndex(0);
+          } else {
+            setCurrentIndex(nextIndex);
+          }
+        }
       }, 15000);
       
       logInfo('video', 'Showing image from local directory', {
         index: currentIndex,
-        total: mediaFiles.length,
+        total: playlist.length,
         file: currentFile,
       });
 
@@ -205,12 +253,12 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         clearTimeout(timer);
       };
     }
-  }, [mediaFiles, currentIndex, isLoadingMedia]);
+  }, [playlist, currentIndex, isLoadingMedia, mediaFiles, audioSettings.localMediaMuted]);
 
   // Handle video settings changes (legacy support)
   React.useEffect(() => {
     // If videoSettings is enabled and has a source, use it instead of local files
-    if (videoSettings?.enabled && videoSettings.source && mediaFiles.length === 0) {
+    if (videoSettings?.enabled && videoSettings.source && playlist.length === 0) {
       if (!videoRef.current) return;
 
       const video = videoRef.current;
@@ -224,7 +272,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       video.loop = videoSettings.loop;
       video.autoplay = videoSettings.autoplay;
     }
-  }, [videoSettings, mediaFiles.length]);
+  }, [videoSettings, playlist.length]);
 
   // Handle audio settings updates dynamically
   React.useEffect(() => {
@@ -254,8 +302,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   }
 
   // Use local media files if available
-  if (mediaFiles.length > 0) {
-    const currentFile = mediaFiles[currentIndex];
+  if (playlist.length > 0) {
+    const currentFile = playlist[currentIndex];
     const isVideo = currentFile && isVideoFile(currentFile);
     const isImage = currentFile && isImageFile(currentFile);
     const filename = extractFilename(currentFile);
@@ -303,7 +351,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                   error: e.currentTarget.error?.message,
                 });
                 // Move to next file on error
-                setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
+                const nextIndex = currentIndex + 1;
+                if (nextIndex >= playlist.length) {
+                  setPlaylist(shuffleArray(mediaFiles));
+                  setCurrentIndex(0);
+                } else {
+                  setCurrentIndex(nextIndex);
+                }
               }}
             />
           )}
@@ -323,7 +377,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                   file: currentFile,
                   });
                 // Move to next file on error
-                setCurrentIndex((prev) => (prev + 1) % mediaFiles.length);
+                const nextIndex = currentIndex + 1;
+                if (nextIndex >= playlist.length) {
+                  setPlaylist(shuffleArray(mediaFiles));
+                  setCurrentIndex(0);
+                } else {
+                  setCurrentIndex(nextIndex);
+                }
               }}
             />
           )}
@@ -422,4 +482,3 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 };
 
 export default IndependentVideoPlayer;
-

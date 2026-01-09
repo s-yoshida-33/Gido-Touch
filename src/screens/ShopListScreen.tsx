@@ -12,6 +12,10 @@ import { LanguageSelectModal } from "../components/LanguageSelectModal";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import type { ShopPositionSettings } from "../types/shopPosition";
 
+// Simple in-memory cache for image URLs to prevent flickering
+const imageCache = new Map<string, string>();
+const pendingRequests = new Map<string, Promise<string | null>>();
+
 /**
  * Build image path using shop_id if photo is relative or filename only
  * Expected full path format: C:\Users\...\AppData\Roaming\TTI\BridgeWebPopper\files\shop\{shop_id}\photo2.png
@@ -82,13 +86,27 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
 /**
  * Shop image component that loads images via Electron IPC or falls back to file:// URL
  */
-const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefined }> = ({ photo, shopId }) => {
-  const [imageUrl, setImageUrl] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
+const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefined }> = React.memo(({ photo, shopId }) => {
+  // Generate cache key
+  const cacheKey = `${shopId}:${photo}`;
+  
+  // Initialize with cached value if available
+  const [imageUrl, setImageUrl] = useState<string>(() => imageCache.get(cacheKey) || "");
+  const [isLoading, setIsLoading] = useState(() => !imageCache.has(cacheKey));
 
   useEffect(() => {
     if (!photo) {
       setIsLoading(false);
+      return;
+    }
+
+    // If already cached, ensure state matches (handle fast updates)
+    if (imageCache.has(cacheKey)) {
+      const cachedUrl = imageCache.get(cacheKey)!;
+      if (imageUrl !== cachedUrl) {
+        setImageUrl(cachedUrl);
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -101,34 +119,50 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
         return;
       }
 
-      // Check if we're in Electron environment
-      const electronAPI = window.electronAPI;
-      if (electronAPI && electronAPI.getShopImage) {
+      // Deduplicate requests
+      if (pendingRequests.has(cacheKey)) {
         try {
-          // Use Electron IPC to load image as data URL
-          // Note: getShopImage likely reads the file from disk. 
-          // If the file on disk is updated, it should return the new content.
-          const dataUrl = await electronAPI.getShopImage(imagePath);
-          if (dataUrl) {
-            setImageUrl(dataUrl);
+          const url = await pendingRequests.get(cacheKey);
+          if (url) {
+            setImageUrl(url);
             setIsLoading(false);
-            return;
           }
-        } catch (error) {
-          console.error("Failed to load image via IPC:", error);
+          return;
+        } catch (e) {
+          // If pending request failed, try again below
         }
       }
 
-      // Fallback to file:// URL (works in Electron, not in browser)
-      let fileUrl = toFileUrl(imagePath);
-      
-      setImageUrl(fileUrl);
-      
-      setIsLoading(false);
+      // Check if we're in Electron environment
+      const electronAPI = window.electronAPI;
+      let loadPromise: Promise<string | null>;
+
+      if (electronAPI && electronAPI.getShopImage) {
+        loadPromise = electronAPI.getShopImage(imagePath).catch((error: unknown) => {
+          console.error("Failed to load image via IPC:", error);
+          return null;
+        });
+      } else {
+        // Fallback to file:// URL (works in Electron, not in browser)
+        loadPromise = Promise.resolve(toFileUrl(imagePath));
+      }
+
+      pendingRequests.set(cacheKey, loadPromise);
+
+      try {
+        const dataUrl = await loadPromise;
+        if (dataUrl) {
+          imageCache.set(cacheKey, dataUrl);
+          setImageUrl(dataUrl);
+        }
+      } finally {
+        pendingRequests.delete(cacheKey);
+        setIsLoading(false);
+      }
     };
 
     loadImage();
-  }, [photo, shopId]); // Depend on photo and shopId. If they change, reload.
+  }, [photo, shopId, cacheKey]); // Depend on photo and shopId. If they change, reload.
 
   if (!photo || (!imageUrl && !isLoading)) {
     return (
@@ -154,7 +188,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
         objectFit: "contain",
         userSelect: "none",
         pointerEvents: "auto",
-        display: isLoading ? "none" : "block",
+        display: "block",
       }}
       onError={(e) => {
         // Fallback to placeholder if image fails to load
@@ -170,7 +204,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
       }}
     />
   );
-};
+});
 
 /**
  * Shop name display component that scales text to fit width

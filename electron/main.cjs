@@ -1637,17 +1637,39 @@ function scanMediaDirectory(mediaDir) {
  */
 ipcMain.handle('get-local-media-files', async () => {
   try {
+    const settings = loadSettings();
+    const mallId = settings.mallId || 'suzaka';
     const mediaDir = getMediaDirectory();
-    logger.debug('Scanning media directory', { mediaDir });
     
-    const mediaFiles = scanMediaDirectory(mediaDir);
+    // Attempt to use mall-specific directory
+    const mallMediaDir = path.join(mediaDir, mallId);
+    let targetDir = mediaDir;
+    
+    // In production, we expect the mall specific directory to exist.
+    // In dev, we try mall specific first, then fallback to root if missing (for legacy/convenience).
+    if (fs.existsSync(mallMediaDir)) {
+      targetDir = mallMediaDir;
+      logger.debug('Using mall specific media directory', { mallId, targetDir });
+    } else {
+      logger.warn('Mall specific media directory not found, falling back to root media directory', { 
+        mallId, 
+        mallMediaDir,
+        fallback: mediaDir
+      });
+      // Fallback to root mediaDir
+    }
+
+    logger.debug('Scanning media directory', { targetDir });
+    
+    const mediaFiles = scanMediaDirectory(targetDir);
     
     // Convert to file:// URLs
     const mediaUrls = mediaFiles.map(filePath => toFileUrl(filePath));
     
     logger.info('Found media files', {
       count: mediaUrls.length,
-      mediaDir,
+      targetDir,
+      mallId,
     });
     
     return mediaUrls;
