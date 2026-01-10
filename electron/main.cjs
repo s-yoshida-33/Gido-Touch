@@ -776,6 +776,10 @@ function createMainWindow() {
     // Delay slightly to allow OS window switching to complete
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
+        // If settings are open, don't force top as it might interfere with dropdowns
+        if (isSettingsOpen) {
+          return;
+        }
         mainWindow.setAlwaysOnTop(true, 'screen-saver');
         // Optional: mainWindow.focus(); // Use with caution as it might block other interactions
       }

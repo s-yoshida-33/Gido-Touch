@@ -36,6 +36,7 @@ interface MallAssets {
     iconTime: string;
     iconTel: string;
     waonPointIcon: string;
+    aeonPayIcon: string;
     selectLanguageBg: string;
     selectLanguageJp: string;
     selectLanguageJpHighlight: string;
@@ -85,6 +86,7 @@ import iconLocation from "../assets/icon/location.svg";
 import iconTime from "../assets/icon/time.svg";
 import iconTel from "../assets/icon/tel.svg";
 import waonPointIcon from "../assets/icon/waonpoint.svg";
+import aeonPayIcon from "../assets/icon/aeonpay.svg";
 import selectLanguageBg from "../assets/lang/background.svg";
 import selectLanguageJp from "../assets/lang/ja.svg";
 import selectLanguageJpHighlight from "../assets/lang/ja-highlight.svg";
@@ -224,6 +226,7 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
       iconTime,
       iconTel,
       waonPointIcon,
+      aeonPayIcon,
       selectLanguageBg,
       selectLanguageJp,
       selectLanguageJpHighlight,

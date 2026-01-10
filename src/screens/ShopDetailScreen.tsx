@@ -332,6 +332,10 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
     return shop.genreMemo && shop.genreMemo.includes("WAONPOINT加盟店");
   }, [shop.genreMemo]);
 
+  const isAeonPayShop = React.useMemo(() => {
+    return shop.genreMemo && shop.genreMemo.includes("AEONPayの使えるお店");
+  }, [shop.genreMemo]);
+
   if (isAssetsLoading || !assets) {
     return null; // Or loading spinner
   }
@@ -556,12 +560,17 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
             {/* Scrollable content continues here if description is long */}
           </div>
 
-          {/* Category Area - WAON POINT */}
-          {isWaonPointShop && (
+          {/* Category Area - Payment Icons */}
+          {(isWaonPointShop || isAeonPayShop) && (
             <div style={{ flexShrink: 0, width: "100%" }}>
               <div style={{ width: "640px", height: "1px", backgroundColor: "#D9D9D9", marginLeft: "30px", marginRight: "30px", marginBottom: "30px" }} />
-              <div style={{ marginLeft: "30px", marginRight: "30px", marginBottom: "30px" }}>
-                <img src={assets.common.waonPointIcon} alt="WAON POINT" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "70px", height: "70px", display: "block" }} />
+              <div style={{ marginLeft: "30px", marginRight: "30px", marginBottom: "30px", display: "flex", flexDirection: "row", alignItems: "center", gap: "20px" }}>
+                {isWaonPointShop && (
+                  <img src={assets.common.waonPointIcon} alt="WAON POINT" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ height: "70px", width: "auto", display: "block" }} />
+                )}
+                {isAeonPayShop && (
+                  <img src={assets.common.aeonPayIcon} alt="AEON Pay" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ height: "70px", width: "auto", display: "block" }} />
+                )}
               </div>
             </div>
           )}
