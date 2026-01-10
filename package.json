@@ -13,8 +13,7 @@
     "electron:dev": "cross-env NODE_ENV=development concurrently \"npm:dev\" \"npm:electron:start\"",
     "electron:start": "wait-on http://localhost:5173 && electron .",
     "electron:build": "npm run build && electron-builder --config electron-builder-config.cjs",
-    "electron:build:suzaka": "cross-env MALL_ID=suzaka npm run electron:build",
-    "electron:build:sendai": "cross-env MALL_ID=sendai-kamisugi npm run electron:build",
+    "zip:media": "node electron/zip-media.cjs",
     "export:shop-positions": "node electron/export-shop-positions.cjs",
     "icon:gen": "magick -background none -density 1024 src/assets/icon.svg -define icon:auto-resize=256,128,64,48,32,16 -write src/assets/icon.ico build/icon.ico"
   },

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { motion, type Variants } from "framer-motion";
 import type { ShopPosition } from "../types/shop";
 import type { AnimationConfig } from "../types/locationIcon";
-import speechBubbleIcon from "../assets/common/location/shop.svg";
+import speechBubbleIcon from "../assets/location/shop.svg";
 
 const dropInVariants: Variants = {
   hidden: { 

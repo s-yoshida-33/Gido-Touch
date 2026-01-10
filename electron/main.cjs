@@ -15,11 +15,13 @@ const {
   getLatestVersionInfo,
 } = require('./updateChecker.cjs');
 const logger = require('./logger.cjs');
+const { ensureMediaFiles } = require('./mediaDownloader.cjs');
 
 const isDev = !app.isPackaged;
 
 let patchWindow = null;
 let mainWindow = null;
+let isSettingsOpen = false;
 
 // DEBUG: Track internal state of loadSettings
 let lastLoadSettingsDebug = {
@@ -171,13 +173,17 @@ function loadDefaultSettings(mallId) {
   return {};
 }
 
+// 優先度高: ビルド時に注入される環境変数 MALL_ID があればそれをデフォルトとする
+// そうでなければ、userSettings.mallId か、デフォルトの 'suzaka' を使用する
+const BUILD_MALL_ID = process.env.MALL_ID;
+
 function loadSettings() {
   // Base default structure
   let base = {
     floor: '1F',
     currentFloorSetting: '1F',
     displayFloors: ['1F', '2F', '3F', '4F'], // Default display floors
-    mallId: 'suzaka', // Default mall ID
+    mallId: BUILD_MALL_ID || 'suzaka', // Default mall ID (Build env var takes precedence for initial default)
     locationIcons: DEFAULT_LOCATION_ICON_SETTINGS,
     floorLayout: DEFAULT_FLOOR_LAYOUT,
     imageSettings: {
@@ -228,13 +234,22 @@ function loadSettings() {
     logger.error('Failed to pre-load settings for mallId check', { error: error?.message });
   }
 
-  // 2. Load defaults based on mallId (either from user settings or default 'suzaka')
-  const currentMallId = userSettings.mallId || base.mallId;
+  // 2. Load defaults based on mallId
+  // Priority: 
+  // 1. userSettings.mallId (if exists)
+  // 2. BUILD_MALL_ID (if provided during build)
+  // 3. base.mallId (fallback to 'suzaka')
+  const currentMallId = userSettings.mallId || BUILD_MALL_ID || base.mallId;
   const loadedDefaults = loadDefaultSettings(currentMallId);
 
   // Update base with loaded defaults
   if (Object.keys(loadedDefaults).length > 0) {
     base = deepMerge(base, loadedDefaults);
+  }
+
+  // Also ensure base.mallId reflects the correct initial ID if it wasn't in userSettings
+  if (!userSettings.mallId && BUILD_MALL_ID) {
+    base.mallId = BUILD_MALL_ID;
   }
 
   // 3. Merge user settings over base (base now includes mall-specific defaults)
@@ -771,6 +786,11 @@ function createMainWindow() {
   // This handles cases where other apps might periodically steal focus or Z-order
   const focusWatchdog = setInterval(() => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      // If settings are open, don't force top/focus as it might interfere with dropdowns/inputs
+      if (isSettingsOpen) {
+        return;
+      }
+
       // Ensure it's not minimized
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
@@ -1044,7 +1064,7 @@ ipcMain.handle('save-display-floors', (_event, displayFloors) => {
 ipcMain.handle('get-mall-id', () => {
   const settings = loadSettings();
   logger.debug('IPC get-mall-id', { mallId: settings.mallId });
-  return settings.mallId || 'suzaka';
+  return settings.mallId || BUILD_MALL_ID || 'suzaka';
 });
 
 ipcMain.handle('save-mall-id', (_event, mallId) => {
@@ -1514,25 +1534,26 @@ ipcMain.handle('wsp:get-right-top-video-asset', async () => {
  * In development: tries project root/media first, falls back to userData/media
  */
 function getMediaDirectory() {
-  if (app.isPackaged) {
-    // In production, use resources directory (read-only, bundled with app)
-    return path.join(process.resourcesPath, 'media');
-  } else {
-    // In development, try project root/media first (for convenience during development)
+  // Always use userData media directory for consistent external media management
+  const userDataMediaDir = path.join(app.getPath('userData'), 'media');
+  if (!fs.existsSync(userDataMediaDir)) {
+      fs.mkdirSync(userDataMediaDir, { recursive: true });
+  }
+
+  // However, for development convenience, if userData is empty but project root has it, we could use that.
+  // But to keep it simple and consistent with the new "download" architecture, we default to userData.
+  // If we really need dev fallback:
+  if (!app.isPackaged) {
     const projectMediaDir = path.join(__dirname, '../media');
     if (fs.existsSync(projectMediaDir)) {
-      logger.debug('Using project root media directory for development', {
-        path: projectMediaDir,
-      });
-      return projectMediaDir;
+        logger.debug('Using project root media directory for development', {
+            path: projectMediaDir,
+        });
+        return projectMediaDir;
     }
-    // Fallback to userData/media if project root/media doesn't exist
-    const userDataMediaDir = path.join(app.getPath('userData'), 'media');
-    logger.debug('Using userData media directory for development', {
-      path: userDataMediaDir,
-    });
-    return userDataMediaDir;
   }
+
+  return userDataMediaDir;
 }
 
 /**
@@ -1600,6 +1621,10 @@ function scanMediaDirectory(mediaDir) {
       const stat = fs.statSync(fullPath);
       
       if (stat.isDirectory()) {
+        // Skip assets directory to avoid showing UI assets as media content
+        if (file === 'assets') {
+          continue;
+        }
         // Recursively scan subdirectories
         const subFiles = scanMediaDirectory(fullPath);
         mediaFiles.push(...subFiles);
@@ -1682,6 +1707,77 @@ ipcMain.handle('get-local-media-files', async () => {
 });
 
 /**
+ * Scan directory for asset files and return a map of relative paths to file URLs
+ */
+function scanAssetDirectory(assetsDir) {
+  const assets = {};
+  
+  if (!fs.existsSync(assetsDir)) {
+    logger.debug('Assets directory does not exist', { assetsDir });
+    return assets;
+  }
+
+  try {
+    function scan(dir, relativePath = '') {
+      const files = fs.readdirSync(dir);
+      
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        const stat = fs.statSync(fullPath);
+        const currentRelativePath = relativePath ? path.join(relativePath, file) : file;
+        
+        if (stat.isDirectory()) {
+          scan(fullPath, currentRelativePath);
+        } else if (isMediaFile(fullPath)) {
+          // Store with forward slashes for consistency
+          const key = currentRelativePath.replace(/\\/g, '/');
+          assets[key] = toFileUrl(fullPath);
+        }
+      }
+    }
+    
+    scan(assetsDir);
+    return assets;
+  } catch (error) {
+    logger.error('Failed to scan asset directory', {
+      assetsDir,
+      error: error?.message,
+    });
+    return {};
+  }
+}
+
+/**
+ * IPC handler: get mall assets from local directory
+ * Returns map of relative paths (e.g. "button/1F.svg") to file URLs
+ */
+ipcMain.handle('get-mall-assets', async (_event, mallId) => {
+  try {
+    const mediaDir = getMediaDirectory();
+    // Assets are located in {mediaDir}/{mallId}/assets
+    const mallAssetsDir = path.join(mediaDir, mallId, 'assets');
+    
+    logger.debug('Scanning mall assets directory', { mallAssetsDir });
+    
+    const assets = scanAssetDirectory(mallAssetsDir);
+    
+    logger.info('Found mall assets', {
+      count: Object.keys(assets).length,
+      mallAssetsDir,
+      mallId,
+    });
+    
+    return assets;
+  } catch (error) {
+    logger.error('Failed to get mall assets', {
+      error: error?.message,
+      mallId
+    });
+    return {};
+  }
+});
+
+/**
  * IPC handler: return raw /current-timeline JSON.
  */
 ipcMain.handle('wsp:get-current-timeline', async () => {
@@ -1758,6 +1854,12 @@ ipcMain.on('menu:set-floor', (_event, floorId) => {
   updateFloorSetting(floorId);
 });
 
+// Settings visibility from renderer
+ipcMain.on('settings:set-visibility', (_event, visible) => {
+  isSettingsOpen = visible;
+  logger.debug('Settings visibility changed', { visible });
+});
+
 // Startup wait completed
 ipcMain.on('startup-wait-completed', () => {
   logger.info('Startup wait completed, switching to main window');
@@ -1768,11 +1870,30 @@ ipcMain.on('startup-wait-completed', () => {
 });
 
 // Renderer ready for updates
-ipcMain.on('check-for-updates-ready', () => {
+ipcMain.on('check-for-updates-ready', async () => {
   logger.info('Renderer is ready for updates');
+
+  // 1. Check/Download media files first
+  try {
+      const settings = loadSettings();
+      const mallId = settings.mallId || BUILD_MALL_ID || 'suzaka';
+      
+      // In dev mode, we might skip download if local media exists
+      // But for testing the flow, we let it run or rely on ensureMediaFiles internal check
+      await ensureMediaFiles(mallId, patchWindow);
+  } catch (err) {
+      logger.error('Failed during media check', { error: err.message });
+      // Proceed to updates even if media failed? 
+      // Ideally yes, maybe it's a code fix for the download issue.
+  }
+
+  // 2. Then check for app updates
   // Only check for updates if not in dev mode (or force check)
   if (!isDev) {
     checkForUpdates(false);
+  } else {
+    // In dev mode, if we simulate the wait screen, we should tell it to finish
+    // But currently dev mode skips patch window entirely in main()
   }
 });
 

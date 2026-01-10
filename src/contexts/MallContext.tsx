@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useMallAssets } from '../hooks/useMallAssets';
+import { useMallAssets, MALL_IDS } from '../hooks/useMallAssets';
 import type { MallId, Language } from '../hooks/useMallAssets';
 
-// デフォルトは須坂
-const DEFAULT_MALL_ID: MallId = 'suzaka';
+// デフォルトはリストの先頭、なければ須坂
+const DEFAULT_MALL_ID: MallId = MALL_IDS[0] || 'suzaka';
 const DEFAULT_LANGUAGE: Language = 'ja';
 const LANGUAGE_STORAGE_KEY = "gido-selected-language";
 
@@ -36,8 +36,8 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     api.getMallId()
       .then((savedId) => {
-        // savedIdが "suzaka" や "sendai-kamisugi" と一致するか確認
-        if (savedId === 'suzaka' || savedId === 'sendai-kamisugi') {
+        // savedIdが有効なIDリストに含まれているか確認
+        if (MALL_IDS.includes(savedId)) {
           setMallId(savedId as MallId);
         }
       })
@@ -47,7 +47,7 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // モールIDの更新を監視 (必要であれば)
     const unsubscribe = api.onMallIdUpdated((updatedId) => {
-       if (updatedId === 'suzaka' || updatedId === 'sendai-kamisugi') {
+       if (MALL_IDS.includes(updatedId)) {
           setMallId(updatedId as MallId);
        }
     });

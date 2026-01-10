@@ -157,6 +157,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('open-settings', listener);
     };
   },
+  setSettingsVisibility(visible) {
+    ipcRenderer.send('settings:set-visibility', visible);
+  },
   getImageSettings() {
     return ipcRenderer.invoke('get-image-settings');
   },
@@ -202,6 +205,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getLocalMediaFiles() {
     return ipcRenderer.invoke('get-local-media-files');
+  },
+  getMallAssets(mallId) {
+    return ipcRenderer.invoke('get-mall-assets', mallId);
   },
   getShopPositions() {
     return ipcRenderer.invoke('get-shop-positions');

@@ -123,6 +123,8 @@ export function PatchScreen() {
         return '最新バージョンです';
       case 'error':
         return 'アップデートエラー';
+      case 'media_downloading':
+        return 'メディアデータをダウンロード中…';
       default:
         return 'アップデート状態';
     }

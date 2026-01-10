@@ -53,6 +53,14 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   onSaveLocalMediaTextSettings,
 }) => {
   const [visible, setVisible] = useState(false);
+  
+  // Notify main process about visibility to pause focus watchdog
+  useEffect(() => {
+    if (window.electronAPI?.setSettingsVisibility) {
+      window.electronAPI.setSettingsVisibility(visible);
+    }
+  }, [visible]);
+
   const [activeTab, setActiveTab] = useState<TabType>("image");
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -363,7 +371,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               }}
             >
               <option value="suzaka">須坂 (ID: suzaka)</option>
-              <option value="sendai-kamisugi">仙台上杉 (ID: sendai-kamisugi)</option>
+              <option value="sendaikamisugi">仙台上杉 (ID: sendaikamisugi)</option>
             </select>
           </div>
         </div>

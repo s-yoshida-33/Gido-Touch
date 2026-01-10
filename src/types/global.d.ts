@@ -78,6 +78,7 @@ interface ElectronAPI {
   onOpenFloorSettings: (cb: () => void) => () => void;
   onOpenVersionInfo: (cb: () => void) => () => void;
   onOpenSettings: (cb: () => void) => () => void;
+  setSettingsVisibility: (visible: boolean) => void;
   getImageSettings: () => Promise<ImageSettings>;
   saveImageSettings: (settings: ImageSettings) => Promise<ImageSettings>;
   onImageSettingsUpdated: (cb: (settings: ImageSettings) => void) => () => void;
@@ -86,6 +87,7 @@ interface ElectronAPI {
   onVideoSettingsUpdated: (cb: (settings: VideoSettings) => void) => () => void;
   getShopImage: (filePath: string) => Promise<string | null>;
   getLocalMediaFiles: () => Promise<string[]>;
+  getMallAssets: (mallId: string) => Promise<Record<string, string>>;
   getShopPositions: () => Promise<ShopPositionSettings>;
   saveShopPositions: (settings: ShopPositionSettings) => Promise<ShopPositionSettings>;
   onShopPositionsUpdated: (cb: (settings: ShopPositionSettings) => void) => () => void;
@@ -106,7 +108,7 @@ interface ElectronAPI {
   exportCurrentSettingsAsDefault: () => Promise<{ success: boolean; path?: string; error?: string }>;
 }
 
-export type StatusState = 'checking' | 'available' | 'none' | 'downloaded' | 'error';
+export type StatusState = 'checking' | 'available' | 'none' | 'downloaded' | 'error' | 'media_downloading';
 
 export interface UpdaterAPI {
   onStatus: (cb: (data: { state: StatusState; message: string }) => void) => void;
