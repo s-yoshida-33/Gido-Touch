@@ -169,8 +169,11 @@ const App: React.FC = () => {
         // Filter shops: only "飲食店・食品" or "グルメ" genre
         const filtered = rawShops.filter((shop) => shop.genre === "飲食店・食品" || shop.genre === "グルメ");
         
-        // Exclude "イオン堺北花田店"
-        const excluded = filtered.filter((shop) => !(shop.name || "").includes("イオン堺北花田店"));
+        // Exclude "イオン堺北花田店" and "イオンスタイル仙台上杉"
+        const excluded = filtered.filter((shop) => {
+            const name = shop.name || "";
+            return !name.includes("イオン堺北花田店") && name !== "イオンスタイル仙台上杉";
+        });
         
         // Clean shop names
         return excluded.map((s) => ({

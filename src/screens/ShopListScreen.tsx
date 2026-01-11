@@ -986,7 +986,11 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                     }
 
                     // Format first line: "フロア [区画番号] ジャンルメモ"
-                    const firstLine = `${floor} [${shop.number}] ${genreMemo}`;
+                    const showNumber = /\d/.test(shop.number || "");
+                    const parts = [floor];
+                    if (showNumber) parts.push(`[${shop.number}]`);
+                    if (genreMemo) parts.push(genreMemo);
+                    const firstLine = parts.join(" ");
 
                     // Logic for shop name display
                     const shopName = (selectedLanguage === "en" && shop.nameEn) ? shop.nameEn : shop.name;
