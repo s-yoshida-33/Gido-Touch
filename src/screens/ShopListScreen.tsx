@@ -208,9 +208,9 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
 });
 
 /**
- * Shop name display component that scales text to fit width
+ * Scalable Text Component
  */
-const ShopNameDisplay: React.FC<{ name: string }> = ({ name }) => {
+const ScalableText: React.FC<{ text: string; style?: React.CSSProperties }> = ({ text, style }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
@@ -221,24 +221,22 @@ const ShopNameDisplay: React.FC<{ name: string }> = ({ name }) => {
       
       if (textWidth > containerWidth) {
         const scale = containerWidth / textWidth;
-        textRef.current.style.transform = `scaleX(${Math.max(scale, 0.5)})`;
+        textRef.current.style.transform = `scaleX(${scale})`;
       } else {
         textRef.current.style.transform = "scaleX(1)";
       }
     }
-  }, [name]);
+  }, [text]);
 
   return (
     <div
       ref={containerRef}
       style={{
-        fontSize: "24px",
-        fontWeight: 700,
-        lineHeight: "1.4",
         width: "100%",
         whiteSpace: "nowrap",
         overflow: "hidden",
         transformOrigin: "left center",
+        ...style
       }}
     >
       <div
@@ -250,7 +248,7 @@ const ShopNameDisplay: React.FC<{ name: string }> = ({ name }) => {
           transformOrigin: "left center",
         }}
       >
-        {name}
+        {text}
       </div>
     </div>
   );
@@ -1137,18 +1135,24 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                           }}
                         >
                           {/* First line: Floor, number, genre memo (16px) */}
-                          <div
+                          <ScalableText
+                            text={firstLine}
                             style={{
                               fontSize: "16px",
                               fontWeight: 400,
                               marginBottom: "8px",
                               lineHeight: "1.4",
                             }}
-                          >
-                            {firstLine}
-                          </div>
+                          />
                           {/* Second line: Shop name (24px) */}
-                          <ShopNameDisplay name={shopName} />
+                          <ScalableText
+                            text={shopName}
+                            style={{
+                              fontSize: "24px",
+                              fontWeight: 700,
+                              lineHeight: "1.4",
+                            }}
+                          />
                         </div>
                       </motion.div>
                     );

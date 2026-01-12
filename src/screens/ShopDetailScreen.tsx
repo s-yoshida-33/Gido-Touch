@@ -1,5 +1,5 @@
 // src/screens/ShopDetailScreen.tsx
-import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback, useLayoutEffect } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 import { useMall } from "../contexts/MallContext";
@@ -43,6 +43,49 @@ function toFileUrl(filePath: string): string {
   if (normalized.startsWith("/")) return `file://${normalized}`;
   return `file:///${normalized}`;
 }
+
+const ScalableText: React.FC<{ text: string; style?: React.CSSProperties }> = ({ text, style }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (containerRef.current && textRef.current) {
+      const containerWidth = containerRef.current.clientWidth;
+      const textWidth = textRef.current.scrollWidth;
+      
+      if (textWidth > containerWidth) {
+        const scale = containerWidth / textWidth;
+        textRef.current.style.transform = `scaleX(${scale})`;
+      } else {
+        textRef.current.style.transform = "scaleX(1)";
+      }
+    }
+  }, [text]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        transformOrigin: "left center",
+        ...style
+      }}
+    >
+      <div
+        ref={textRef}
+        style={{
+          display: "inline-block",
+          transform: "scaleX(1)",
+          whiteSpace: "nowrap",
+          transformOrigin: "left center",
+        }}
+      >
+        {text}
+      </div>
+    </div>
+  );
+};
 
 // Helper function to calculate actual image dimensions (Same as GidoApp)
 function calculateImageRect(
@@ -276,25 +319,9 @@ const MapWithPinsComponent: React.FC<{
 };
 
 const ShopNameDisplay: React.FC<{ name: string; width: string; fontSize: string }> = ({ name, width, fontSize }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    if (containerRef.current && textRef.current) {
-      const containerWidth = containerRef.current.clientWidth;
-      const textWidth = textRef.current.scrollWidth;
-      if (textWidth > containerWidth) {
-        const scale = containerWidth / textWidth;
-        textRef.current.style.transform = `scaleX(${Math.max(scale, 0.5)})`;
-      } else {
-        textRef.current.style.transform = "scaleX(1)";
-      }
-    }
-  }, [name]);
-
   return (
-    <div ref={containerRef} style={{ fontSize: fontSize, fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 700, lineHeight: "1.4", width: width, whiteSpace: "nowrap", overflow: "hidden", transformOrigin: "left center", flexShrink: 0 }}>
-      <div ref={textRef} style={{ display: "inline-block", transform: "scaleX(1)", whiteSpace: "nowrap", transformOrigin: "left center" }}>{name}</div>
+    <div style={{ fontSize: fontSize, fontFamily: "'Rounded Mplus 1c', sans-serif", fontWeight: 700, lineHeight: "1.2", width: width, wordBreak: "break-word", flexShrink: 0 }}>
+      {name}
     </div>
   );
 };
@@ -350,30 +377,6 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
   
   // Use assets from MallContext for map image
   const mapImage = assets.maps[normalizedFloor] || assets.maps["1F"]; // Fallback to 1F if floor map not found
-  
-  // Need floor label images in assets structure if we want to make them dynamic too.
-  // For now, assuming they are common or we need to add them to MallAssets interface.
-  // The current code imports them statically. Let's keep them static for now as they seem generic (just "1F", "2F" text).
-  // But wait, user said "フロアに関しては、モールごとに表示するフロアが異なる".
-  // So maybe these should also be dynamic if the design differs?
-  // The user only mentioned buttons and maps explicitly in the prompt.
-  // Let's keep existing static import for labels for now as they are not in the new assets folder structure yet.
-  // Wait, I removed static imports. I need to re-add them or add to common assets.
-  // Ah, in previous file content they were imported.
-  // I should use the ones I put in COMMON_ASSETS in useMallAssets.ts if I added them there?
-  // I didn't add floor-label-*.svg to COMMON_ASSETS in useMallAssets.ts.
-  // Let's import them here statically for now as a fallback/common asset.
-  
-  // Re-importing static assets that are not yet in MallContext
-  // Note: ideally these should move to MallContext too if they are mall-specific.
-  // But for now, let's re-add the imports I removed? No, I am writing the full file content.
-  // I need to import them at the top.
-  // Wait, I can't mix static imports inside component.
-  // Let's add them to the top imports.
-
-  // NOTE: I am assuming floor labels are generic enough to be shared or I need to import them.
-  // Since I don't have them in `assets` context yet, I will import them at the top.
-  // The original code had: import floorLabel1F from "../assets/floor-label-1F.svg"; etc.
   
   return (
     <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "rgba(0, 0, 0, 0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
@@ -585,7 +588,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
               <img src={assets.common.iconLocation} alt="" draggable={false} onDragStart={(e) => e.preventDefault()} style={{ width: "24px", height: "24px", flexShrink: 0 }} />
               {shop.floors && shop.floors.length > 0 && <span>{normalizeFloor(shop.floors[0])}</span>}
               {shop.number && /\d/.test(shop.number) && <span>[{shop.number}]</span>}
-              {displayGenreMemo && (<><span>/</span><span>{displayGenreMemo}</span></>)}
+              {displayGenreMemo && (<><span>/</span><ScalableText text={displayGenreMemo} style={{ flex: 1, minWidth: 0 }} /></>)}
             </div>
             
             {shop.openTime && (
