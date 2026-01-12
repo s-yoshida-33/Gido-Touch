@@ -1,4 +1,5 @@
 import type { Shop } from '../types/shop';
+import { filterGenreMemos } from './genreUtils';
 
 /**
  * Generate default text settings for a media file based on its filename and shop data.
@@ -27,8 +28,9 @@ export const getDefaultMediaSettings = (filename: string, shops: Shop[]) => {
     memos = shop.genreMemo.split(/[|/／,、\s]+/).filter(Boolean);
   }
   
-  // Take first 2
-  const displayMemos = memos.slice(0, 2).join(' / ');
+  // Filter based on rules and take first 3
+  const filteredMemos = filterGenreMemos(memos);
+  const displayMemos = filteredMemos.slice(0, 3).join(' / ');
   
   const line1 = `${floors} [${shop.number}] ${displayMemos}`;
   

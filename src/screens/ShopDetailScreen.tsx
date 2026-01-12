@@ -10,6 +10,7 @@ import { LocationIconsOverlay } from "../components/LocationIconsOverlay";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import { getLocationIconSettingsForFloor } from "../config";
 import type { FloorId } from "../types/floorLayout";
+import { filterGenreMemos } from "../utils/genreUtils";
 
 // Constants for consistent scaling (must match GidoApp)
 const REFERENCE_MAP_WIDTH = 1920;
@@ -323,7 +324,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
       return shop.genreMemoEn;
     }
     if (shop.genreMemo) {
-      return shop.genreMemo.split(/[|]+/).map(s => s.trim()).filter(s => s.length > 0).slice(0, 2).join(" / ");
+      const memos = shop.genreMemo.split(/[|]+/).map(s => s.trim()).filter(s => s.length > 0);
+      return filterGenreMemos(memos).slice(0, 3).join(" / ");
     }
     return "";
   }, [shop, language]);

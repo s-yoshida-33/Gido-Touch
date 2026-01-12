@@ -11,6 +11,7 @@ import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import type { ShopPositionSettings } from "../types/shopPosition";
+import { filterGenreMemos } from "../utils/genreUtils";
 
 // Simple in-memory cache for image URLs to prevent flickering
 const imageCache = new Map<string, string>();
@@ -977,12 +978,12 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                     if (selectedLanguage === "en" && shop.genreMemoEn) {
                       genreMemo = shop.genreMemoEn;
                     } else if (shop.genreMemo) {
-                        genreMemo = shop.genreMemo
+                        const memos = shop.genreMemo
                           .split(/[|]+/)
                           .map(s => s.trim())
-                          .filter(s => s.length > 0)
-                          .slice(0, 2)
-                          .join(" / ");
+                          .filter(s => s.length > 0);
+
+                        genreMemo = filterGenreMemos(memos).slice(0, 3).join(" / ");
                     }
 
                     // Format first line: "フロア [区画番号] ジャンルメモ"
