@@ -144,7 +144,7 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics }
     return {
       width: `${size}px`,
       height: "auto",
-      transform: `rotate(${config.rotation}deg)`,
+      // transform: `rotate(${config.rotation}deg)`, // Handled by parent container
       display: "block",
     };
   };
@@ -243,7 +243,14 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics }
           style={speechBubbleWrapperStyle}
         >
           <motion.div
-            style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}
+            style={{ 
+              width: "100%", 
+              height: "100%", 
+              display: "flex", 
+              justifyContent: "center", 
+              alignItems: "center",
+              rotate: speechBubble.rotation 
+            }}
             {...buildAnimationProps(speechBubble.animation, scaleRatio)}
           >
             {renderRippleAnimation(speechBubble, "speech-bubble")}
@@ -262,7 +269,14 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics }
           style={locationWrapperStyle}
         >
           <motion.div
-            style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}
+            style={{ 
+              width: "100%", 
+              height: "100%", 
+              display: "flex", 
+              justifyContent: "center", 
+              alignItems: "center",
+              rotate: location.rotation 
+            }}
             {...buildAnimationProps(location.animation, scaleRatio)}
           >
             {renderRippleAnimation(location, "location")}

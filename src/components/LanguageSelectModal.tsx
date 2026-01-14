@@ -140,6 +140,9 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
 
   // Determine which image to show for each language
   const getJapaneseImage = () => {
+    // If interacting with English, don't highlight Japanese even if selected
+    if (pressedLanguage === "en" || hoveredLanguage === "en") return selectLanguageJp;
+
     if (pressedLanguage === "ja") return selectLanguageJpHighlight;
     if (hoveredLanguage === "ja") return selectLanguageJpHighlight;
     if (selectedLanguage === "ja") return selectLanguageJpHighlight;
@@ -147,6 +150,9 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
   };
 
   const getEnglishImage = () => {
+    // If interacting with Japanese, don't highlight English even if selected
+    if (pressedLanguage === "ja" || hoveredLanguage === "ja") return selectLanguageEn;
+
     if (pressedLanguage === "en") return selectLanguageEnHighlight;
     if (hoveredLanguage === "en") return selectLanguageEnHighlight;
     if (selectedLanguage === "en") return selectLanguageEnHighlight;
