@@ -1023,15 +1023,16 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                         onTouchEnd={(e) => {
                           // Only process if this was the active touch
                           if (activeTouchRef.current === cardId) {
-                            // Check for scroll/drag (ignore if moved significantly)
-                            let isTap = true;
-                            if (touchStartPosRef.current && e.changedTouches.length > 0) {
-                              const diffX = Math.abs(e.changedTouches[0].clientX - touchStartPosRef.current.x);
-                              const diffY = Math.abs(e.changedTouches[0].clientY - touchStartPosRef.current.y);
-                              if (diffX > 10 || diffY > 10) {
-                                isTap = false;
-                              }
+                          // Check for scroll/drag (ignore if moved significantly)
+                          let isTap = true;
+                          if (touchStartPosRef.current && e.changedTouches.length > 0) {
+                            const diffX = Math.abs(e.changedTouches[0].clientX - touchStartPosRef.current.x);
+                            const diffY = Math.abs(e.changedTouches[0].clientY - touchStartPosRef.current.y);
+                            // Relax threshold to 30px to tolerate jitter on some touch screens
+                            if (diffX > 30 || diffY > 30) {
+                              isTap = false;
                             }
+                          }
                             
                             if (isTap) {
                               e.preventDefault(); // Prevent ghost click
@@ -1249,44 +1250,24 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               height: "100%",
             }}
           >
-            {/* 4F button */}
-            {displayFloors.includes("4F") && assets.buttons["4F"] && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "30px",
-              }}
-            >
+              {/* 4F button */}
+              {displayFloors.includes("4F") && assets.buttons["4F"] && (
               <div
                 style={{
-                  position: "relative",
-                  display: "inline-block",
-                  cursor: "pointer",
-                  touchAction: "none",
-                }}
-                onClick={() => {
-                  if (!activeTouchRef.current) {
-                    handleFloorSelect("4F");
-                  }
-                }}
-                onTouchStart={(_e) => {
-                  if (activeTouchRef.current && activeTouchRef.current !== "4F") return;
-                  activeTouchRef.current = "4F";
-                }}
-                onTouchEnd={(e) => {
-                  if (activeTouchRef.current === "4F") {
-                    e.preventDefault();
-                    handleFloorSelect("4F");
-                    activeTouchRef.current = null;
-                  }
-                }}
-                onTouchCancel={(_e) => {
-                  if (activeTouchRef.current === "4F") {
-                    activeTouchRef.current = null;
-                  }
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "30px",
                 }}
               >
+                <div
+                  style={{
+                    position: "relative",
+                    display: "inline-block",
+                    cursor: "pointer",
+                    touchAction: "none",
+                  }}
+                  onClick={() => handleFloorSelect("4F")}
+                >
                 <img
                   src={assets.buttons["4F"].default}
                   alt="4F"
@@ -1336,47 +1317,24 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             </div>
             )}
 
-            {/* 3F button and FOOD FOREST */}
-            {displayFloors.includes("3F") && assets.buttons["3F"] && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "30px",
-              }}
-            >
+              {/* 3F button and FOOD FOREST */}
+              {displayFloors.includes("3F") && assets.buttons["3F"] && (
               <div
                 style={{
-                  position: "relative",
-                  display: "inline-block",
-                  cursor: "pointer",
-                  touchAction: "none", // Prevent default touch actions like scrolling/zooming on the button
-                }}
-                onClick={() => {
-                  // Only allow mouse clicks if no touch interaction is active
-                  if (!activeTouchRef.current) {
-                    handleFloorSelect("3F");
-                  }
-                }}
-                onTouchStart={(_e) => {
-                  // If another button is already being touched, ignore this touch
-                  if (activeTouchRef.current && activeTouchRef.current !== "3F") return;
-                  activeTouchRef.current = "3F";
-                }}
-                onTouchEnd={(e) => {
-                  // Only process if this was the active touch
-                  if (activeTouchRef.current === "3F") {
-                    e.preventDefault(); // Prevent ghost click
-                    handleFloorSelect("3F");
-                    activeTouchRef.current = null;
-                  }
-                }}
-                onTouchCancel={(_e) => {
-                  if (activeTouchRef.current === "3F") {
-                    activeTouchRef.current = null;
-                  }
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "30px",
                 }}
               >
+                <div
+                  style={{
+                    position: "relative",
+                    display: "inline-block",
+                    cursor: "pointer",
+                    touchAction: "none", // Prevent default touch actions like scrolling/zooming on the button
+                  }}
+                  onClick={() => handleFloorSelect("3F")}
+                >
                 <img
                   src={assets.buttons["3F"].default}
                   alt="3F"
@@ -1427,44 +1385,24 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             </div>
             )}
 
-            {/* 2F button and RESTAURANT */}
-            {displayFloors.includes("2F") && assets.buttons["2F"] && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "30px",
-              }}
-            >
+              {/* 2F button and RESTAURANT */}
+              {displayFloors.includes("2F") && assets.buttons["2F"] && (
               <div
                 style={{
-                  position: "relative",
-                  display: "inline-block",
-                  cursor: "pointer",
-                  touchAction: "none",
-                }}
-                onClick={() => {
-                  if (!activeTouchRef.current) {
-                    handleFloorSelect("2F");
-                  }
-                }}
-                onTouchStart={(_e) => {
-                  if (activeTouchRef.current && activeTouchRef.current !== "2F") return;
-                  activeTouchRef.current = "2F";
-                }}
-                onTouchEnd={(e) => {
-                  if (activeTouchRef.current === "2F") {
-                    e.preventDefault();
-                    handleFloorSelect("2F");
-                    activeTouchRef.current = null;
-                  }
-                }}
-                onTouchCancel={(_e) => {
-                  if (activeTouchRef.current === "2F") {
-                    activeTouchRef.current = null;
-                  }
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "30px",
                 }}
               >
+                <div
+                  style={{
+                    position: "relative",
+                    display: "inline-block",
+                    cursor: "pointer",
+                    touchAction: "none",
+                  }}
+                  onClick={() => handleFloorSelect("2F")}
+                >
                 <img
                   src={assets.buttons["2F"].default}
                   alt="2F"
@@ -1515,44 +1453,24 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             </div>
             )}
 
-            {/* 1F button and SUZAKA 蔵 */}
-            {displayFloors.includes("1F") && assets.buttons["1F"] && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "30px",
-              }}
-            >
+              {/* 1F button and SUZAKA 蔵 */}
+              {displayFloors.includes("1F") && assets.buttons["1F"] && (
               <div
                 style={{
-                  position: "relative",
-                  display: "inline-block",
-                  cursor: "pointer",
-                  touchAction: "none",
-                }}
-                onClick={() => {
-                  if (!activeTouchRef.current) {
-                    handleFloorSelect("1F");
-                  }
-                }}
-                onTouchStart={(_e) => {
-                  if (activeTouchRef.current && activeTouchRef.current !== "1F") return;
-                  activeTouchRef.current = "1F";
-                }}
-                onTouchEnd={(e) => {
-                  if (activeTouchRef.current === "1F") {
-                    e.preventDefault();
-                    handleFloorSelect("1F");
-                    activeTouchRef.current = null;
-                  }
-                }}
-                onTouchCancel={(_e) => {
-                  if (activeTouchRef.current === "1F") {
-                    activeTouchRef.current = null;
-                  }
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "30px",
                 }}
               >
+                <div
+                  style={{
+                    position: "relative",
+                    display: "inline-block",
+                    cursor: "pointer",
+                    touchAction: "none",
+                  }}
+                  onClick={() => handleFloorSelect("1F")}
+                >
                 <img
                   src={assets.buttons["1F"].default}
                   alt="1F"
