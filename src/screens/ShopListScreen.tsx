@@ -1223,7 +1223,13 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             alignSelf: "flex-start",
           }}
         >
-          <IndependentVideoPlayer forceReload={refreshTrigger} videoHeight="608px" language={selectedLanguage} shops={shops} />
+          <IndependentVideoPlayer 
+            forceReload={refreshTrigger} 
+            videoHeight="608px" 
+            language={selectedLanguage} 
+            shops={shops} 
+            overrideShopId={selectedShop ? (selectedShop.shopId || selectedShop.number) : null}
+          />
         </div>
 
         {/* Spacer between top video and middle buttons */}

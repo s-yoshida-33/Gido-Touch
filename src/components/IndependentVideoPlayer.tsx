@@ -57,6 +57,7 @@ interface IndependentVideoPlayerProps {
   videoHeight?: string | number;
   language?: "ja" | "en";
   shops?: Shop[];
+  overrideShopId?: string | null;
 }
 
 const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({ 
@@ -64,6 +65,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   videoHeight = '100%',
   language = "ja",
   shops = [],
+  overrideShopId = null,
 }) => {
   const { videoSettings, isLoading } = useIndependentVideo();
   const { settings: audioSettings } = useAudioSettings();
@@ -80,6 +82,15 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   
   // Local reload trigger for when mall ID changes
   const [localReload, setLocalReload] = React.useState(0);
+  
+  // Save previous state for override
+  const savedStateRef = React.useRef<{ playlist: string[], index: number, currentTime: number } | null>(null);
+  
+  // Seek wait time
+  const pendingSeekTimeRef = React.useRef<number | null>(null);
+  
+  // Current set src path
+  const currentSrcRef = React.useRef<string | null>(null);
 
   // Listen for Mall ID updates
   React.useEffect(() => {
@@ -91,6 +102,59 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       if (unsubscribe) unsubscribe();
     };
   }, []);
+
+  // Update playlist when overrideShopId changes
+  React.useEffect(() => {
+    if (mediaFiles.length === 0) return;
+
+    if (overrideShopId) {
+      // Filter files for the specific shop
+      // Filename format: "{shopId}.mp4" or "{shopId}-1.jpg" etc.
+      const shopFiles = mediaFiles.filter(file => {
+        const filename = extractFilename(file);
+        const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+        const idPart = nameWithoutExt.split('-')[0];
+        return idPart === overrideShopId;
+      });
+
+      if (shopFiles.length > 0) {
+        logInfo('video', `Overriding playlist for shop: ${overrideShopId}`, { count: shopFiles.length });
+        
+        // Save current state before overriding, if not already saved
+        if (savedStateRef.current === null) {
+          savedStateRef.current = {
+            playlist: playlist,
+            index: currentIndex,
+            currentTime: videoRef.current ? videoRef.current.currentTime : 0
+          };
+        }
+        
+        setPlaylist(shopFiles);
+        setCurrentIndex(0);
+      } else {
+        logInfo('video', `No media found for shop override: ${overrideShopId}`);
+        // If no files found, continue playing current playlist
+        // Do NOT save state here as we are not overriding
+      }
+    } else {
+      // When override is cleared, restore previous state if available
+      if (savedStateRef.current) {
+         logInfo('video', 'Restoring playlist from override');
+         setPlaylist(savedStateRef.current.playlist);
+         setCurrentIndex(savedStateRef.current.index);
+         // Set pending seek time
+         pendingSeekTimeRef.current = savedStateRef.current.currentTime;
+         savedStateRef.current = null;
+      } else {
+        // If no saved state (meaning we didn't override or just started), 
+        // ensure we have a playlist but don't reset if already playing
+        if (playlist.length === 0 && mediaFiles.length > 0) {
+           setPlaylist(shuffleArray(mediaFiles));
+           setCurrentIndex(0);
+        }
+      }
+    }
+  }, [overrideShopId, mediaFiles]);
 
   // Load media files from local directory
   React.useEffect(() => {
@@ -187,22 +251,35 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
     if (isVideo && videoRef.current) {
       const video = videoRef.current;
-      video.src = currentFile;
-      // Use audio settings for mute state (default: unmute/false)
-      video.muted = audioSettings.localMediaMuted;
-      // If only one file, use native loop. Otherwise handle looping manually
-      video.loop = playlist.length === 1;
-      video.autoplay = true;
+      
+      // Only update src if it changed
+      if (currentSrcRef.current !== currentFile) {
+        video.src = currentFile;
+        currentSrcRef.current = currentFile;
+        
+        // Use audio settings for mute state (default: unmute/false)
+        video.muted = audioSettings.localMediaMuted;
+        // If only one file, use native loop. Otherwise handle looping manually
+        video.loop = playlist.length === 1;
+        video.autoplay = true;
+      }
       
       // When video ends, move to next file (only if multiple files)
       const handleEnded = () => {
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
           if (nextIndex >= playlist.length) {
-            // Reached end of playlist, reshuffle and restart
-            logInfo('video', 'Playlist cycle completed, reshuffling');
-            setPlaylist(shuffleArray(mediaFiles));
-            setCurrentIndex(0);
+            // Reached end of playlist
+            logInfo('video', 'Playlist cycle completed');
+            
+            if (overrideShopId) {
+               // In override mode, just loop back to start without reshuffling all files
+               setCurrentIndex(0);
+            } else {
+               // Normal mode: reshuffle and restart
+               setPlaylist(shuffleArray(mediaFiles));
+               setCurrentIndex(0);
+            }
           } else {
             setCurrentIndex(nextIndex);
           }
@@ -226,17 +303,29 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       };
     } else if (isImage && imgRef.current) {
       const img = imgRef.current;
-      img.src = currentFile;
+      
+      // Only update src if it changed
+      if (currentSrcRef.current !== currentFile) {
+        img.src = currentFile;
+        currentSrcRef.current = currentFile;
+      }
       
       // For images, show for 15 seconds then move to next (or loop if only one)
       const timer = setTimeout(() => {
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
           if (nextIndex >= playlist.length) {
-            // Reached end of playlist, reshuffle and restart
-            logInfo('video', 'Playlist cycle completed, reshuffling');
-            setPlaylist(shuffleArray(mediaFiles));
-            setCurrentIndex(0);
+            // Reached end of playlist
+            logInfo('video', 'Playlist cycle completed');
+            
+            if (overrideShopId) {
+               // In override mode, just loop back to start without reshuffling all files
+               setCurrentIndex(0);
+            } else {
+               // Normal mode: reshuffle and restart
+               setPlaylist(shuffleArray(mediaFiles));
+               setCurrentIndex(0);
+            }
           } else {
             setCurrentIndex(nextIndex);
           }
@@ -253,7 +342,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         clearTimeout(timer);
       };
     }
-  }, [playlist, currentIndex, isLoadingMedia, mediaFiles, audioSettings.localMediaMuted]);
+  }, [playlist, currentIndex, isLoadingMedia, mediaFiles, audioSettings.localMediaMuted, overrideShopId]);
 
   // Handle video settings changes (legacy support)
   React.useEffect(() => {
@@ -353,8 +442,12 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 // Move to next file on error
                 const nextIndex = currentIndex + 1;
                 if (nextIndex >= playlist.length) {
-                  setPlaylist(shuffleArray(mediaFiles));
-                  setCurrentIndex(0);
+                  if (overrideShopId) {
+                     setCurrentIndex(0);
+                  } else {
+                     setPlaylist(shuffleArray(mediaFiles));
+                     setCurrentIndex(0);
+                  }
                 } else {
                   setCurrentIndex(nextIndex);
                 }
@@ -379,8 +472,12 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 // Move to next file on error
                 const nextIndex = currentIndex + 1;
                 if (nextIndex >= playlist.length) {
-                  setPlaylist(shuffleArray(mediaFiles));
-                  setCurrentIndex(0);
+                  if (overrideShopId) {
+                     setCurrentIndex(0);
+                  } else {
+                     setPlaylist(shuffleArray(mediaFiles));
+                     setCurrentIndex(0);
+                  }
                 } else {
                   setCurrentIndex(nextIndex);
                 }
@@ -441,6 +538,14 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         display: 'block',
         objectFit: 'cover',
         backgroundColor: '#000000',
+      }}
+      onLoadedMetadata={() => {
+        // Seek if there is a pending seek time
+        if (pendingSeekTimeRef.current !== null && videoRef.current) {
+          logInfo('video', 'Restoring playback position', { time: pendingSeekTimeRef.current });
+          videoRef.current.currentTime = pendingSeekTimeRef.current;
+          pendingSeekTimeRef.current = null;
+        }
       }}
       onLoadedData={() => {
         logInfo('video', 'Independent video loaded', {
