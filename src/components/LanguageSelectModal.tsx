@@ -45,11 +45,28 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(() => getSavedLanguage());
   const [hoveredLanguage, setHoveredLanguage] = useState<Language | null>(null);
   const [pressedLanguage, setPressedLanguage] = useState<Language | null>(null);
+  
+  // Track input type to prevent sticky hover on touch devices
+  const isTouchInteraction = useRef(false);
+
+  // Reset touch interaction flag on mouse move
+  useEffect(() => {
+    const enableMouseHover = () => {
+      isTouchInteraction.current = false;
+    };
+    document.addEventListener('mousemove', enableMouseHover);
+    return () => {
+      document.removeEventListener('mousemove', enableMouseHover);
+    };
+  }, []);
 
   // Load saved language when modal opens
   useEffect(() => {
     if (isOpen) {
       setSelectedLanguage(getSavedLanguage());
+      setHoveredLanguage(null);
+      setPressedLanguage(null);
+      isTouchInteraction.current = false;
     }
   }, [isOpen]);
 
@@ -137,6 +154,18 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
     setHoveredLanguage(null);
     setPressedLanguage(null);
   };
+  
+  const handleMouseEnter = (lang: Language) => {
+    if (!isTouchInteraction.current) {
+      setHoveredLanguage(lang);
+    }
+  };
+
+  const handleTouchStart = (lang: Language) => {
+    isTouchInteraction.current = true;
+    setHoveredLanguage(null); // Clear any existing hover
+    handleMouseDown(lang);
+  };
 
   // Determine which image to show for each language
   const getJapaneseImage = () => {
@@ -206,11 +235,11 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
 
         {/* Japanese option (top) - positioned at y=46 based on original design */}
         <div
-          onMouseEnter={() => setHoveredLanguage("ja")}
+          onMouseEnter={() => handleMouseEnter("ja")}
           onMouseLeave={handleMouseLeave}
           onMouseDown={() => handleMouseDown("ja")}
           onMouseUp={() => handleMouseUp("ja")}
-          onTouchStart={() => handleMouseDown("ja")}
+          onTouchStart={() => handleTouchStart("ja")}
           onTouchEnd={() => handleMouseUp("ja")}
           style={{
             position: "absolute",
@@ -239,11 +268,11 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
 
         {/* English option (bottom) - positioned at y=142 based on original design */}
         <div
-          onMouseEnter={() => setHoveredLanguage("en")}
+          onMouseEnter={() => handleMouseEnter("en")}
           onMouseLeave={handleMouseLeave}
           onMouseDown={() => handleMouseDown("en")}
           onMouseUp={() => handleMouseUp("en")}
-          onTouchStart={() => handleMouseDown("en")}
+          onTouchStart={() => handleTouchStart("en")}
           onTouchEnd={() => handleMouseUp("en")}
           style={{
             position: "absolute",
