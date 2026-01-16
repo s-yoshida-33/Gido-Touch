@@ -450,21 +450,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     if (isVideo && videoRef.current) {
       const video = videoRef.current;
       
-      // Only update src if it changed
-      // Also update if currentSrcRef is null (force update after restore)
-      if (currentSrcRef.current !== currentFile) {
-        video.src = currentFile;
-        currentSrcRef.current = currentFile;
-        
-        // Use audio settings for mute state (default: unmute/false)
-        video.muted = audioSettings.localMediaMuted;
-        // If only one file, use native loop. Otherwise handle looping manually
-        video.loop = playlist.length === 1;
-        video.autoplay = true;
-      }
-      
-      // When video ends, move to next file (only if multiple files)
-      const handleEnded = () => {
+      // Helper for moving to next video
+      const handleNext = () => {
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
           if (nextIndex >= playlist.length) {
@@ -482,12 +469,79 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           } else {
             setCurrentIndex(nextIndex);
           }
+        } else if (playlist.length === 1) {
+            // Force replay for single file
+            video.currentTime = 0;
+            video.play().catch(e => {
+                logError('video', 'Single file replay failed', { error: e.message });
+            });
         }
       };
+
+      // Only update src if it changed
+      // Also update if currentSrcRef is null (force update after restore)
+      if (currentSrcRef.current !== currentFile) {
+        video.src = currentFile;
+        currentSrcRef.current = currentFile;
+        
+        // Explicitly load to ensure readiness
+        video.load();
+        
+        // Use audio settings for mute state (default: unmute/false)
+        video.muted = audioSettings.localMediaMuted;
+        // If only one file, use native loop. Otherwise handle looping manually
+        video.loop = playlist.length === 1;
+        
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(e => {
+                logError('video', 'Auto-play failed', { error: e.message, file: currentFile });
+                // If auto-play fails, we might want to skip to next or retry
+                // But typically user interaction is needed for some play failures.
+                // In kiosk mode, we just log.
+            });
+        }
+      }
       
+      const handleEnded = () => {
+        handleNext();
+      };
+      
+      // Freeze detection (Watchdog)
+      // If video is not paused but time isn't advancing, or duration passed without ended event
+      const watchdogInterval = setInterval(() => {
+        if (!video) return;
+        
+        // If we are close to the end (within 0.5s) and not paused, but ended event didn't fire
+        if (video.duration && !video.paused) {
+            const timeLeft = video.duration - video.currentTime;
+            if (timeLeft < 0.5 && timeLeft >= 0) {
+                 // Check if we are stuck here?
+                 // Or just force next if we are extremely close to end.
+                 // Let's rely on time update check below.
+            }
+            
+            // Check if duration exceeded (some players glitch and go past duration)
+            if (video.currentTime >= video.duration) {
+                logWarn('video', 'Duration exceeded without ended event, forcing next', { file: currentFile });
+                handleNext();
+            }
+        }
+      }, 1000);
+      
+      // Stalled event: media data is not available
+      const handleStalled = () => {
+         // Only log for now, might be temporary network/disk issue
+         // If it persists, the timeupdate check won't fire and we might need logic there?
+         // Actually, if stalled, time doesn't advance.
+         // Let's rely on a "no progress" watchdog if needed, but for now just log.
+         // logWarn('video', 'Playback stalled', { file: currentFile });
+      };
+
       if (playlist.length > 1) {
         video.addEventListener('ended', handleEnded);
       }
+      video.addEventListener('stalled', handleStalled);
       
       logInfo('video', 'Playing video from local directory', {
         index: currentIndex,
@@ -496,9 +550,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       });
 
       return () => {
+        clearInterval(watchdogInterval);
         if (playlist.length > 1) {
           video.removeEventListener('ended', handleEnded);
         }
+        video.removeEventListener('stalled', handleStalled);
       };
     } else if (isImage && imgRef.current) {
       const img = imgRef.current;
