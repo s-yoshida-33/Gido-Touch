@@ -233,12 +233,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
     if (overrideShopId) {
       // 1. Try to find local media files for the specific shop
-      // Filename format: "{shopId}.mp4" or "{shopId}-1.jpg" etc.
+      // Filename format: "{shopId}.mp4" (Exact match of shopId)
       // Use loose equality for ID matching to handle string/number mismatch
       const shopFiles = mediaFiles.filter(file => {
         const filename = extractFilename(file);
         const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
-        const idPart = nameWithoutExt.split('-')[0];
+        // Use filename directly as ID (no longer splitting by hyphen)
+        const idPart = nameWithoutExt;
         return String(idPart) === String(overrideShopId);
       });
 
@@ -705,6 +706,28 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     }
   }, [audioSettings.localMediaMuted]);
 
+  // Memoize text settings calculation to prevent main thread blocking
+  // Moved to top level to avoid "Rendered more hooks than during the previous render" error
+  const currentFile = (playlist.length > 0 && !isLoadingMedia) ? playlist[currentIndex] : null;
+  const filename = currentFile ? extractFilename(currentFile) : "";
+  
+  const { line1: memoLine1, line2: memoLine2 } = React.useMemo(() => {
+      if (!filename) return { line1: undefined, line2: undefined };
+
+      let currentText = textSettings[filename];
+      
+      // If setting is not present, generate default from shops data
+      if (!currentText && shops.length > 0) {
+        currentText = getDefaultMediaSettings(filename, shops);
+      }
+  
+      // Determine text to display based on language
+      const l1 = (language === 'en' && currentText?.line1En) ? currentText.line1En : currentText?.line1;
+      const l2 = (language === 'en' && currentText?.line2En) ? currentText.line2En : currentText?.line2;
+      
+      return { line1: l1, line2: l2 };
+  }, [filename, shops, textSettings, language]);
+
   // Loading state
   if (isLoading || isLoadingMedia || isOverrideImageLoading) {
     return renderContainer(
@@ -749,25 +772,18 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
   // Use local media files if available
   if (playlist.length > 0) {
-    const currentFile = playlist[currentIndex];
     const isVideo = currentFile && isVideoFile(currentFile);
     const isImage = currentFile && isImageFile(currentFile);
-    const filename = extractFilename(currentFile);
-    let currentText = textSettings[filename];
     
-    // If setting is not present, generate default from shops data
-    if (!currentText && shops.length > 0) {
-      currentText = getDefaultMediaSettings(filename, shops);
-    }
-
-    // Determine text to display based on language
-    const line1 = (language === 'en' && currentText?.line1En) ? currentText.line1En : currentText?.line1;
-    const line2 = (language === 'en' && currentText?.line2En) ? currentText.line2En : currentText?.line2;
+    // Use memoized values
+    const line1 = memoLine1;
+    const line2 = memoLine2;
 
     const content = (
       <>
         {isVideo && (
             <video
+              key={currentFile} // Force remount on file change to reset decoder state
               ref={videoRef}
               autoPlay
               muted={audioSettings.localMediaMuted}

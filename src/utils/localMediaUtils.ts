@@ -6,14 +6,15 @@ import { filterGenreMemos } from './genreUtils';
  * Filename format expected: "{shopId}-{suffix}.ext" or "{shopId}.ext"
  */
 export const getDefaultMediaSettings = (filename: string, shops: Shop[]) => {
-  // Extract shopId from filename (e.g., "123.mp4" -> "123", "123-1.mp4" -> "123")
+  // Extract shopId from filename (e.g., "123.mp4" -> "123")
   // Remove extension first
   const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
-  // Get ID part (before first hyphen)
-  const shopId = nameWithoutExt.split('-')[0];
+  // Use filename directly as shopId (no longer splitting by hyphen)
+  const shopId = nameWithoutExt;
 
-  // Find shop by shopId OR number (with loose equality for safety)
-  const shop = shops.find(s => String(s.shopId) === String(shopId) || String(s.number) === String(shopId));
+  // Find shop by shopId ONLY
+  // Removed number check to prevent mismatching (e.g. shopId 411 vs number 411)
+  const shop = shops.find(s => String(s.shopId) === String(shopId));
   
   if (!shop) {
     return { line1: '', line2: '', line1En: '', line2En: '' };
