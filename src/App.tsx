@@ -19,6 +19,8 @@ import type { ShopsEvent } from "./api/sseClient";
 import { convertSseShopDataToShop } from "./utils/shopConverter";
 import type { SseConnectionStatus } from "./api/sseClient";
 import type { LocalMediaTextSettings } from "./types/global";
+import { useMall } from "./contexts/MallContext";
+import type { GenreSettings } from "./types/genreSettings";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
 
@@ -49,6 +51,8 @@ const App: React.FC = () => {
   const [locationSettings, setLocationSettings] = useState<LocationIconSettingsPerFloor>(
     DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR
   );
+  
+  const { genreSettings } = useMall();
 
   // DEBUG STATE
   const [debugLog, setDebugLog] = useState<string[]>([]);
@@ -678,6 +682,13 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveGenreSettings = async (settings: GenreSettings) => {
+    const api = window.electronAPI;
+    if (api && api.saveGenreSettings) {
+      await api.saveGenreSettings(settings);
+    }
+  };
+
   return (
     <>
       {isDebugVisible && (
@@ -843,6 +854,8 @@ const App: React.FC = () => {
         onSaveCurrentFloorSetting={handleSaveCurrentFloorSetting}
         localMediaTextSettings={localMediaTextSettings}
         onSaveLocalMediaTextSettings={handleSaveLocalMediaTextSettings}
+        genreSettings={genreSettings || { ignoredKeywords: [], maxItems: 3 }}
+        onSaveGenreSettings={handleSaveGenreSettings}
       />
       <VersionInfoScreen onClose={() => {}} />
     </>

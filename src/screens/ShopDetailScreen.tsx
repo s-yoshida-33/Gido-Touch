@@ -335,7 +335,7 @@ interface ShopDetailScreenProps {
 }
 
 const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, language = "ja", currentFloorSetting, locationIconSettings }) => {
-  const { assets, isLoading: isAssetsLoading } = useMall();
+  const { assets, isLoading: isAssetsLoading, genreSettings } = useMall();
   const transformRef = useRef<any>(null);
   const [currentScale, setCurrentScale] = useState(1);
   const [zoomInHovered, setZoomInHovered] = useState(false);
@@ -352,7 +352,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
     }
     if (shop.genreMemo) {
       const memos = shop.genreMemo.split(/[|]+/).map(s => s.trim()).filter(s => s.length > 0);
-      return filterGenreMemos(memos).slice(0, 3).join(" / ");
+      return filterGenreMemos(memos, genreSettings?.ignoredKeywords, genreSettings?.maxItems).join(" / ");
     }
     return "";
   }, [shop, language]);

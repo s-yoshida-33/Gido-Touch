@@ -2,8 +2,8 @@
  * ジャンルメモのフィルタリング用ユーティリティ
  */
 
-// 完全一致で除外するキーワード（日本語）
-export const IGNORED_GENRE_KEYWORDS = new Set([
+// デフォルトの除外キーワード（日本語）
+export const DEFAULT_IGNORED_GENRE_KEYWORDS = [
   "グルメ",
   "フード",
   "フードコート",
@@ -13,7 +13,7 @@ export const IGNORED_GENRE_KEYWORDS = new Set([
   "SUZUKA蔵",
   "レストラン・カフェ",
   "レストラン・グルメ"
-]);
+];
 
 // パターンマッチで除外するキーワード
 export const IGNORED_GENRE_PATTERNS = [
@@ -25,14 +25,22 @@ export const IGNORED_GENRE_PATTERNS = [
 /**
  * ジャンルメモの項目を表示すべきかどうかを判定する
  * @param genreMemoItem 分割されたジャンルメモの1項目
+ * @param ignoredKeywords 除外キーワードの配列（指定がない場合はデフォルトを使用）
  * @returns true: 表示対象外（無視する）, false: 表示対象
  */
-export function shouldIgnoreGenre(genreMemoItem: string): boolean {
+export function shouldIgnoreGenre(genreMemoItem: string, ignoredKeywords?: string[]): boolean {
   const normalized = genreMemoItem.trim();
   if (!normalized) return true;
 
-  // 完全一致チェック
-  if (IGNORED_GENRE_KEYWORDS.has(normalized)) return true;
+  // キーワードチェック
+  const keywordsToCheck = ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS || [];
+  
+  // 安全策：配列でない場合は空配列として扱う
+  const safeKeywords = Array.isArray(keywordsToCheck) ? keywordsToCheck : [];
+  
+  // 完全一致チェック (Setにして高速化)
+  const keywordSet = new Set(safeKeywords);
+  if (keywordSet.has(normalized)) return true;
 
   // パターンチェック
   for (const pattern of IGNORED_GENRE_PATTERNS) {
@@ -44,7 +52,18 @@ export function shouldIgnoreGenre(genreMemoItem: string): boolean {
 
 /**
  * ジャンルメモの配列をフィルタリングする
+ * @param memos ジャンルメモの配列
+ * @param ignoredKeywords 除外キーワードの配列（オプション）
+ * @param maxItems 最大表示件数（オプション）。指定された場合、この件数まで切り詰めます。
  */
-export function filterGenreMemos(memos: string[]): string[] {
-  return memos.filter(memo => !shouldIgnoreGenre(memo));
+export function filterGenreMemos(memos: string[], ignoredKeywords?: string[], maxItems?: number): string[] {
+  if (!Array.isArray(memos)) return [];
+  
+  const filtered = memos.filter(memo => !shouldIgnoreGenre(memo, ignoredKeywords));
+  
+  if (maxItems !== undefined && maxItems > 0) {
+    return filtered.slice(0, maxItems);
+  }
+  
+  return filtered;
 }

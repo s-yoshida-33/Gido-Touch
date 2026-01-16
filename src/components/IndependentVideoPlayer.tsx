@@ -147,6 +147,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   // Seek wait time
   const pendingSeekTimeRef = React.useRef<number | null>(null);
   
+  // Watchdog refs
+  const lastTimeRef = React.useRef<number>(0);
+  const freezeCounterRef = React.useRef<number>(0);
+  const lastHeartbeatTimeRef = React.useRef<number>(Date.now());
+
   // Current set src path
   const currentSrcRef = React.useRef<string | null>(null);
 
@@ -452,6 +457,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       
       // Helper for moving to next video
       const handleNext = () => {
+        // Reset watchdog refs
+        lastTimeRef.current = 0;
+        freezeCounterRef.current = 0;
+        lastHeartbeatTimeRef.current = Date.now();
+
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
           if (nextIndex >= playlist.length) {
@@ -501,6 +511,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 // In kiosk mode, we just log.
             });
         }
+
+        // Reset watchdog refs on new src
+        lastTimeRef.current = 0;
+        freezeCounterRef.current = 0;
+        lastHeartbeatTimeRef.current = Date.now();
       }
       
       const handleEnded = () => {
@@ -512,6 +527,53 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       const watchdogInterval = setInterval(() => {
         if (!video) return;
         
+        const now = Date.now();
+        const currentTime = video.currentTime;
+        const duration = video.duration;
+
+        // Heartbeat: Log "playing" status every 60 seconds if playing normally
+        if (now - lastHeartbeatTimeRef.current > 60000) {
+            if (!video.paused && !video.ended && video.readyState >= 3) {
+                logInfo('video', 'Playback status: Normal', { 
+                    file: extractFilename(currentFile), 
+                    currentTime: currentTime.toFixed(1),
+                    duration: duration ? duration.toFixed(1) : 'unknown'
+                });
+            }
+            lastHeartbeatTimeRef.current = now;
+        }
+
+        // Freeze detection logic
+        if (!video.paused && !video.ended && video.readyState >= 3) {
+            // Check if time advanced
+            if (Math.abs(currentTime - lastTimeRef.current) < 0.05) { // 0.05s tolerance
+                freezeCounterRef.current++;
+                
+                // If frozen for 5 checks (5 seconds)
+                if (freezeCounterRef.current === 5) {
+                    logWarn('video', 'Playback freeze detected', {
+                        file: extractFilename(currentFile),
+                        currentTime: currentTime.toFixed(2),
+                        lastTime: lastTimeRef.current.toFixed(2)
+                    });
+                }
+                // If still frozen, log periodically (every 30s)
+                else if (freezeCounterRef.current > 5 && freezeCounterRef.current % 30 === 0) {
+                    logWarn('video', 'Playback still frozen', { 
+                        file: extractFilename(currentFile),
+                        secondsFrozen: freezeCounterRef.current 
+                    });
+                }
+            } else {
+                // Time advanced, reset counter
+                if (freezeCounterRef.current >= 5) {
+                    logInfo('video', 'Playback recovered from freeze');
+                }
+                freezeCounterRef.current = 0;
+            }
+            lastTimeRef.current = currentTime;
+        }
+
         // If we are close to the end (within 0.5s) and not paused, but ended event didn't fire
         if (video.duration && !video.paused) {
             const timeLeft = video.duration - video.currentTime;
@@ -531,11 +593,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       
       // Stalled event: media data is not available
       const handleStalled = () => {
-         // Only log for now, might be temporary network/disk issue
-         // If it persists, the timeupdate check won't fire and we might need logic there?
-         // Actually, if stalled, time doesn't advance.
-         // Let's rely on a "no progress" watchdog if needed, but for now just log.
-         // logWarn('video', 'Playback stalled', { file: currentFile });
+         logWarn('video', 'Playback stalled event received', { file: extractFilename(currentFile) });
       };
 
       if (playlist.length > 1) {

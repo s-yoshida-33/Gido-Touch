@@ -9,15 +9,18 @@ import { ImageSettingsTab } from "../components/ImageSettingsTab";
 import { ShopPositionSettingsTab } from "../components/ShopPositionSettingsTab";
 import { CurrentFloorSettingsTab } from "../components/CurrentFloorSettingsTab";
 import { LocalMediaSettingsTab } from "../components/LocalMediaSettingsTab";
+import { GenreSettingsTab } from "../components/GenreSettingsTab";
 import iconSvg from "../assets/icon.svg";
 import type { ImageSettings } from "../types/imageSettings";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
 import type { LocalMediaTextSettings } from "../types/global";
+import type { GenreSettings } from "../types/genreSettings";
 import { useAudioSettings } from "../hooks/useAudioSettings";
 import type { MallId } from "../hooks/useMallAssets";
+import { DEFAULT_IGNORED_GENRE_KEYWORDS } from "../utils/genreUtils";
 
-type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia";
+type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre";
 
 interface UnifiedSettingsScreenProps {
   floor: FloorId;
@@ -34,6 +37,8 @@ interface UnifiedSettingsScreenProps {
   onSaveCurrentFloorSetting: (floor: string) => void;
   localMediaTextSettings: LocalMediaTextSettings;
   onSaveLocalMediaTextSettings: (settings: LocalMediaTextSettings) => Promise<void> | void;
+  genreSettings: GenreSettings;
+  onSaveGenreSettings: (settings: GenreSettings) => Promise<void> | void;
 }
 
 const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
@@ -51,6 +56,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   onSaveCurrentFloorSetting,
   localMediaTextSettings: initialLocalMediaTextSettings,
   onSaveLocalMediaTextSettings,
+  genreSettings: initialGenreSettings,
+  onSaveGenreSettings,
 }) => {
   const [visible, setVisible] = useState(false);
   
@@ -74,6 +81,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>(initialCurrentFloorSetting);
   const [displayFloors, setDisplayFloors] = useState<string[]>(['1F', '2F', '3F', '4F']); // Default all
   const [localMediaTextSettings, setLocalMediaTextSettings] = useState<LocalMediaTextSettings>(initialLocalMediaTextSettings || {});
+  const [genreSettings, setGenreSettings] = useState<GenreSettings>(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
 
   // Mall settings
@@ -156,6 +164,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setShopPositions(initialShopPositions);
         setCurrentFloorSetting(initialCurrentFloorSetting);
         setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+        setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
         
         // Load display floors
         if (window.electronAPI?.getDisplayFloors) {
@@ -191,9 +200,10 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setShopPositions(initialShopPositions);
       setCurrentFloorSetting(initialCurrentFloorSetting);
       setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+      setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
       setCurrentAudioSettings(audioSettings);
     }
-  }, [visible, initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, audioSettings]);
+  }, [visible, initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, initialGenreSettings, audioSettings]);
 
   const handleClose = () => {
     setVisible(false);
@@ -208,6 +218,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setShopPositions(initialShopPositions);
     setCurrentFloorSetting(initialCurrentFloorSetting);
       setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+      setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
       setCurrentAudioSettings(audioSettings);
       setErrors({});
       // Reset transform - 現在のactiveTabに応じて適切な中央位置を計算
@@ -248,6 +259,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         onSaveImageSettings(imageSettings),
         onSaveShopPositions(shopPositions),
         onSaveLocalMediaTextSettings(localMediaTextSettings),
+        onSaveGenreSettings(genreSettings),
         saveAudioSettings(currentAudioSettings),
       ]);
       // currentFloorSettingの保存は同期的に行われる（App.tsx内でstate更新）が、
@@ -465,6 +477,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               { id: "shopPosition" as TabType, label: "座標設定" },
               { id: "floorSettings" as TabType, label: "フロア設定" },
               { id: "localMedia" as TabType, label: "ローカルメディア設定" },
+              { id: "genre" as TabType, label: "ジャンルメモ設定" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -668,6 +681,12 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               audioSettings={currentAudioSettings}
               onChangeAudioSettings={setCurrentAudioSettings}
               shops={shops}
+            />
+          )}
+          {activeTab === "genre" && (
+            <GenreSettingsTab
+              settings={genreSettings}
+              onChangeSettings={setGenreSettings}
             />
           )}
         </div>

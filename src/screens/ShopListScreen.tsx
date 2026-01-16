@@ -214,19 +214,47 @@ const ScalableText: React.FC<{ text: string; style?: React.CSSProperties }> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
-  useLayoutEffect(() => {
+  const adjustScale = useCallback(() => {
     if (containerRef.current && textRef.current) {
       const containerWidth = containerRef.current.clientWidth;
       const textWidth = textRef.current.scrollWidth;
       
-      if (textWidth > containerWidth) {
+      if (textWidth > containerWidth && containerWidth > 0) {
         const scale = containerWidth / textWidth;
         textRef.current.style.transform = `scaleX(${scale})`;
       } else {
         textRef.current.style.transform = "scaleX(1)";
       }
     }
-  }, [text]);
+  }, []);
+
+  useLayoutEffect(() => {
+    // Initial adjustment
+    adjustScale();
+    
+    // Adjust again after fonts are loaded
+    document.fonts.ready.then(adjustScale);
+    
+    // Force a re-calculation after a short delay to handle any layout shifts
+    const timer = setTimeout(adjustScale, 100);
+    return () => clearTimeout(timer);
+  }, [text, adjustScale]);
+
+  // Observe container resize
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      adjustScale();
+    });
+
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [adjustScale]);
 
   return (
     <div
@@ -313,7 +341,7 @@ interface ShopListScreenProps {
  * Action space background: Black
  */
 const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions, displayFloors = ['1F', '2F', '3F', '4F'] }) => {
-  const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage } = useMall();
+  const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage, genreSettings } = useMall();
   
   // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -981,7 +1009,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                           .map(s => s.trim())
                           .filter(s => s.length > 0);
 
-                        genreMemo = filterGenreMemos(memos).slice(0, 3).join(" / ");
+                        genreMemo = filterGenreMemos(memos, genreSettings?.ignoredKeywords, genreSettings?.maxItems).join(" / ");
                     }
 
                     // Format first line: "フロア [区画番号] ジャンルメモ"
