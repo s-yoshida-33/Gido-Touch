@@ -151,6 +151,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const lastTimeRef = React.useRef<number>(0);
   const freezeCounterRef = React.useRef<number>(0);
   const lastHeartbeatTimeRef = React.useRef<number>(Date.now());
+  const lastGoodStateTimeRef = React.useRef<number>(Date.now());
 
   // Current set src path
   const currentSrcRef = React.useRef<string | null>(null);
@@ -461,6 +462,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         lastTimeRef.current = 0;
         freezeCounterRef.current = 0;
         lastHeartbeatTimeRef.current = Date.now();
+        lastGoodStateTimeRef.current = Date.now();
 
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
@@ -516,6 +518,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         lastTimeRef.current = 0;
         freezeCounterRef.current = 0;
         lastHeartbeatTimeRef.current = Date.now();
+        lastGoodStateTimeRef.current = Date.now();
       }
       
       const handleEnded = () => {
@@ -530,10 +533,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         const now = Date.now();
         const currentTime = video.currentTime;
         const duration = video.duration;
+        const isReady = video.readyState >= 3;
 
         // Heartbeat: Log "playing" status every 60 seconds if playing normally
         if (now - lastHeartbeatTimeRef.current > 60000) {
-            if (!video.paused && !video.ended && video.readyState >= 3) {
+            if (!video.paused && !video.ended && isReady) {
                 logInfo('video', 'Playback status: Normal', { 
                     file: extractFilename(currentFile), 
                     currentTime: currentTime.toFixed(1),
@@ -544,45 +548,62 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         }
 
         // Freeze detection logic
-        if (!video.paused && !video.ended && video.readyState >= 3) {
-            // Check if time advanced
-            if (Math.abs(currentTime - lastTimeRef.current) < 0.05) { // 0.05s tolerance
-                freezeCounterRef.current++;
-                
-                // If frozen for 5 checks (5 seconds)
-                if (freezeCounterRef.current === 5) {
-                    logWarn('video', 'Playback freeze detected', {
-                        file: extractFilename(currentFile),
-                        currentTime: currentTime.toFixed(2),
-                        lastTime: lastTimeRef.current.toFixed(2)
-                    });
+        if (!video.paused && !video.ended) {
+            if (isReady) {
+                // Video is ready to play, update good state time
+                lastGoodStateTimeRef.current = now;
+
+                // Check if time advanced
+                if (Math.abs(currentTime - lastTimeRef.current) < 0.05) { // 0.05s tolerance
+                    freezeCounterRef.current++;
+                    
+                    // If frozen for 5 checks (5 seconds)
+                    if (freezeCounterRef.current === 5) {
+                        logWarn('video', 'Playback freeze detected', {
+                            file: extractFilename(currentFile),
+                            currentTime: currentTime.toFixed(2),
+                            lastTime: lastTimeRef.current.toFixed(2)
+                        });
+                    }
+                    // If still frozen, log periodically (every 30s)
+                    else if (freezeCounterRef.current > 5 && freezeCounterRef.current % 30 === 0) {
+                        logWarn('video', 'Playback still frozen', { 
+                            file: extractFilename(currentFile),
+                            secondsFrozen: freezeCounterRef.current 
+                        });
+                        // Force recovery if frozen for too long (e.g. 30s)
+                        handleNext();
+                    }
+                } else {
+                    // Time advanced, reset counter
+                    if (freezeCounterRef.current >= 5) {
+                        logInfo('video', 'Playback recovered from freeze');
+                    }
+                    freezeCounterRef.current = 0;
                 }
-                // If still frozen, log periodically (every 30s)
-                else if (freezeCounterRef.current > 5 && freezeCounterRef.current % 30 === 0) {
-                    logWarn('video', 'Playback still frozen', { 
-                        file: extractFilename(currentFile),
-                        secondsFrozen: freezeCounterRef.current 
-                    });
-                }
+                lastTimeRef.current = currentTime;
             } else {
-                // Time advanced, reset counter
-                if (freezeCounterRef.current >= 5) {
-                    logInfo('video', 'Playback recovered from freeze');
+                // Video is NOT ready (buffering/loading)
+                const stuckDuration = now - lastGoodStateTimeRef.current;
+                
+                // If stuck in non-ready state for more than 10 seconds
+                if (stuckDuration > 10000) {
+                    logWarn('video', 'Playback stuck in non-ready state', { 
+                        file: extractFilename(currentFile),
+                        readyState: video.readyState, 
+                        stuckDuration 
+                    });
+                    
+                    // Force skip to next video
+                    handleNext();
+                    // Reset good state time to prevent immediate loop
+                    lastGoodStateTimeRef.current = now;
                 }
-                freezeCounterRef.current = 0;
             }
-            lastTimeRef.current = currentTime;
         }
 
         // If we are close to the end (within 0.5s) and not paused, but ended event didn't fire
         if (video.duration && !video.paused) {
-            const timeLeft = video.duration - video.currentTime;
-            if (timeLeft < 0.5 && timeLeft >= 0) {
-                 // Check if we are stuck here?
-                 // Or just force next if we are extremely close to end.
-                 // Let's rely on time update check below.
-            }
-            
             // Check if duration exceeded (some players glitch and go past duration)
             if (video.currentTime >= video.duration) {
                 logWarn('video', 'Duration exceeded without ended event, forcing next', { file: currentFile });
