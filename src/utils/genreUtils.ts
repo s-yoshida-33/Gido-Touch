@@ -10,7 +10,9 @@ export const IGNORED_GENRE_KEYWORDS = new Set([
   "レストラン",
   "グルメアリーナ",
   "SUZAKA蔵",
-  "SUZUKA蔵"
+  "SUZUKA蔵",
+  "レストラン・カフェ",
+  "レストラン・グルメ"
 ]);
 
 // パターンマッチで除外するキーワード

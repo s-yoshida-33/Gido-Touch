@@ -1133,6 +1133,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                             backgroundColor: "#000000",
                             color: "#FFFFFF",
                             justifyContent: "center",
+                            minWidth: 0,
                           }}
                         >
                           {/* First line: Floor, number, genre memo (16px) */}
