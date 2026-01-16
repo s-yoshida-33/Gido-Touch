@@ -3,7 +3,6 @@ import React from 'react';
 import { useIndependentVideo } from '../hooks/useIndependentVideo';
 import { useAudioSettings } from '../hooks/useAudioSettings';
 import { logInfo, logError, logWarn } from '../logs/logging';
-import type { LocalMediaTextSettings } from '../types/global';
 import type { Shop } from '../types/shop';
 import { getDefaultMediaSettings } from '../utils/localMediaUtils';
 
@@ -132,7 +131,6 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const [playlist, setPlaylist] = React.useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [isLoadingMedia, setIsLoadingMedia] = React.useState(true);
-  const [textSettings, setTextSettings] = React.useState<LocalMediaTextSettings>({});
   
   // Override image state
   const [overrideImage, setOverrideImage] = React.useState<string | null>(null);
@@ -418,28 +416,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     };
   }, [forceReload, localReload]);
 
-  // Load text settings
-  React.useEffect(() => {
-    const api = window.electronAPI;
-    if (!api) return;
-
-    // Initial load
-    if (api.getLocalMediaTextSettings) {
-      api.getLocalMediaTextSettings().then(settings => {
-        setTextSettings(settings);
-      }).catch(err => console.error("Failed to load text settings", err));
-    }
-
-    // Subscribe to updates
-    const unsubscribe = api.onLocalMediaTextSettingsUpdated ? 
-      api.onLocalMediaTextSettingsUpdated((settings) => {
-        setTextSettings(settings);
-      }) : undefined;
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
+  // Load text settings - REMOVED (Always use API integration)
+  // React.useEffect(() => { ... }, []);
 
   // Handle media playback - loop through playlist (shuffled)
   React.useEffect(() => {
@@ -714,19 +692,17 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const { line1: memoLine1, line2: memoLine2 } = React.useMemo(() => {
       if (!filename) return { line1: undefined, line2: undefined };
 
-      let currentText = textSettings[filename];
-      
-      // If setting is not present, generate default from shops data
-      if (!currentText && shops.length > 0) {
-        currentText = getDefaultMediaSettings(filename, shops);
-      }
+      // Always generate default from shops data (Pure API integration)
+      const currentText = shops.length > 0 ? getDefaultMediaSettings(filename, shops) : null;
   
+      if (!currentText) return { line1: undefined, line2: undefined };
+
       // Determine text to display based on language
-      const l1 = (language === 'en' && currentText?.line1En) ? currentText.line1En : currentText?.line1;
-      const l2 = (language === 'en' && currentText?.line2En) ? currentText.line2En : currentText?.line2;
+      const l1 = (language === 'en' && currentText.line1En) ? currentText.line1En : currentText.line1;
+      const l2 = (language === 'en' && currentText.line2En) ? currentText.line2En : currentText.line2;
       
       return { line1: l1, line2: l2 };
-  }, [filename, shops, textSettings, language]);
+  }, [filename, shops, language]);
 
   // Loading state
   if (isLoading || isLoadingMedia || isOverrideImageLoading) {

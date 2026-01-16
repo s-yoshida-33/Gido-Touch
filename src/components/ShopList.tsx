@@ -10,6 +10,7 @@ import {
 } from "../config";
 import "../styles/ShopList.css";
 import { logInfo, logError } from "../logs/logging";
+import { filterGenreMemos } from "../utils/genreUtils";
 
 type ColumnPadding = {
   top?: number;
@@ -400,18 +401,23 @@ const ShopList: React.FC<ShopListProps> = ({
                             {s.number}
                           </span>
 
-                          {s.genreMemo && (
-                            <span
-                              style={{
-                                marginLeft: "0.5em",
-                                fontFamily: "Rounded Mplus 1c, sans-serif",
-                                fontWeight: 400,
-                                fontSize: "0.7em",
-                              }}
-                            >
-                              {`[${s.genreMemo}]`}
-                            </span>
-                          )}
+                          {(() => {
+                            const memos = s.genreMemo ? s.genreMemo.split(/[|/／,、\s]+/).filter(Boolean) : [];
+                            const displayMemo = filterGenreMemos(memos).join(" / ");
+                            if (!displayMemo) return null;
+                            return (
+                              <span
+                                style={{
+                                  marginLeft: "0.5em",
+                                  fontFamily: "Rounded Mplus 1c, sans-serif",
+                                  fontWeight: 400,
+                                  fontSize: "0.7em",
+                                }}
+                              >
+                                {`[${displayMemo}]`}
+                              </span>
+                            );
+                          })()}
                         </span>
 
                         <span
@@ -476,18 +482,23 @@ const ShopList: React.FC<ShopListProps> = ({
               >
                 {s.number}
               </span>
-              {s.genreMemo && (
-                <span
-                  style={{
-                    marginLeft: "0.5em",
-                    fontFamily: "Rounded Mplus 1c, sans-serif",
-                    fontWeight: 400,
-                    fontSize: "0.7em",
-                  }}
-                >
-                  {`[${s.genreMemo}]`}
-                </span>
-              )}
+              {(() => {
+                const memos = s.genreMemo ? s.genreMemo.split(/[|/／,、\s]+/).filter(Boolean) : [];
+                const displayMemo = filterGenreMemos(memos).join(" / ");
+                if (!displayMemo) return null;
+                return (
+                  <span
+                    style={{
+                      marginLeft: "0.5em",
+                      fontFamily: "Rounded Mplus 1c, sans-serif",
+                      fontWeight: 400,
+                      fontSize: "0.7em",
+                    }}
+                  >
+                    {`[${displayMemo}]`}
+                  </span>
+                );
+              })()}
             </span>
             <span>{s.name}</span>
           </div>

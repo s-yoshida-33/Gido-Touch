@@ -61,9 +61,12 @@ export function filterGenreMemos(memos: string[], ignoredKeywords?: string[], ma
   
   const filtered = memos.filter(memo => !shouldIgnoreGenre(memo, ignoredKeywords));
   
+  // Remove duplicates while preserving order
+  const unique = Array.from(new Set(filtered));
+  
   if (maxItems !== undefined && maxItems > 0) {
-    return filtered.slice(0, maxItems);
+    return unique.slice(0, maxItems);
   }
   
-  return filtered;
+  return unique;
 }
