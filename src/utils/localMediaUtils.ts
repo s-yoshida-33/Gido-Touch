@@ -12,7 +12,8 @@ export const getDefaultMediaSettings = (filename: string, shops: Shop[]) => {
   // Get ID part (before first hyphen)
   const shopId = nameWithoutExt.split('-')[0];
 
-  const shop = shops.find(s => s.shopId === shopId);
+  // Find shop by shopId OR number (with loose equality for safety)
+  const shop = shops.find(s => String(s.shopId) === String(shopId) || String(s.number) === String(shopId));
   
   if (!shop) {
     return { line1: '', line2: '', line1En: '', line2En: '' };
@@ -43,4 +44,3 @@ export const getDefaultMediaSettings = (filename: string, shops: Shop[]) => {
 
   return { line1, line2, line1En, line2En };
 };
-

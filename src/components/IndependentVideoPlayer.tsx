@@ -52,6 +52,60 @@ function shuffleArray<T>(array: T[]): T[] {
   return newArray;
 }
 
+/**
+ * Build image path using shop_id if photo is relative or filename only
+ * Copied from ShopListScreen.tsx for consistency
+ */
+function buildImagePath(photo: string | undefined, shopId: string | undefined): string {
+  if (!photo) return "";
+  
+  if (photo.match(/^[A-Za-z]:[\\/]/)) return photo;
+  if (photo.startsWith("file://") || photo.startsWith("http://") || photo.startsWith("https://") || photo.startsWith("data:")) return photo;
+  
+  if (photo.startsWith("/") || photo.startsWith("\\")) {
+    if (photo.startsWith("\\\\")) return photo;
+    if (photo.startsWith("/")) return photo;
+  }
+  
+  if (shopId) {
+    if (photo.includes(`shop/${shopId}/`) || photo.includes(`shop\\${shopId}\\`) ||
+        photo.includes(`files/shop/${shopId}/`) || photo.includes(`files\\shop\\${shopId}\\`)) {
+      return photo;
+    }
+    
+    const normalizedPhoto = photo.replace(/\\/g, "/");
+    const cleanPhoto = normalizedPhoto.startsWith("/") ? normalizedPhoto.slice(1) : normalizedPhoto;
+    
+    if (!cleanPhoto.includes("/")) {
+      return `files/shop/${shopId}/${cleanPhoto}`;
+    }
+    
+    if (shopId) {
+        return `files/shop/${shopId}/${cleanPhoto}`;
+    }
+    return photo;
+  }
+  return photo;
+}
+
+/**
+ * Convert a local file path to a file:// URL for Electron
+ */
+function toFileUrl(filePath: string): string {
+  if (!filePath) return "";
+  if (filePath.startsWith("file://") || filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:")) {
+    return filePath;
+  }
+  const normalized = filePath.replace(/\\/g, "/");
+  if (normalized.match(/^[A-Za-z]:\//)) {
+    return `file:///${normalized}`;
+  }
+  if (normalized.startsWith("/")) {
+    return `file://${normalized}`;
+  }
+  return `file:///${normalized}`;
+}
+
 interface IndependentVideoPlayerProps {
   forceReload?: number;
   videoHeight?: string | number;
@@ -80,6 +134,10 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const [isLoadingMedia, setIsLoadingMedia] = React.useState(true);
   const [textSettings, setTextSettings] = React.useState<LocalMediaTextSettings>({});
   
+  // Override image state
+  const [overrideImage, setOverrideImage] = React.useState<string | null>(null);
+  const [isOverrideImageLoading, setIsOverrideImageLoading] = React.useState(false);
+  
   // Local reload trigger for when mall ID changes
   const [localReload, setLocalReload] = React.useState(0);
   
@@ -91,6 +149,65 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   
   // Current set src path
   const currentSrcRef = React.useRef<string | null>(null);
+
+  // Helper to render consistent container
+  const renderContainer = (
+    content: React.ReactNode, 
+    bgColor: string = '#000000', 
+    textInfo?: { line1?: string, line2?: string }
+  ) => (
+    <div style={{ width: '100%', height: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div
+        ref={containerRef}
+        style={{
+          width: '100%',
+          height: videoHeight,
+          position: 'relative',
+          backgroundColor: bgColor,
+          overflow: 'hidden',
+          borderRadius: '30px',
+          minHeight: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {content}
+      </div>
+      {/* Text Area - Always render fixed height container to prevent layout shift */}
+      <div style={{ 
+          marginTop: 12, 
+          marginLeft: 8,
+          height: '72px', // Fixed height for 2 lines of text (approx) to prevent jumping
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-start',
+          flexShrink: 0
+        }}>
+        {(textInfo?.line1 || textInfo?.line2) ? (
+          <>
+            {textInfo.line1 && (
+              <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#ffffff', marginBottom: 4, lineHeight: '1.2' }}>
+                {textInfo.line1}
+              </div>
+            )}
+            {textInfo.line2 && (
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffffff', lineHeight: '1.2' }}>
+                {textInfo.line2}
+              </div>
+            )}
+          </>
+        ) : (
+             // Invisible placeholder to maintain height
+             <div style={{ visibility: 'hidden' }}>
+               <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: 4, lineHeight: '1.2' }}>&nbsp;</div>
+               <div style={{ fontSize: '24px', fontWeight: 'bold', lineHeight: '1.2' }}>&nbsp;</div>
+             </div>
+        )}
+      </div>
+    </div>
+  );
 
   // Listen for Mall ID updates
   React.useEffect(() => {
@@ -105,22 +222,25 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
   // Update playlist when overrideShopId changes
   React.useEffect(() => {
-    if (mediaFiles.length === 0) return;
+    // Note: This effect runs when overrideShopId changes OR when mediaFiles changes.
+    // This allows us to re-check for media files if they load after the shop is selected.
 
     if (overrideShopId) {
-      // Filter files for the specific shop
+      // 1. Try to find local media files for the specific shop
       // Filename format: "{shopId}.mp4" or "{shopId}-1.jpg" etc.
+      // Use loose equality for ID matching to handle string/number mismatch
       const shopFiles = mediaFiles.filter(file => {
         const filename = extractFilename(file);
         const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
         const idPart = nameWithoutExt.split('-')[0];
-        return idPart === overrideShopId;
+        return String(idPart) === String(overrideShopId);
       });
 
       if (shopFiles.length > 0) {
         logInfo('video', `Overriding playlist for shop: ${overrideShopId}`, { count: shopFiles.length });
         
         // Save current state before overriding, if not already saved
+        // IMPORTANT: Only save if we are transitioning from a non-override state
         if (savedStateRef.current === null) {
           savedStateRef.current = {
             playlist: playlist,
@@ -131,30 +251,105 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         
         setPlaylist(shopFiles);
         setCurrentIndex(0);
+        setOverrideImage(null); // Clear override image
+        currentSrcRef.current = null; // Force reset src ref
       } else {
-        logInfo('video', `No media found for shop override: ${overrideShopId}`);
-        // If no files found, continue playing current playlist
-        // Do NOT save state here as we are not overriding
+        logInfo('video', `No local media found for shop override: ${overrideShopId}. Trying shop details image.`);
+        
+        // 2. If no local media, try to load shop image
+        // Find shop using loose equality
+        const shop = shops.find(s => String(s.shopId || s.number) === String(overrideShopId));
+        
+        if (shop) {
+          // Use photo2 (Brand Image) or photo1
+          const photoToUse = shop.photo2 || shop.photo1; 
+          
+          if (photoToUse) {
+             const loadShopImage = async () => {
+                setIsOverrideImageLoading(true);
+                const imagePath = buildImagePath(photoToUse, overrideShopId);
+                
+                if (imagePath) {
+                   const electronAPI = window.electronAPI;
+                   if (electronAPI && electronAPI.getShopImage) {
+                      try {
+                         const dataUrl = await electronAPI.getShopImage(imagePath);
+                         if (dataUrl) {
+                            setOverrideImage(dataUrl);
+                         } else {
+                            setOverrideImage(toFileUrl(imagePath));
+                         }
+                      } catch (e) {
+                         console.error("Failed to load shop image", e);
+                         setOverrideImage(toFileUrl(imagePath));
+                      }
+                   } else {
+                      setOverrideImage(toFileUrl(imagePath));
+                   }
+                }
+                setIsOverrideImageLoading(false);
+             };
+             loadShopImage();
+             
+             // Save state if needed
+             if (savedStateRef.current === null) {
+                savedStateRef.current = {
+                  playlist: playlist,
+                  index: currentIndex,
+                  currentTime: videoRef.current ? videoRef.current.currentTime : 0
+                };
+             }
+             setPlaylist([]); // Clear playlist to stop playing previous
+             currentSrcRef.current = null; // Force reset src ref to ensure restoration later works
+          } else {
+            // No photo available
+            logInfo('video', `No shop photo found for shop: ${overrideShopId}`);
+            setOverrideImage(null);
+            currentSrcRef.current = null; 
+          }
+        }
       }
     } else {
       // When override is cleared, restore previous state if available
+      setOverrideImage(null);
+      currentSrcRef.current = null; // Force reset src ref to ensure restoration works
+      
       if (savedStateRef.current) {
          logInfo('video', 'Restoring playlist from override');
-         setPlaylist(savedStateRef.current.playlist);
+         
+         const restoredPlaylist = savedStateRef.current.playlist;
+         setPlaylist(restoredPlaylist);
          setCurrentIndex(savedStateRef.current.index);
          // Set pending seek time
          pendingSeekTimeRef.current = savedStateRef.current.currentTime;
+         
          savedStateRef.current = null;
+         
+         // Fix: If we restored an empty playlist (maybe because mediaFiles weren't loaded when we started override),
+         // but now we have mediaFiles, we should restart the loop!
+         if (restoredPlaylist.length === 0 && mediaFiles.length > 0) {
+             // However, only do this if we aren't supposed to be playing videoSettings (legacy)
+             // If videoSettings is enabled, empty playlist allows fallback to it.
+             // If videoSettings is NOT enabled, we should play mediaFiles.
+             if (!videoSettings?.enabled || !videoSettings.source) {
+                 logInfo('video', 'Restored empty playlist but have media files, starting loop');
+                 setPlaylist(shuffleArray(mediaFiles));
+                 setCurrentIndex(0);
+             }
+         }
       } else {
         // If no saved state (meaning we didn't override or just started), 
         // ensure we have a playlist but don't reset if already playing
         if (playlist.length === 0 && mediaFiles.length > 0) {
-           setPlaylist(shuffleArray(mediaFiles));
-           setCurrentIndex(0);
+            // Check legacy video settings
+            if (!videoSettings?.enabled || !videoSettings.source) {
+               setPlaylist(shuffleArray(mediaFiles));
+               setCurrentIndex(0);
+            }
         }
       }
     }
-  }, [overrideShopId, mediaFiles]);
+  }, [overrideShopId, mediaFiles]); // Removed 'shops' from deps to avoid loop
 
   // Load media files from local directory
   React.useEffect(() => {
@@ -187,11 +382,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         });
 
         setMediaFiles(files);
-        // Shuffle initially
-        setPlaylist(shuffleArray(files));
-        
-        // Reset index
-        setCurrentIndex(0);
+        // Only shuffle and set playlist if NOT in override mode
+        if (!overrideShopId) {
+            setPlaylist(shuffleArray(files));
+            setCurrentIndex(0);
+        }
         
         setIsLoadingMedia(false);
         
@@ -241,6 +436,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
   // Handle media playback - loop through playlist (shuffled)
   React.useEffect(() => {
+    // If we have an override image, do not play video/playlist
+    if (overrideImage) return;
+
     if (playlist.length === 0 || isLoadingMedia) return;
 
     const currentFile = playlist[currentIndex];
@@ -253,6 +451,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       const video = videoRef.current;
       
       // Only update src if it changed
+      // Also update if currentSrcRef is null (force update after restore)
       if (currentSrcRef.current !== currentFile) {
         video.src = currentFile;
         currentSrcRef.current = currentFile;
@@ -342,12 +541,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         clearTimeout(timer);
       };
     }
-  }, [playlist, currentIndex, isLoadingMedia, mediaFiles, audioSettings.localMediaMuted, overrideShopId]);
+  }, [playlist, currentIndex, isLoadingMedia, mediaFiles, audioSettings.localMediaMuted, overrideShopId, overrideImage]);
 
   // Handle video settings changes (legacy support)
   React.useEffect(() => {
     // If videoSettings is enabled and has a source, use it instead of local files
-    if (videoSettings?.enabled && videoSettings.source && playlist.length === 0) {
+    // But ONLY if we are NOT overriding with a shop image
+    if (!overrideImage && videoSettings?.enabled && videoSettings.source && playlist.length === 0) {
       if (!videoRef.current) return;
 
       const video = videoRef.current;
@@ -361,7 +561,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       video.loop = videoSettings.loop;
       video.autoplay = videoSettings.autoplay;
     }
-  }, [videoSettings, playlist.length]);
+  }, [videoSettings, playlist.length, overrideImage]);
 
   // Handle audio settings updates dynamically
   React.useEffect(() => {
@@ -371,23 +571,45 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   }, [audioSettings.localMediaMuted]);
 
   // Loading state
-  if (isLoading || isLoadingMedia) {
-    return (
+  if (isLoading || isLoadingMedia || isOverrideImageLoading) {
+    return renderContainer(
       <div
         style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           color: '#888',
           fontSize: 12,
-          backgroundColor: '#000000',
         }}
       >
         Loading…
       </div>
     );
+  }
+  
+  // Case: Override Image Display
+  if (overrideImage) {
+      // Calculate text settings for ticker using default logic
+      const currentText = overrideShopId ? getDefaultMediaSettings(`${overrideShopId}.dummy`, shops) : null;
+      const line1 = (language === 'en' && currentText?.line1En) ? currentText.line1En : currentText?.line1;
+      const line2 = (language === 'en' && currentText?.line2En) ? currentText.line2En : currentText?.line2;
+
+      return renderContainer(
+          <img 
+              src={overrideImage}
+              alt="Shop Detail"
+              draggable={false}
+              style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain', 
+                  display: 'block'
+              }}
+              onError={(e) => {
+                  logError('video', 'Failed to load override shop image');
+                  e.currentTarget.style.display = 'none';
+              }}
+          />,
+          '#ffffff', // White background
+          { line1, line2 }
+      );
   }
 
   // Use local media files if available
@@ -407,21 +629,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     const line1 = (language === 'en' && currentText?.line1En) ? currentText.line1En : currentText?.line1;
     const line2 = (language === 'en' && currentText?.line2En) ? currentText.line2En : currentText?.line2;
 
-    return (
-      <div style={{ width: '100%', height: 'auto', display: 'flex', flexDirection: 'column' }}>
-        <div
-          ref={containerRef}
-          style={{
-            width: '100%',
-            height: videoHeight,
-            position: 'relative',
-            backgroundColor: '#000000',
-            overflow: 'hidden',
-            borderRadius: '30px',
-            minHeight: 0, // Flexbox nesting fix
-          }}
-        >
-          {isVideo && (
+    const content = (
+      <>
+        {isVideo && (
             <video
               ref={videoRef}
               autoPlay
@@ -439,7 +649,6 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                   file: currentFile,
                   error: e.currentTarget.error?.message,
                 });
-                // Move to next file on error
                 const nextIndex = currentIndex + 1;
                 if (nextIndex >= playlist.length) {
                   if (overrideShopId) {
@@ -453,8 +662,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 }
               }}
             />
-          )}
-          {isImage && (
+        )}
+        {isImage && (
             <img
               ref={imgRef}
               alt=""
@@ -466,10 +675,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 backgroundColor: '#000000',
               }}
               onError={(_e) => {
-                logError('video', 'Image load error', {
-                  file: currentFile,
-                  });
-                // Move to next file on error
+                logError('video', 'Image load error', { file: currentFile });
                 const nextIndex = currentIndex + 1;
                 if (nextIndex >= playlist.length) {
                   if (overrideShopId) {
@@ -483,40 +689,20 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 }
               }}
             />
-          )}
-        </div>
-        {/* Text Area */}
-        {(line1 || line2) && (
-          <div style={{ marginTop: 12, marginLeft: 8 }}>
-            {line1 && (
-              <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#ffffff', marginBottom: 4 }}>
-                {line1}
-              </div>
-            )}
-            {line2 && (
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffffff' }}>
-                {line2}
-              </div>
-            )}
-          </div>
         )}
-      </div>
+      </>
     );
+
+    return renderContainer(content, '#000000', { line1, line2 });
   }
 
   // Fallback to videoSettings if no local files (legacy support)
   if (!videoSettings || !videoSettings.enabled || !videoSettings.source) {
-    return (
+    return renderContainer(
       <div
         style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           color: '#888',
           fontSize: 12,
-          backgroundColor: '#000000',
         }}
       >
         {!videoSettings?.enabled ? 'Video disabled' : 'No media files found'}
@@ -525,7 +711,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   }
 
   // Render video player (legacy mode)
-  return (
+  return renderContainer(
     <video
       ref={videoRef}
       muted
@@ -540,32 +726,10 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         backgroundColor: '#000000',
       }}
       onLoadedMetadata={() => {
-        // Seek if there is a pending seek time
         if (pendingSeekTimeRef.current !== null && videoRef.current) {
           logInfo('video', 'Restoring playback position', { time: pendingSeekTimeRef.current });
           videoRef.current.currentTime = pendingSeekTimeRef.current;
           pendingSeekTimeRef.current = null;
-        }
-      }}
-      onLoadedData={() => {
-        logInfo('video', 'Independent video loaded', {
-          source: videoSettings.source,
-        });
-      }}
-      onPlay={() => {
-        logInfo('video', 'Independent video playback started', {
-          source: videoSettings.source,
-        });
-      }}
-      onEnded={() => {
-        if (videoSettings.loop) {
-          logInfo('video', 'Independent video ended (will loop)', {
-            source: videoSettings.source,
-          });
-        } else {
-          logInfo('video', 'Independent video ended', {
-            source: videoSettings.source,
-          });
         }
       }}
       onError={(e) => {
@@ -573,7 +737,6 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           source: videoSettings.source,
           error: e.currentTarget.error?.message,
         });
-        // Try to reload on error
         if (videoRef.current) {
           setTimeout(() => {
             if (videoRef.current && videoSettings.source) {
