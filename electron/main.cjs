@@ -34,6 +34,20 @@ let lastLoadSettingsDebug = {
   error: null
 };
 
+// Default ignored genre keywords (Japanese) - sync with src/utils/genreUtils.ts
+const DEFAULT_IGNORED_GENRE_KEYWORDS = [
+  "グルメ",
+  "フード",
+  "フードコート",
+  "レストラン",
+  "グルメアリーナ",
+  "SUZAKA蔵",
+  "SUZUKA蔵",
+  "レストラン・カフェ",
+  "レストラン・グルメ",
+  "エキトマチケット加盟店"
+];
+
 // Default location icon settings (single floor)
 const DEFAULT_LOCATION_ICON_SETTINGS_SINGLE = {
   speechBubble: {
@@ -228,6 +242,10 @@ function loadSettings() {
     },
     shopPositions: { positions: {} }, // Will be merged with default-shop-positions later
     localMediaTextSettings: {},
+    genreSettings: {
+      ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS,
+      maxItems: 3
+    },
   };
 
   // 1. Load user settings to check if a mallId is already set
@@ -424,6 +442,15 @@ function broadcastLocalMediaTextSettings(settings) {
 function broadcastAudioSettings(settings) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('audio-settings-updated', settings);
+  }
+}
+
+/**
+ * Broadcast genre settings changes to renderer processes
+ */
+function broadcastGenreSettings(settings) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('genre-settings-updated', settings);
   }
 }
 
@@ -848,6 +875,7 @@ function createMainWindow() {
     broadcastFloorLayout(settings.floorLayout);
     broadcastLocalMediaTextSettings(settings.localMediaTextSettings);
     broadcastAudioSettings(settings.audioSettings);
+    broadcastGenreSettings(settings.genreSettings);
   });
 
   mainWindow.on('closed', () => {
@@ -1326,6 +1354,20 @@ ipcMain.handle('save-audio-settings', (_event, audioSettings) => {
   const settings = saveSettings({ audioSettings });
   broadcastAudioSettings(settings.audioSettings);
   return settings.audioSettings;
+});
+
+ipcMain.handle('get-genre-settings', () => {
+  const settings = loadSettings();
+  logger.debug('IPC get-genre-settings');
+  // Return default if not set
+  return settings.genreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 };
+});
+
+ipcMain.handle('save-genre-settings', (_event, genreSettings) => {
+  logger.info('IPC save-genre-settings');
+  const settings = saveSettings({ genreSettings });
+  broadcastGenreSettings(settings.genreSettings);
+  return settings.genreSettings;
 });
 
 // IPC Handler for exporting current settings as default

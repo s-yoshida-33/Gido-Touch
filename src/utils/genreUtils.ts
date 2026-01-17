@@ -12,7 +12,8 @@ export const DEFAULT_IGNORED_GENRE_KEYWORDS = [
   "SUZAKA蔵",
   "SUZUKA蔵",
   "レストラン・カフェ",
-  "レストラン・グルメ"
+  "レストラン・グルメ",
+  "エキトマチケット加盟店"
 ];
 
 // パターンマッチで除外するキーワード

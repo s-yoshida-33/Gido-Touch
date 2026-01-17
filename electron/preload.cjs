@@ -251,6 +251,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('audio-settings-updated', listener);
     };
   },
+  getGenreSettings() {
+    return ipcRenderer.invoke('get-genre-settings');
+  },
+  saveGenreSettings(settings) {
+    return ipcRenderer.invoke('save-genre-settings', settings);
+  },
+  onGenreSettingsUpdated(callback) {
+    const listener = (_event, updated) => callback(updated);
+    ipcRenderer.on('genre-settings-updated', listener);
+
+    return () => {
+      ipcRenderer.removeListener('genre-settings-updated', listener);
+    };
+  },
 });
 
 contextBridge.exposeInMainWorld('wspApi', {
