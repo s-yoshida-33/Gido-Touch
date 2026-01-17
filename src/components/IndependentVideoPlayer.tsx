@@ -122,7 +122,12 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 }) => {
   const { videoSettings, isLoading } = useIndependentVideo();
   const { settings: audioSettings } = useAudioSettings();
-  const videoRef = React.useRef<HTMLVideoElement>(null);
+  
+  // Double buffering refs
+  const videoRefA = React.useRef<HTMLVideoElement>(null);
+  const videoRefB = React.useRef<HTMLVideoElement>(null);
+  const [activePlayerId, setActivePlayerId] = React.useState<'A' | 'B'>('A');
+
   const imgRef = React.useRef<HTMLImageElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   
@@ -135,6 +140,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   // Override image state
   const [overrideImage, setOverrideImage] = React.useState<string | null>(null);
   const [isOverrideImageLoading, setIsOverrideImageLoading] = React.useState(false);
+  
+  // Current set src path
+  const currentSrcRef = React.useRef<string | null>(null);
   
   // Local reload trigger for when mall ID changes
   const [localReload, setLocalReload] = React.useState(0);
@@ -151,8 +159,22 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const lastHeartbeatTimeRef = React.useRef<number>(Date.now());
   const lastGoodStateTimeRef = React.useRef<number>(Date.now());
 
-  // Current set src path
-  const currentSrcRef = React.useRef<string | null>(null);
+  // Helper to get active/inactive video refs
+  const getActiveVideo = () => activePlayerId === 'A' ? videoRefA.current : videoRefB.current;
+  const getInactiveVideo = () => activePlayerId === 'A' ? videoRefB.current : videoRefA.current;
+
+  // Helper to format buffered ranges
+  const getBufferedRanges = (video: HTMLVideoElement) => {
+      try {
+          const ranges = [];
+          for (let i = 0; i < video.buffered.length; i++) {
+              ranges.push(`[${video.buffered.start(i).toFixed(2)}-${video.buffered.end(i).toFixed(2)}]`);
+          }
+          return ranges.join(', ');
+      } catch {
+          return 'unknown';
+      }
+  };
 
   // Helper to render consistent container
   const renderContainer = (
@@ -247,17 +269,17 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         // Save current state before overriding, if not already saved
         // IMPORTANT: Only save if we are transitioning from a non-override state
         if (savedStateRef.current === null) {
-          savedStateRef.current = {
+            const activeVideo = getActiveVideo();
+            savedStateRef.current = {
             playlist: playlist,
             index: currentIndex,
-            currentTime: videoRef.current ? videoRef.current.currentTime : 0
+            currentTime: activeVideo ? activeVideo.currentTime : 0
           };
         }
         
         setPlaylist(shopFiles);
         setCurrentIndex(0);
         setOverrideImage(null); // Clear override image
-        currentSrcRef.current = null; // Force reset src ref
       } else {
         logInfo('video', `No local media found for shop override: ${overrideShopId}. Trying shop details image.`);
         
@@ -298,26 +320,24 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
              
              // Save state if needed
              if (savedStateRef.current === null) {
+                const activeVideo = getActiveVideo();
                 savedStateRef.current = {
                   playlist: playlist,
                   index: currentIndex,
-                  currentTime: videoRef.current ? videoRef.current.currentTime : 0
+                  currentTime: activeVideo ? activeVideo.currentTime : 0
                 };
              }
              setPlaylist([]); // Clear playlist to stop playing previous
-             currentSrcRef.current = null; // Force reset src ref to ensure restoration later works
           } else {
             // No photo available
             logInfo('video', `No shop photo found for shop: ${overrideShopId}`);
             setOverrideImage(null);
-            currentSrcRef.current = null; 
           }
         }
       }
     } else {
       // When override is cleared, restore previous state if available
       setOverrideImage(null);
-      currentSrcRef.current = null; // Force reset src ref to ensure restoration works
       
       if (savedStateRef.current) {
          logInfo('video', 'Restoring playlist from override');
@@ -395,10 +415,6 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         
         setIsLoadingMedia(false);
         
-        // Force reload video element if it exists
-        if (videoRef.current) {
-          videoRef.current.load();
-        }
       } catch (error: any) {
         logError('video', 'Failed to load media files from local directory', {
           error: error?.message,
@@ -416,13 +432,17 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     };
   }, [forceReload, localReload]);
 
-  // Load text settings - REMOVED (Always use API integration)
-  // React.useEffect(() => { ... }, []);
-
-  // Handle media playback - loop through playlist (shuffled)
+  // Double buffering and playback management
   React.useEffect(() => {
     // If we have an override image, do not play video/playlist
-    if (overrideImage) return;
+    if (overrideImage) {
+        // Pause both videos
+        const vA = videoRefA.current;
+        const vB = videoRefB.current;
+        if (vA) vA.pause();
+        if (vB) vB.pause();
+        return;
+    }
 
     if (playlist.length === 0 || isLoadingMedia) return;
 
@@ -432,10 +452,19 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     const isVideo = isVideoFile(currentFile);
     const isImage = isImageFile(currentFile);
 
-    if (isVideo && videoRef.current) {
-      const video = videoRef.current;
+    // VIDEO HANDLING WITH DOUBLE BUFFERING
+    if (isVideo) {
+      const activeVideo = getActiveVideo();
+      const inactiveVideo = getInactiveVideo();
       
-      // Helper for moving to next video
+      // Calculate next file for preloading
+      let nextFile = "";
+      if (playlist.length > 0) {
+          const nextIndex = (currentIndex + 1) % playlist.length;
+          nextFile = playlist[nextIndex];
+      }
+
+      // Logic to move to next item
       const handleNext = () => {
         // Reset watchdog refs
         lastTimeRef.current = 0;
@@ -450,7 +479,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             logInfo('video', 'Playlist cycle completed');
             
             if (overrideShopId) {
-               // In override mode, just loop back to start without reshuffling all files
+               // In override mode, just loop back
                setCurrentIndex(0);
             } else {
                // Normal mode: reshuffle and restart
@@ -460,101 +489,145 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           } else {
             setCurrentIndex(nextIndex);
           }
+          
+          // Switch active player for the NEXT render cycle
+          // Using callback to ensure we toggle from current state
+          setActivePlayerId(prev => prev === 'A' ? 'B' : 'A');
         } else if (playlist.length === 1) {
-            // Force replay for single file
-            video.currentTime = 0;
-            video.play().catch(e => {
-                logError('video', 'Single file replay failed', { error: e.message });
-            });
+            // Single file loop - just replay current
+            if (activeVideo) {
+                activeVideo.currentTime = 0;
+                activeVideo.play().catch(e => logError('video', 'Replay failed', { error: e.message }));
+            }
         }
       };
 
-      // Only update src if it changed
-      // Also update if currentSrcRef is null (force update after restore)
-      if (currentSrcRef.current !== currentFile) {
-        video.src = currentFile;
-        currentSrcRef.current = currentFile;
-        
-        // Explicitly load to ensure readiness
-        video.load();
-        
-        // Use audio settings for mute state (default: unmute/false)
-        video.muted = audioSettings.localMediaMuted;
-        // If only one file, use native loop. Otherwise handle looping manually
-        video.loop = playlist.length === 1;
-        
-        const playPromise = video.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(e => {
-                logError('video', 'Auto-play failed', { error: e.message, file: currentFile });
-                // If auto-play fails, we might want to skip to next or retry
-                // But typically user interaction is needed for some play failures.
-                // In kiosk mode, we just log.
-            });
-        }
+      // Playback Logic
+      if (activeVideo) {
+          // If source changed or not set
+          const fileUrl = toFileUrl(currentFile);
+          
+          // Check if src needs update. 
+          // Note: src might be fully qualified or relative, so simple check might fail. 
+          // But if we use toFileUrl consistently it should be fine.
+          // We check if the current src ends with the filename to be safe against base URL diffs
+          const filename = extractFilename(currentFile);
+          const srcDecoded = decodeURIComponent(activeVideo.src);
+          
+          // If the video source doesn't contain the expected filename, or is empty
+          if (!activeVideo.src || !srcDecoded.includes(filename)) {
+              activeVideo.src = fileUrl;
+              activeVideo.load();
+              
+              // Handle seek if pending
+              if (pendingSeekTimeRef.current !== null) {
+                activeVideo.currentTime = pendingSeekTimeRef.current;
+                pendingSeekTimeRef.current = null;
+              }
+          }
 
-        // Reset watchdog refs on new src
-        lastTimeRef.current = 0;
-        freezeCounterRef.current = 0;
-        lastHeartbeatTimeRef.current = Date.now();
-        lastGoodStateTimeRef.current = Date.now();
+          // Ensure audio settings
+          activeVideo.muted = audioSettings.localMediaMuted;
+          // Single video loop handling
+          activeVideo.loop = playlist.length === 1; 
+          
+          const playPromise = activeVideo.play();
+          if (playPromise !== undefined) {
+              playPromise.catch(e => {
+                  // Ignore abort errors caused by swapping
+                  if (e.name !== 'AbortError') {
+                      logError('video', 'Auto-play failed', { error: e.message, file: currentFile });
+                  }
+              });
+          }
+
+          // Preload Next Video on the Inactive Player
+          if (inactiveVideo && nextFile && playlist.length > 1 && isVideoFile(nextFile)) {
+              const nextFileUrl = toFileUrl(nextFile);
+              const nextFilename = extractFilename(nextFile);
+              const nextSrcDecoded = decodeURIComponent(inactiveVideo.src);
+
+              if (!inactiveVideo.src || !nextSrcDecoded.includes(nextFilename)) {
+                  inactiveVideo.src = nextFileUrl;
+                  inactiveVideo.load(); // Load metadata/data in background
+                  inactiveVideo.muted = audioSettings.localMediaMuted; // Prepare mute state
+              }
+          }
       }
+
+      // Event Listeners
+      const onEnded = () => handleNext();
+      const onStalled = () => logWarn('video', 'Playback stalled', { file: currentFile });
       
-      const handleEnded = () => {
-        handleNext();
+      // Error handling for active video
+      const onError = (e: Event) => {
+          const target = e.currentTarget as HTMLVideoElement;
+          logError('video', 'Video playback error', {
+              file: extractFilename(currentFile), // Use extractFilename for better readability
+              error: target.error?.message,
+              code: target.error?.code,
+              readyState: target.readyState,
+              networkState: target.networkState,
+              currentTime: target.currentTime.toFixed(2),
+              duration: target.duration?.toFixed(2),
+              buffered: getBufferedRanges(target)
+          });
+          // Force skip to next
+          handleNext();
       };
-      
-      // Freeze detection (Watchdog)
-      // If video is not paused but time isn't advancing, or duration passed without ended event
+
+      if (activeVideo) {
+          activeVideo.addEventListener('ended', onEnded);
+          activeVideo.addEventListener('stalled', onStalled);
+          activeVideo.addEventListener('error', onError);
+      }
+
+      // Watchdog implementation (targeting activeVideo)
       const watchdogInterval = setInterval(() => {
-        if (!video) return;
+        if (!activeVideo) return;
         
         const now = Date.now();
-        const currentTime = video.currentTime;
-        const duration = video.duration;
-        const isReady = video.readyState >= 3;
+        const currentTime = activeVideo.currentTime;
+        const duration = activeVideo.duration;
+        const isReady = activeVideo.readyState >= 3;
 
-        // Heartbeat: Log "playing" status every 60 seconds if playing normally
+        // Heartbeat
         if (now - lastHeartbeatTimeRef.current > 60000) {
-            if (!video.paused && !video.ended && isReady) {
+            if (!activeVideo.paused && !activeVideo.ended && isReady) {
                 logInfo('video', 'Playback status: Normal', { 
                     file: extractFilename(currentFile), 
-                    currentTime: currentTime.toFixed(1),
-                    duration: duration ? duration.toFixed(1) : 'unknown'
+                    currentTime: currentTime.toFixed(1)
                 });
             }
             lastHeartbeatTimeRef.current = now;
         }
 
-        // Freeze detection logic
-        if (!video.paused && !video.ended) {
+        // Freeze detection
+        if (!activeVideo.paused && !activeVideo.ended) {
             if (isReady) {
-                // Video is ready to play, update good state time
                 lastGoodStateTimeRef.current = now;
-
-                // Check if time advanced
-                if (Math.abs(currentTime - lastTimeRef.current) < 0.05) { // 0.05s tolerance
+                if (Math.abs(currentTime - lastTimeRef.current) < 0.05) {
                     freezeCounterRef.current++;
-                    
-                    // If frozen for 5 checks (5 seconds)
                     if (freezeCounterRef.current === 5) {
-                        logWarn('video', 'Playback freeze detected', {
+                        logWarn('video', 'Playback freeze detected', { 
                             file: extractFilename(currentFile),
                             currentTime: currentTime.toFixed(2),
-                            lastTime: lastTimeRef.current.toFixed(2)
+                            readyState: activeVideo.readyState,
+                            networkState: activeVideo.networkState,
+                            buffered: getBufferedRanges(activeVideo)
                         });
                     }
-                    // If still frozen, log periodically (every 30s)
                     else if (freezeCounterRef.current > 5 && freezeCounterRef.current % 30 === 0) {
                         logWarn('video', 'Playback still frozen', { 
                             file: extractFilename(currentFile),
-                            secondsFrozen: freezeCounterRef.current 
+                            secondsFrozen: freezeCounterRef.current,
+                            readyState: activeVideo.readyState,
+                            networkState: activeVideo.networkState,
+                            buffered: getBufferedRanges(activeVideo)
                         });
-                        // Force recovery if frozen for too long (e.g. 30s)
-                        handleNext();
+                        handleNext(); // Force skip
                     }
                 } else {
-                    // Time advanced, reset counter
                     if (freezeCounterRef.current >= 5) {
                         logInfo('video', 'Playback recovered from freeze');
                     }
@@ -562,80 +635,61 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 }
                 lastTimeRef.current = currentTime;
             } else {
-                // Video is NOT ready (buffering/loading)
+                // Not ready
                 const stuckDuration = now - lastGoodStateTimeRef.current;
-                
-                // If stuck in non-ready state for more than 10 seconds
                 if (stuckDuration > 10000) {
                     logWarn('video', 'Playback stuck in non-ready state', { 
                         file: extractFilename(currentFile),
-                        readyState: video.readyState, 
-                        stuckDuration 
+                        stuckDuration,
+                        readyState: activeVideo.readyState,
+                        networkState: activeVideo.networkState,
+                        buffered: getBufferedRanges(activeVideo)
                     });
-                    
-                    // Force skip to next video
                     handleNext();
-                    // Reset good state time to prevent immediate loop
                     lastGoodStateTimeRef.current = now;
                 }
             }
         }
 
-        // If we are close to the end (within 0.5s) and not paused, but ended event didn't fire
-        if (video.duration && !video.paused) {
-            // Check if duration exceeded (some players glitch and go past duration)
-            if (video.currentTime >= video.duration) {
-                logWarn('video', 'Duration exceeded without ended event, forcing next', { file: currentFile });
-                handleNext();
-            }
+        // Duration check (fallback for missing ended event)
+        if (duration && !activeVideo.paused && activeVideo.currentTime >= duration) {
+            logWarn('video', 'Duration exceeded without ended event', { file: currentFile });
+            handleNext();
         }
       }, 1000);
-      
-      // Stalled event: media data is not available
-      const handleStalled = () => {
-         logWarn('video', 'Playback stalled event received', { file: extractFilename(currentFile) });
-      };
-
-      if (playlist.length > 1) {
-        video.addEventListener('ended', handleEnded);
-      }
-      video.addEventListener('stalled', handleStalled);
-      
-      logInfo('video', 'Playing video from local directory', {
-        index: currentIndex,
-        total: playlist.length,
-        file: currentFile,
-      });
 
       return () => {
         clearInterval(watchdogInterval);
-        if (playlist.length > 1) {
-          video.removeEventListener('ended', handleEnded);
+        if (activeVideo) {
+            activeVideo.removeEventListener('ended', onEnded);
+            activeVideo.removeEventListener('stalled', onStalled);
+            activeVideo.removeEventListener('error', onError);
         }
-        video.removeEventListener('stalled', handleStalled);
       };
     } else if (isImage && imgRef.current) {
       const img = imgRef.current;
       
-      // Only update src if it changed
+      // Pause videos if image is showing
+      const vA = videoRefA.current;
+      const vB = videoRefB.current;
+      if (vA && !vA.paused) vA.pause();
+      if (vB && !vB.paused) vB.pause();
+      
+      // Update image src
       if (currentSrcRef.current !== currentFile) {
         img.src = currentFile;
         currentSrcRef.current = currentFile;
       }
       
-      // For images, show for 15 seconds then move to next (or loop if only one)
+      // Timer for image display
       const timer = setTimeout(() => {
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
           if (nextIndex >= playlist.length) {
-            // Reached end of playlist
             logInfo('video', 'Playlist cycle completed');
-            
             if (overrideShopId) {
-               // In override mode, just loop back to start without reshuffling all files
                setCurrentIndex(0);
             } else {
-               // Normal mode: reshuffle and restart
                setPlaylist(shuffleArray(mediaFiles));
                setCurrentIndex(0);
             }
@@ -643,11 +697,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             setCurrentIndex(nextIndex);
           }
         }
-      }, 15000);
+      }, 15000); // 15 seconds for images
       
       logInfo('video', 'Showing image from local directory', {
-        index: currentIndex,
-        total: playlist.length,
         file: currentFile,
       });
 
@@ -655,16 +707,17 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         clearTimeout(timer);
       };
     }
-  }, [playlist, currentIndex, isLoadingMedia, mediaFiles, audioSettings.localMediaMuted, overrideShopId, overrideImage]);
+  }, [playlist, currentIndex, isLoadingMedia, mediaFiles, audioSettings.localMediaMuted, overrideShopId, overrideImage, activePlayerId]);
 
   // Handle video settings changes (legacy support)
   React.useEffect(() => {
     // If videoSettings is enabled and has a source, use it instead of local files
-    // But ONLY if we are NOT overriding with a shop image
+    // But ONLY if we are NOT overriding with a shop image and playlist is empty
     if (!overrideImage && videoSettings?.enabled && videoSettings.source && playlist.length === 0) {
-      if (!videoRef.current) return;
+      // Use Video A for legacy playback
+      if (!videoRefA.current) return;
 
-      const video = videoRef.current;
+      const video = videoRefA.current;
       if (video.src !== videoSettings.source) {
         video.src = videoSettings.source;
         logInfo('video', 'Independent video source updated', {
@@ -674,53 +727,32 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
       video.loop = videoSettings.loop;
       video.autoplay = videoSettings.autoplay;
+      video.muted = true; // Force mute for legacy/bg mode? or use audioSettings?
     }
   }, [videoSettings, playlist.length, overrideImage]);
 
-  // Handle audio settings updates dynamically
-  React.useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.muted = audioSettings.localMediaMuted;
-    }
-  }, [audioSettings.localMediaMuted]);
-
-  // Memoize text settings calculation to prevent main thread blocking
-  // Moved to top level to avoid "Rendered more hooks than during the previous render" error
+  // Memoize text settings calculation
   const currentFile = (playlist.length > 0 && !isLoadingMedia) ? playlist[currentIndex] : null;
   const filename = currentFile ? extractFilename(currentFile) : "";
   
   const { line1: memoLine1, line2: memoLine2 } = React.useMemo(() => {
       if (!filename) return { line1: undefined, line2: undefined };
-
-      // Always generate default from shops data (Pure API integration)
       const currentText = shops.length > 0 ? getDefaultMediaSettings(filename, shops) : null;
-  
       if (!currentText) return { line1: undefined, line2: undefined };
-
-      // Determine text to display based on language
       const l1 = (language === 'en' && currentText.line1En) ? currentText.line1En : currentText.line1;
       const l2 = (language === 'en' && currentText.line2En) ? currentText.line2En : currentText.line2;
-      
       return { line1: l1, line2: l2 };
   }, [filename, shops, language]);
 
   // Loading state
   if (isLoading || isLoadingMedia || isOverrideImageLoading) {
     return renderContainer(
-      <div
-        style={{
-          color: '#888',
-          fontSize: 12,
-        }}
-      >
-        Loading…
-      </div>
+      <div style={{ color: '#888', fontSize: 12 }}>Loading…</div>
     );
   }
   
   // Case: Override Image Display
   if (overrideImage) {
-      // Calculate text settings for ticker using default logic
       const currentText = overrideShopId ? getDefaultMediaSettings(`${overrideShopId}.dummy`, shops) : null;
       const line1 = (language === 'en' && currentText?.line1En) ? currentText.line1En : currentText?.line1;
       const line2 = (language === 'en' && currentText?.line2En) ? currentText.line2En : currentText?.line2;
@@ -741,55 +773,58 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                   e.currentTarget.style.display = 'none';
               }}
           />,
-          '#ffffff', // White background
+          '#ffffff', 
           { line1, line2 }
       );
   }
 
   // Use local media files if available
   if (playlist.length > 0) {
-    const isVideo = currentFile && isVideoFile(currentFile);
     const isImage = currentFile && isImageFile(currentFile);
-    
-    // Use memoized values
     const line1 = memoLine1;
     const line2 = memoLine2;
 
     const content = (
       <>
-        {isVideo && (
-            <video
-              key={currentFile} // Force remount on file change to reset decoder state
-              ref={videoRef}
-              autoPlay
-              muted={audioSettings.localMediaMuted}
-              playsInline
-              style={{
+        {/* Video Player A */}
+        <video
+            ref={videoRefA}
+            muted={audioSettings.localMediaMuted}
+            playsInline
+            style={{
                 width: '100%',
                 height: '100%',
-                display: 'block',
+                position: 'absolute',
+                top: 0,
+                left: 0,
                 objectFit: 'cover',
                 backgroundColor: '#000000',
-              }}
-              onError={(e) => {
-                logError('video', 'Video playback error', {
-                  file: currentFile,
-                  error: e.currentTarget.error?.message,
-                });
-                const nextIndex = currentIndex + 1;
-                if (nextIndex >= playlist.length) {
-                  if (overrideShopId) {
-                     setCurrentIndex(0);
-                  } else {
-                     setPlaylist(shuffleArray(mediaFiles));
-                     setCurrentIndex(0);
-                  }
-                } else {
-                  setCurrentIndex(nextIndex);
-                }
-              }}
-            />
-        )}
+                opacity: activePlayerId === 'A' && !isImage ? 1 : 0,
+                zIndex: activePlayerId === 'A' ? 2 : 1,
+                transition: 'opacity 0.2s ease-in-out', // Smooth transition
+                pointerEvents: 'none', // Prevent interaction
+            }}
+        />
+        {/* Video Player B */}
+        <video
+            ref={videoRefB}
+            muted={audioSettings.localMediaMuted}
+            playsInline
+            style={{
+                width: '100%',
+                height: '100%',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                objectFit: 'cover',
+                backgroundColor: '#000000',
+                opacity: activePlayerId === 'B' && !isImage ? 1 : 0,
+                zIndex: activePlayerId === 'B' ? 2 : 1,
+                transition: 'opacity 0.2s ease-in-out',
+                pointerEvents: 'none',
+            }}
+        />
+        {/* Image Player Overlay */}
         {isImage && (
             <img
               ref={imgRef}
@@ -797,22 +832,23 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
               style={{
                 width: '100%',
                 height: '100%',
-                display: 'block',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                zIndex: 10, // Above videos
                 objectFit: 'cover',
                 backgroundColor: '#000000',
+                display: 'block'
               }}
               onError={(_e) => {
                 logError('video', 'Image load error', { file: currentFile });
+                // Skip to next
                 const nextIndex = currentIndex + 1;
                 if (nextIndex >= playlist.length) {
-                  if (overrideShopId) {
-                     setCurrentIndex(0);
-                  } else {
-                     setPlaylist(shuffleArray(mediaFiles));
-                     setCurrentIndex(0);
-                  }
+                   if (overrideShopId) setCurrentIndex(0);
+                   else { setPlaylist(shuffleArray(mediaFiles)); setCurrentIndex(0); }
                 } else {
-                  setCurrentIndex(nextIndex);
+                   setCurrentIndex(nextIndex);
                 }
               }}
             />
@@ -826,21 +862,16 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   // Fallback to videoSettings if no local files (legacy support)
   if (!videoSettings || !videoSettings.enabled || !videoSettings.source) {
     return renderContainer(
-      <div
-        style={{
-          color: '#888',
-          fontSize: 12,
-        }}
-      >
+      <div style={{ color: '#888', fontSize: 12 }}>
         {!videoSettings?.enabled ? 'Video disabled' : 'No media files found'}
       </div>
     );
   }
 
-  // Render video player (legacy mode)
+  // Render video player (legacy mode - uses VideoRefA)
   return renderContainer(
     <video
-      ref={videoRef}
+      ref={videoRefA}
       muted
       autoPlay={videoSettings.autoplay}
       loop={videoSettings.loop}
@@ -852,25 +883,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         objectFit: 'cover',
         backgroundColor: '#000000',
       }}
-      onLoadedMetadata={() => {
-        if (pendingSeekTimeRef.current !== null && videoRef.current) {
-          logInfo('video', 'Restoring playback position', { time: pendingSeekTimeRef.current });
-          videoRef.current.currentTime = pendingSeekTimeRef.current;
-          pendingSeekTimeRef.current = null;
-        }
-      }}
       onError={(e) => {
         logError('video', 'Independent video element error', {
           source: videoSettings.source,
           error: e.currentTarget.error?.message,
         });
-        if (videoRef.current) {
-          setTimeout(() => {
-            if (videoRef.current && videoSettings.source) {
-              videoRef.current.load();
-            }
-          }, 1000);
-        }
       }}
     />
   );

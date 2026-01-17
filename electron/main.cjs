@@ -88,6 +88,17 @@ const DEFAULT_FLOOR_LAYOUT = {
   '4F': { columns: 2, rowsPerCol: 18 },
 };
 
+// ==========================================
+// GPU Optimization & Hardware Acceleration
+// ==========================================
+// 1. Disable hardware acceleration (Most stable for preventing freezes)
+app.disableHardwareAcceleration();
+
+// 2. Additional stability flags
+app.commandLine.appendSwitch('disable-features', 'HardwareVideoDecoder');
+app.commandLine.appendSwitch('disable-zero-copy');
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 // Prevent multiple instances from starting with a single-instance lock
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
