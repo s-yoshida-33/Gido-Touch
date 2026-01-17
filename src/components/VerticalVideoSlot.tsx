@@ -20,17 +20,17 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   // Handle force reload
   React.useEffect(() => {
     if (forceReload > 0) {
-      logInfo('video', 'Force reload triggered in VerticalVideoSlot', { forceReload });
+      logInfo('VIDEO', 'Force reload triggered in VerticalVideoSlot', { forceReload });
       if (videoRef.current) {
         videoRef.current.load();
         // Try to play after reload
         videoRef.current.play().catch(e => {
-            logError('video', 'Failed to play video after force reload', { error: e.message });
+            logError('VIDEO', 'Failed to play video after force reload', { error: e.message });
         });
       }
       if (imgRef.current && asset) {
         // Force image reload using cache (reset to original asset source)
-        logInfo('video', 'Refreshing image with cache', { src: asset.src });
+        logInfo('VIDEO', 'Refreshing image with cache', { src: asset.src });
         imgRef.current.src = asset.src;
       }
     }
@@ -73,13 +73,13 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       if (video.paused && video.readyState >= 2) { // HAVE_CURRENT_DATA
         try {
           await video.play();
-          logInfo('video', 'Video play() called successfully', {
+          logInfo('VIDEO', 'Video play() called successfully', {
             assetId: asset.id,
             readyState: video.readyState,
             currentTime: video.currentTime,
           });
         } catch (err: any) {
-          logError('video', 'Video play() failed', {
+          logError('VIDEO', 'Video play() failed', {
             assetId: asset.id,
             error: err?.message,
             readyState: video.readyState,
@@ -115,7 +115,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   // No asset case
   if (!asset) {
     if (!isLoading) {
-      logWarn('video', 'No video asset available for VerticalVideoSlot', {
+      logWarn('VIDEO', 'No video asset available for VerticalVideoSlot', {
         isLoading,
         currentAssetId: null,
       });
@@ -140,7 +140,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
 
   // Determine if asset is an image
   // Check mediaType first, then fall back to file extension
-  const isImage = asset.mediaType === 'image' || 
+  const isImage = asset.mediaType === 'VIDEO' || 
     (asset.src && /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(asset.src));
 
   // Use both id and src in key to ensure remount when either changes
@@ -164,7 +164,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
           const img = e.currentTarget;
           const fit = calculateObjectFit(img.naturalWidth, img.naturalHeight);
           setObjectFit(fit);
-          logInfo('image', 'Image loaded in VerticalVideoSlot', {
+          logInfo('VIDEO', 'Image loaded in VerticalVideoSlot', {
             assetId: asset.id,
             src: asset.src,
             naturalWidth: img.naturalWidth,
@@ -173,7 +173,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
           });
         }}
         onError={() => {
-          logError('image', 'Image element error (VerticalVideoSlot)', {
+          logError('VIDEO', 'Image element error (VerticalVideoSlot)', {
             assetId: asset.id,
             src: asset.src,
           });
@@ -200,7 +200,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       }}
       onLoadedMetadata={(e) => {
         const video = e.currentTarget;
-        logInfo('video', 'Video metadata loaded', {
+        logInfo('VIDEO', 'Video metadata loaded', {
           assetId: asset.id,
           videoWidth: video.videoWidth,
           videoHeight: video.videoHeight,
@@ -211,7 +211,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         const video = e.currentTarget;
         const fit = calculateObjectFit(video.videoWidth, video.videoHeight);
         setObjectFit(fit);
-        logInfo('video', 'Video loaded in VerticalVideoSlot', {
+        logInfo('VIDEO', 'Video loaded in VerticalVideoSlot', {
           assetId: asset.id,
           src: asset.src,
           videoWidth: video.videoWidth,
@@ -223,12 +223,12 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         // Ensure playback starts after loading
         if (video.paused && video.readyState >= 2) {
           video.play().then(() => {
-            logInfo('video', 'Video play() succeeded in onLoadedData', {
+            logInfo('VIDEO', 'Video play() succeeded in onLoadedData', {
               assetId: asset.id,
               currentTime: video.currentTime,
             });
           }).catch((err) => {
-            logError('video', 'Failed to play video in onLoadedData', {
+            logError('VIDEO', 'Failed to play video in onLoadedData', {
               assetId: asset.id,
               src: asset.src,
               error: err?.message,
@@ -240,7 +240,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       }}
       onCanPlay={(e) => {
         const video = e.currentTarget;
-        logInfo('video', 'Video can play', {
+        logInfo('VIDEO', 'Video can play', {
           assetId: asset.id,
           readyState: video.readyState,
           paused: video.paused,
@@ -248,12 +248,12 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         // Ensure playback starts when video can play
         if (video.paused) {
           video.play().then(() => {
-            logInfo('video', 'Video play() succeeded in onCanPlay', {
+            logInfo('VIDEO', 'Video play() succeeded in onCanPlay', {
               assetId: asset.id,
               currentTime: video.currentTime,
             });
           }).catch((err) => {
-            logError('video', 'Failed to play video in onCanPlay', {
+            logError('VIDEO', 'Failed to play video in onCanPlay', {
               assetId: asset.id,
               error: err?.message,
             });
@@ -261,20 +261,20 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         }
       }}
       onPlay={() => {
-        logInfo('video', 'Video playback started', {
+        logInfo('VIDEO', 'Video playback started', {
           assetId: asset.id,
           currentTime: videoRef.current?.currentTime,
           duration: videoRef.current?.duration,
         });
       }}
       onEnded={() => {
-        logInfo('video', 'Video playback ended (will loop)', {
+        logInfo('VIDEO', 'Video playback ended (will loop)', {
           assetId: asset.id,
         });
       }}
       onError={(e) => {
         const video = e.currentTarget;
-        logError('video', 'Video element error (VerticalVideoSlot)', {
+        logError('VIDEO', 'Video element error (VerticalVideoSlot)', {
           assetId: asset.id,
           src: asset.src,
           error: video.error?.message,

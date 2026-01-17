@@ -222,7 +222,7 @@ const App: React.FC = () => {
             addDebug(`App: Shops synced from API (${processed.length} items)`);
         } catch (e: any) {
             console.error("Failed to load shops:", e);
-            logError("App", "Failed to load shops", { error: e instanceof Error ? e.message : String(e) });
+            logError("SYS_INIT", "Failed to load shops", { error: e instanceof Error ? e.message : String(e) });
             addDebug(`App: Failed to load shops: ${e.message}`);
             
             // If API fetch fails completely (network error etc), try to ensure cache is displayed if not already
@@ -265,7 +265,7 @@ const App: React.FC = () => {
            addDebug(`App: Shops updated via SSE shops event (${processed.length} items)`);
          } catch (e: any) {
            console.error("Failed to process shops event", e);
-           logError("App", "Failed to process shops event", { error: e instanceof Error ? e.message : String(e) });
+           logError("SYS_INIT", "Failed to process shops event", { error: e instanceof Error ? e.message : String(e) });
            addDebug(`App: Failed to process shops SSE: ${e.message}`);
          }
        }
@@ -277,7 +277,7 @@ const App: React.FC = () => {
         
         // If payload has type, use it (User's snippet pattern)
         if (payload && payload.type) {
-            logInfo("app", "Received update event from SSE", { type: payload.type });
+            logInfo("SYS_INIT", "Received update event from SSE", { type: payload.type });
             switch (payload.type) {
                 case "shops":
                     // If data is included, use it

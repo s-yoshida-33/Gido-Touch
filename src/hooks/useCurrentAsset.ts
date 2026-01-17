@@ -62,12 +62,12 @@ export function useCurrentAsset(): UseCurrentAssetResult {
     sseClient.connect();
 
     const handleConnected = () => {
-      logInfo('video', 'SSE Connected');
+      logInfo('VIDEO', 'SSE Connected');
       setIsLoading(false);
     };
 
     const handleSwitch = (data: SwitchEvent) => {
-      logInfo('video', 'Content switched via SSE', { timelineIndex: (data.current_timeline as any)?.timeline_index });
+      logInfo('VIDEO', 'Content switched via SSE', { timelineIndex: (data.current_timeline as any)?.timeline_index });
       
       const nextAsset = mapToCurrentAsset(data.current_timeline);
       
@@ -78,7 +78,7 @@ export function useCurrentAsset(): UseCurrentAssetResult {
               return prevAsset;
             }
 
-            logInfo('video', 'Asset updated via SSE', {
+            logInfo('VIDEO', 'Asset updated via SSE', {
               assetId: nextAsset.id,
               src: nextAsset.src,
               name: nextAsset.name
@@ -86,7 +86,7 @@ export function useCurrentAsset(): UseCurrentAssetResult {
             return nextAsset;
           });
       } else {
-         logWarn('video', 'Failed to map timeline item to asset via SSE');
+         logWarn('VIDEO', 'Failed to map timeline item to asset via SSE');
          setAsset(null);
       }
       setIsLoading(false);
@@ -112,12 +112,12 @@ export function useCurrentAsset(): UseCurrentAssetResult {
              const initialAsset = mapToCurrentAsset(json.current_timeline);
              if (initialAsset) {
                 setAsset(initialAsset);
-                logInfo('video', 'Initial asset fetched via IPC', { assetId: initialAsset.id });
+                logInfo('VIDEO', 'Initial asset fetched via IPC', { assetId: initialAsset.id });
              }
           }
         }
       } catch (e: any) {
-        logWarn('video', 'Failed to fetch initial timeline via IPC', e?.message || e);
+        logWarn('VIDEO', 'Failed to fetch initial timeline via IPC', e?.message || e);
       } finally {
         setIsLoading(false);
       }

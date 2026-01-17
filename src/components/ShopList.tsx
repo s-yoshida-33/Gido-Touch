@@ -250,7 +250,7 @@ const ShopList: React.FC<ShopListProps> = ({
 
     // Logging
     if (floorShops.length > 0) {
-      logInfo("shopList", "ShopList rendered", {
+      logInfo("SHOP_MAP", "ShopList rendered", {
         floor: normalizedFloor,
         floorShopsCount: floorShops.length,
         totalLines,
@@ -448,7 +448,7 @@ const ShopList: React.FC<ShopListProps> = ({
   try {
     content = renderNormalLayout();
   } catch (error) {
-    logError("shopList", "ShopList render failed, using fallback layout", {
+    logError("SHOP_MAP", "ShopList render failed, using fallback layout", {
       floor: normalizedFloor,
       error: String(error),
     });

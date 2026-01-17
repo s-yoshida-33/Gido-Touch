@@ -319,12 +319,12 @@ const GidoApp: React.FC<GidoAppProps> = ({
               padding: "1.4em",
             }}
             onLoad={() => {
-              logInfo("openTime", "Open-time image loaded", {
+              logInfo("SYS_INIT", "Open-time image loaded", {
                 src: openTimeImage,
               });
             }}
             onError={(event) => {
-              logError("openTime", "Failed to load open-time image", {
+              logError("SYS_INIT", "Failed to load open-time image", {
                 src: openTimeImage,
               });
               (event.target as HTMLImageElement).style.visibility = "hidden";
@@ -482,11 +482,11 @@ const ShopPinsOverlay: React.FC<{
           display: "block"
         }}
         onLoad={() => {
-          logInfo("map", "Floor map image loaded", { floor, src: floorMap });
+          logInfo("SYS_INIT", "Floor map image loaded", { floor, src: floorMap });
           updateMetrics();
         }}
         onError={(event) => {
-          logError("map", "Failed to load floor map image", { floor, src: floorMap });
+          logError("SYS_INIT", "Failed to load floor map image", { floor, src: floorMap });
           (event.target as HTMLImageElement).style.visibility = "hidden";
         }}
       />

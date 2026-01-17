@@ -238,7 +238,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   // Listen for Mall ID updates
   React.useEffect(() => {
     const unsubscribe = window.electronAPI?.onMallIdUpdated?.(() => {
-      logInfo('video', 'Mall ID updated, reloading media files');
+      logInfo('SYS_INIT', 'Mall ID updated, reloading media files');
       setLocalReload(prev => prev + 1);
     });
     return () => {
@@ -264,7 +264,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       });
 
       if (shopFiles.length > 0) {
-        logInfo('video', `Overriding playlist for shop: ${overrideShopId}`, { count: shopFiles.length });
+        logInfo('MEDIA_SWAP', `Overriding playlist for shop: ${overrideShopId}`, { count: shopFiles.length });
         
         // Save current state before overriding, if not already saved
         // IMPORTANT: Only save if we are transitioning from a non-override state
@@ -281,7 +281,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         setCurrentIndex(0);
         setOverrideImage(null); // Clear override image
       } else {
-        logInfo('video', `No local media found for shop override: ${overrideShopId}. Trying shop details image.`);
+        logInfo('MEDIA_SWAP', `No local media found for shop override: ${overrideShopId}. Trying shop details image.`);
         
         // 2. If no local media, try to load shop image
         // Find shop using loose equality
@@ -330,7 +330,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
              setPlaylist([]); // Clear playlist to stop playing previous
           } else {
             // No photo available
-            logInfo('video', `No shop photo found for shop: ${overrideShopId}`);
+            logInfo('MEDIA_SWAP', `No shop photo found for shop: ${overrideShopId}`);
             setOverrideImage(null);
           }
         }
@@ -340,7 +340,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       setOverrideImage(null);
       
       if (savedStateRef.current) {
-         logInfo('video', 'Restoring playlist from override');
+         logInfo('MEDIA_SWAP', 'Restoring playlist from override');
          
          const restoredPlaylist = savedStateRef.current.playlist;
          setPlaylist(restoredPlaylist);
@@ -357,7 +357,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
              // If videoSettings is enabled, empty playlist allows fallback to it.
              // If videoSettings is NOT enabled, we should play mediaFiles.
              if (!videoSettings?.enabled || !videoSettings.source) {
-                 logInfo('video', 'Restored empty playlist but have media files, starting loop');
+                 logInfo('MEDIA_SWAP', 'Restored empty playlist but have media files, starting loop');
                  setPlaylist(shuffleArray(mediaFiles));
                  setCurrentIndex(0);
              }
@@ -383,7 +383,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     const loadMediaFiles = async () => {
       try {
         if (!window.electronAPI?.getLocalMediaFiles) {
-          logWarn('video', 'electronAPI.getLocalMediaFiles is not available');
+          logWarn('SYS_INIT', 'electronAPI.getLocalMediaFiles is not available');
           if (isMounted) {
             setIsLoadingMedia(false);
           }
@@ -395,12 +395,12 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         if (!isMounted) return;
 
         if (files.length === 0) {
-          logWarn('video', 'No media files found in local directory');
+          logWarn('SYS_INIT', 'No media files found in local directory');
           setIsLoadingMedia(false);
           return;
         }
 
-        logInfo('video', 'Loaded media files from local directory', {
+        logInfo('SYS_INIT', 'Loaded media files from local directory', {
           count: files.length,
           forceReload,
           localReload
@@ -416,7 +416,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         setIsLoadingMedia(false);
         
       } catch (error: any) {
-        logError('video', 'Failed to load media files from local directory', {
+        logError('SYS_INIT', 'Failed to load media files from local directory', {
           error: error?.message,
         });
         if (isMounted) {
@@ -474,9 +474,22 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
+          const prevPlayer = activePlayerId;
+          const nextPlayer = activePlayerId === 'A' ? 'B' : 'A';
+          const nextFileObj = playlist[nextIndex >= playlist.length ? 0 : nextIndex];
+
+          // ログ出力: 正常な切り替え (MEDIA_SWAP)
+          logInfo('MEDIA_SWAP', 'Player swap initiated', {
+            fromPlayer: prevPlayer,
+            toPlayer: nextPlayer,
+            nextFile: extractFilename(nextFileObj),
+            shopId: overrideShopId || 'loop',
+            playlistLength: playlist.length
+          });
+
           if (nextIndex >= playlist.length) {
             // Reached end of playlist
-            logInfo('video', 'Playlist cycle completed');
+            logInfo('MEDIA_SWAP', 'Playlist cycle completed');
             
             if (overrideShopId) {
                // In override mode, just loop back
@@ -497,7 +510,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             // Single file loop - just replay current
             if (activeVideo) {
                 activeVideo.currentTime = 0;
-                activeVideo.play().catch(e => logError('video', 'Replay failed', { error: e.message }));
+                activeVideo.play().catch(e => logError('VIDEO', 'Replay failed', { error: e.message }));
             }
         }
       };
@@ -536,7 +549,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
               playPromise.catch(e => {
                   // Ignore abort errors caused by swapping
                   if (e.name !== 'AbortError') {
-                      logError('video', 'Auto-play failed', { error: e.message, file: currentFile });
+                      logError('VIDEO', 'Auto-play failed', { error: e.message, file: currentFile });
                   }
               });
           }
@@ -557,12 +570,12 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
       // Event Listeners
       const onEnded = () => handleNext();
-      const onStalled = () => logWarn('video', 'Playback stalled', { file: currentFile });
+      const onStalled = () => logWarn('VIDEO', 'Playback stalled', { file: currentFile });
       
       // Error handling for active video
       const onError = (e: Event) => {
           const target = e.currentTarget as HTMLVideoElement;
-          logError('video', 'Video playback error', {
+          logError('VIDEO', 'Video playback error', {
               file: extractFilename(currentFile), // Use extractFilename for better readability
               error: target.error?.message,
               code: target.error?.code,
@@ -594,7 +607,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         // Heartbeat
         if (now - lastHeartbeatTimeRef.current > 60000) {
             if (!activeVideo.paused && !activeVideo.ended && isReady) {
-                logInfo('video', 'Playback status: Normal', { 
+                logInfo('WATCHDOG', 'Playback status: Normal', { 
                     file: extractFilename(currentFile), 
                     currentTime: currentTime.toFixed(1)
                 });
@@ -609,27 +622,31 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 if (Math.abs(currentTime - lastTimeRef.current) < 0.05) {
                     freezeCounterRef.current++;
                     if (freezeCounterRef.current === 5) {
-                        logWarn('video', 'Playback freeze detected', { 
+                        logWarn('WATCHDOG', 'Playback freeze detected', { 
                             file: extractFilename(currentFile),
-                            currentTime: currentTime.toFixed(2),
+                            playerId: activePlayerId,
+                            frozenAt: currentTime.toFixed(2),
                             readyState: activeVideo.readyState,
                             networkState: activeVideo.networkState,
                             buffered: getBufferedRanges(activeVideo)
                         });
                     }
-                    else if (freezeCounterRef.current > 5 && freezeCounterRef.current % 30 === 0) {
-                        logWarn('video', 'Playback still frozen', { 
+                    else if (freezeCounterRef.current > 30 && freezeCounterRef.current % 30 === 1) {
+                        logError('WATCHDOG', 'Force skipping due to extended freeze', { 
                             file: extractFilename(currentFile),
                             secondsFrozen: freezeCounterRef.current,
                             readyState: activeVideo.readyState,
                             networkState: activeVideo.networkState,
-                            buffered: getBufferedRanges(activeVideo)
+                            buffered: getBufferedRanges(activeVideo),
+                            action: 'FORCED_NEXT_ITEM'
                         });
                         handleNext(); // Force skip
                     }
                 } else {
                     if (freezeCounterRef.current >= 5) {
-                        logInfo('video', 'Playback recovered from freeze');
+                        logInfo('WATCHDOG', 'Playback recovered from freeze', {
+                            durationFrozen: freezeCounterRef.current
+                        });
                     }
                     freezeCounterRef.current = 0;
                 }
@@ -637,23 +654,29 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             } else {
                 // Not ready
                 const stuckDuration = now - lastGoodStateTimeRef.current;
-                if (stuckDuration > 10000) {
-                    logWarn('video', 'Playback stuck in non-ready state', { 
+                if (stuckDuration > 10000 && stuckDuration % 10000 < 1000) {
+                    logWarn('WATCHDOG', 'Playback stuck in non-ready state', { 
                         file: extractFilename(currentFile),
                         stuckDuration,
                         readyState: activeVideo.readyState,
                         networkState: activeVideo.networkState,
                         buffered: getBufferedRanges(activeVideo)
                     });
-                    handleNext();
-                    lastGoodStateTimeRef.current = now;
+
+                    if (stuckDuration > 30000) {
+                         logError('WATCHDOG', 'Force skipping due to stuck readyState', {
+                             stuckDuration
+                         });
+                         handleNext();
+                         lastGoodStateTimeRef.current = now;
+                    }
                 }
             }
         }
 
         // Duration check (fallback for missing ended event)
         if (duration && !activeVideo.paused && activeVideo.currentTime >= duration) {
-            logWarn('video', 'Duration exceeded without ended event', { file: currentFile });
+            logWarn('WATCHDOG', 'Duration exceeded without ended event', { file: currentFile });
             handleNext();
         }
       }, 1000);
@@ -686,7 +709,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
           if (nextIndex >= playlist.length) {
-            logInfo('video', 'Playlist cycle completed');
+            logInfo('MEDIA_SWAP', 'Playlist cycle completed');
             if (overrideShopId) {
                setCurrentIndex(0);
             } else {
@@ -699,7 +722,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         }
       }, 15000); // 15 seconds for images
       
-      logInfo('video', 'Showing image from local directory', {
+      logInfo('MEDIA_SWAP', 'Showing image from local directory', {
         file: currentFile,
       });
 
@@ -720,7 +743,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       const video = videoRefA.current;
       if (video.src !== videoSettings.source) {
         video.src = videoSettings.source;
-        logInfo('video', 'Independent video source updated', {
+        logInfo('SYS_INIT', 'Independent video source updated', {
           source: videoSettings.source,
         });
       }
@@ -769,7 +792,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                   display: 'block'
               }}
               onError={(e) => {
-                  logError('video', 'Failed to load override shop image');
+                  logError('SHOP_MAP', 'Failed to load override shop image');
                   e.currentTarget.style.display = 'none';
               }}
           />,
@@ -841,7 +864,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 display: 'block'
               }}
               onError={(_e) => {
-                logError('video', 'Image load error', { file: currentFile });
+                logError('VIDEO', 'Image load error', { file: currentFile });
                 // Skip to next
                 const nextIndex = currentIndex + 1;
                 if (nextIndex >= playlist.length) {
@@ -884,7 +907,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         backgroundColor: '#000000',
       }}
       onError={(e) => {
-        logError('video', 'Independent video element error', {
+        logError('VIDEO', 'Independent video element error', {
           source: videoSettings.source,
           error: e.currentTarget.error?.message,
         });

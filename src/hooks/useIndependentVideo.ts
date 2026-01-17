@@ -22,7 +22,7 @@ export function useIndependentVideo(): UseIndependentVideoResult {
     const loadVideoSettings = async () => {
       try {
         if (!window.electronAPI?.getVideoSettings) {
-          logWarn('video', 'electronAPI.getVideoSettings is not available');
+          logWarn('VIDEO', 'electronAPI.getVideoSettings is not available');
           if (isMounted) {
             setIsLoading(false);
           }
@@ -33,7 +33,7 @@ export function useIndependentVideo(): UseIndependentVideoResult {
         
         if (!isMounted) return;
 
-        logInfo('video', 'Loaded independent video settings', {
+        logInfo('VIDEO', 'Loaded independent video settings', {
           enabled: settings.enabled,
           hasSource: !!settings.source,
         });
@@ -41,7 +41,7 @@ export function useIndependentVideo(): UseIndependentVideoResult {
         setVideoSettings(settings);
         setIsLoading(false);
       } catch (error: any) {
-        logError('video', 'Failed to load independent video settings', {
+        logError('VIDEO', 'Failed to load independent video settings', {
           error: error?.message,
         });
         if (isMounted) {
@@ -55,7 +55,7 @@ export function useIndependentVideo(): UseIndependentVideoResult {
     // Listen for settings updates
     const unsubscribe = window.electronAPI?.onVideoSettingsUpdated?.((updated) => {
       if (isMounted) {
-        logInfo('video', 'Independent video settings updated', {
+        logInfo('VIDEO', 'Independent video settings updated', {
           enabled: updated.enabled,
           hasSource: !!updated.source,
         });

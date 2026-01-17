@@ -44,7 +44,7 @@ export const useShops = (useCacheFirst: boolean = true) => {
       const cached = loadShopsFromCache();
       if (cached && cached.length > 0) {
         setShops(cached);
-        logInfo("shopList", "Loaded shops from cache", { count: cached.length });
+        logInfo("SHOP_MAP", "Loaded shops from cache", { count: cached.length });
         // キャッシュがあれば先に表示（ユーザーを待たせない）
         setIsLoading(false);
       }
@@ -68,7 +68,7 @@ export const useShops = (useCacheFirst: boolean = true) => {
       // 次回用にキャッシュ保存
       saveShopsToCache(cleaned);
       
-      logInfo("shopList", "Shop data synced", {
+      logInfo("SHOP_MAP", "Shop data synced", {
         count: cleaned.length,
       });
 
@@ -91,7 +91,7 @@ export const useShops = (useCacheFirst: boolean = true) => {
         console.warn("[ShopList] API Error but keeping existing data:", e);
       }
 
-      logError("shopList", "Failed to load shop list", {
+      logError("SHOP_MAP", "Failed to load shop list", {
         error: message,
         keepingExistingData: shopsRef.current.length > 0
       });
@@ -129,7 +129,7 @@ export const useShops = (useCacheFirst: boolean = true) => {
           // SSE更新時もキャッシュを更新しておく
           saveShopsToCache(cleaned);
 
-          logInfo("shopList", "Shop data updated via SSE", {
+          logInfo("SHOP_MAP", "Shop data updated via SSE", {
             count: cleaned.length,
           });
         } catch (e) {
