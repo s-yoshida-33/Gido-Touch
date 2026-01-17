@@ -478,12 +478,23 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           const nextPlayer = activePlayerId === 'A' ? 'B' : 'A';
           const nextFileObj = playlist[nextIndex >= playlist.length ? 0 : nextIndex];
 
-          // ログ出力: 正常な切り替え (MEDIA_SWAP)
-          logInfo('MEDIA_SWAP', 'Player swap initiated', {
+          // Check if matched with shop data
+          const nextFilename = extractFilename(nextFileObj);
+          const nextShopId = nextFilename.replace(/\.[^/.]+$/, "");
+          const isMatched = shops.some(s => String(s.shopId) === nextShopId || String(s.number) === nextShopId);
+          
+          // Get next player ready state
+          const nextVideoElement = nextPlayer === 'A' ? videoRefA.current : videoRefB.current;
+          const nextReadyState = nextVideoElement ? nextVideoElement.readyState : 'null';
+
+          // Log detailed swap info
+          logInfo('MEDIA_SWAP', 'Local media player swapped', {
+            activePlayer: nextPlayer,
             fromPlayer: prevPlayer,
-            toPlayer: nextPlayer,
-            nextFile: extractFilename(nextFileObj),
-            shopId: overrideShopId || 'loop',
+            file: nextFilename,
+            shopId: nextShopId,
+            isMatched,
+            readyState: nextReadyState,
             playlistLength: playlist.length
           });
 
