@@ -18,7 +18,7 @@ function configureLogger() {
   const logDir = path.join(userData, 'logs');
 
   log.transports.file.resolvePath = () =>
-    path.join(logDir, 'gido.log');
+    path.join(logDir, 'gido-touch.log');
 
   log.transports.file.maxSize = 5 * 1024 * 1024; // 5 MB per file
   log.transports.console.level =
