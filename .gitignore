@@ -37,3 +37,7 @@ out/
 # Exclude all files in media/ but keep the directory structure
 media/*
 !media/.gitkeep
+
+# Temporary files
+tmp/
+
