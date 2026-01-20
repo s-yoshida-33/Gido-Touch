@@ -497,7 +497,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
           </div>
         </div>
         <div style={{ width: "700px", height: "100%", flexShrink: 0, display: "flex", flexDirection: "column" }}>
-          <div style={{ width: "100%", height: "394px", backgroundColor: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+          <div style={{ width: "100%", height: "467px", backgroundColor: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
             <ShopImage photo={shop.photo2 || shop.photo1} shopId={shop.shopId} />
           </div>
           
