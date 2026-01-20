@@ -1166,6 +1166,9 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                backdropFilter: "blur(2px)",
+                borderRadius: "16px",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
               }}
               onTouchStart={(e) => {
                 const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
@@ -1232,6 +1235,9 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                backdropFilter: "blur(2px)",
+                borderRadius: "16px",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
               }}
               onTouchStart={(e) => {
                 const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
