@@ -875,138 +875,6 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             position: "relative",
           }}
         >
-          {/* Prev button (left side) */}
-          {canScrollPrev && (
-            <div
-              onClick={scrollToStart}
-              style={{
-                position: "absolute",
-                left: "0",
-                top: "50%",
-                transform: "translateY(-50%)",
-                zIndex: 10,
-                width: "150px",
-                height: "224px",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                padding: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onTouchStart={(e) => {
-                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                if (highlight) highlight.style.opacity = "1";
-              }}
-              onTouchEnd={(e) => {
-                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                if (highlight) highlight.style.opacity = "0";
-              }}
-              onTouchCancel={(e) => {
-                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                if (highlight) highlight.style.opacity = "0";
-              }}
-            >
-              <img
-                src={assets.common.buttonPrev}
-                alt="最初に移動"
-                draggable={false}
-                onDragStart={(e) => e.preventDefault()}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  display: "block",
-                  objectFit: "contain",
-                }}
-              />
-              <img
-                src={assets.common.buttonPrevHighlight}
-                alt="Highlight"
-                className="highlight"
-                draggable={false}
-                onDragStart={(e) => e.preventDefault()}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  display: "block",
-                  objectFit: "contain",
-                  opacity: 0,
-                  transition: "opacity 0.3s ease-in-out",
-                  pointerEvents: "none",
-                }}
-              />
-            </div>
-          )}
-          {/* Next button (right side) */}
-          {canScrollNext && (
-            <div
-              onClick={scrollToEnd}
-              style={{
-                position: "absolute",
-                right: "0",
-                top: "50%",
-                transform: "translateY(-50%)",
-                zIndex: 10,
-                width: "150px",
-                height: "224px",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                padding: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onTouchStart={(e) => {
-                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                if (highlight) highlight.style.opacity = "1";
-              }}
-              onTouchEnd={(e) => {
-                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                if (highlight) highlight.style.opacity = "0";
-              }}
-              onTouchCancel={(e) => {
-                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
-                if (highlight) highlight.style.opacity = "0";
-              }}
-            >
-              <img
-                src={assets.common.buttonNext}
-                alt="最後に移動"
-                draggable={false}
-                onDragStart={(e) => e.preventDefault()}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  display: "block",
-                  objectFit: "contain",
-                }}
-              />
-              <img
-                src={assets.common.buttonNextHighlight}
-                alt="Highlight"
-                className="highlight"
-                draggable={false}
-                onDragStart={(e) => e.preventDefault()}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  display: "block",
-                  objectFit: "contain",
-                  opacity: 0,
-                  transition: "opacity 0.3s ease-in-out",
-                  pointerEvents: "none",
-                }}
-              />
-            </div>
-          )}
           <div
             ref={scrollContainerRef}
             style={{
@@ -1278,6 +1146,139 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             </motion.div>
           </AnimatePresence>
           </div>
+          
+          {/* Prev button (left side) */}
+          {canScrollPrev && (
+            <div
+              onClick={scrollToStart}
+              style={{
+                position: "absolute",
+                left: "0",
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 20,
+                width: "150px",
+                height: "224px",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onTouchStart={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "1";
+              }}
+              onTouchEnd={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "0";
+              }}
+              onTouchCancel={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "0";
+              }}
+            >
+              <img
+                src={assets.common.buttonPrev}
+                alt="最初に移動"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  objectFit: "contain",
+                }}
+              />
+              <img
+                src={assets.common.buttonPrevHighlight}
+                alt="Highlight"
+                className="highlight"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  objectFit: "contain",
+                  opacity: 0,
+                  transition: "opacity 0.3s ease-in-out",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
+          )}
+          {/* Next button (right side) */}
+          {canScrollNext && (
+            <div
+              onClick={scrollToEnd}
+              style={{
+                position: "absolute",
+                right: "0",
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 20,
+                width: "150px",
+                height: "224px",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onTouchStart={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "1";
+              }}
+              onTouchEnd={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "0";
+              }}
+              onTouchCancel={(e) => {
+                const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
+                if (highlight) highlight.style.opacity = "0";
+              }}
+            >
+              <img
+                src={assets.common.buttonNext}
+                alt="最後に移動"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  objectFit: "contain",
+                }}
+              />
+              <img
+                src={assets.common.buttonNextHighlight}
+                alt="Highlight"
+                className="highlight"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  objectFit: "contain",
+                  opacity: 0,
+                  transition: "opacity 0.3s ease-in-out",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Shop detail modal */}
