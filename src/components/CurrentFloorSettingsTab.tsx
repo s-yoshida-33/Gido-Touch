@@ -39,7 +39,7 @@ export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = (
     onChangeDisplayFloors(newDisplayFloors);
   };
 
-  const handleLayoutChange = (key: 'columns' | 'rowsPerCol' | 'maxRows', value: number) => {
+  const handleLayoutChange = (key: 'columns' | 'rowsPerCol' | 'maxRows' | 'autoWidth' | 'prioritizeCurrentFloor', value: number | boolean) => {
     if (!floorLayout || !onChangeFloorLayout) return;
     
     const current = floorLayout[editingLayoutFloor] || { columns: 3, rowsPerCol: 20 };
@@ -159,6 +159,32 @@ export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = (
               style={{ width: "100%", padding: "8px", backgroundColor: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: 6, color: "#ffffff" }}
             />
           </div>
+
+          <div style={{ marginTop: 16 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "rgba(255, 255, 255, 0.8)", fontSize: 13, fontWeight: 500 }}>
+              <input
+                type="checkbox"
+                checked={floorLayout[editingLayoutFloor]?.autoWidth ?? true}
+                onChange={(e) => handleLayoutChange('autoWidth', e.target.checked)}
+                style={{ cursor: "pointer" }}
+              />
+              横幅自動調整 (店舗数が少ない場合に画面幅を埋める)
+            </label>
+          </div>
+
+          {editingLayoutFloor === "ALL" && (
+            <div style={{ marginTop: 16 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "rgba(255, 255, 255, 0.8)", fontSize: 13, fontWeight: 500 }}>
+                <input
+                  type="checkbox"
+                  checked={floorLayout[editingLayoutFloor]?.prioritizeCurrentFloor ?? false}
+                  onChange={(e) => handleLayoutChange('prioritizeCurrentFloor', e.target.checked)}
+                  style={{ cursor: "pointer" }}
+                />
+                カレントフロアの店舗を優先表示する
+              </label>
+            </div>
+          )}
         </div>
       )}
     </div>

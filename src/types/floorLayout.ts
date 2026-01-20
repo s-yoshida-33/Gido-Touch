@@ -13,6 +13,8 @@ export type FloorLayoutPerFloor = {
   perColumnRows?: number[];
   perColumnPadding?: ColumnPadding[];
   maxRows?: number;
+  autoWidth?: boolean;
+  prioritizeCurrentFloor?: boolean;
 };
 
 export type FloorLayout = Record<string, FloorLayoutPerFloor>;

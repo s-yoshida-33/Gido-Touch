@@ -535,20 +535,36 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         return shop.floors.some(f => displayFloors.includes(normalizeFloor(String(f))));
     });
 
-    if (!selectedFloor) {
-      return displayFilteredShops;
+    if (selectedFloor) {
+      const normalizedSelectedFloor = normalizeFloor(selectedFloor);
+      
+      return displayFilteredShops.filter((shop) => {
+        // Check if any of the shop's floors match the selected floor
+        return shop.floors.some((floor) => {
+          const normalizedShopFloor = normalizeFloor(String(floor));
+          return normalizedShopFloor === normalizedSelectedFloor;
+        });
+      });
     }
     
-    const normalizedSelectedFloor = normalizeFloor(selectedFloor);
+    // Logic for sorting if "prioritizeCurrentFloor" is enabled in "ALL" mode
+    const allConfig = floorLayout?.["ALL"] || floorLayout?.["default"];
+    if (allConfig?.prioritizeCurrentFloor && currentFloorSetting) {
+        const normalizedCurrentFloor = normalizeFloor(currentFloorSetting);
+        
+        // Sort: Current floor shops first, then others. Maintain relative order.
+        return [...displayFilteredShops].sort((a, b) => {
+            const aIsCurrent = a.floors?.some(f => normalizeFloor(String(f)) === normalizedCurrentFloor);
+            const bIsCurrent = b.floors?.some(f => normalizeFloor(String(f)) === normalizedCurrentFloor);
+            
+            if (aIsCurrent && !bIsCurrent) return -1;
+            if (!aIsCurrent && bIsCurrent) return 1;
+            return 0;
+        });
+    }
     
-    return displayFilteredShops.filter((shop) => {
-      // Check if any of the shop's floors match the selected floor
-      return shop.floors.some((floor) => {
-        const normalizedShopFloor = normalizeFloor(String(floor));
-        return normalizedShopFloor === normalizedSelectedFloor;
-      });
-    });
-  }, [shops, selectedFloor, displayFloors]);
+    return displayFilteredShops;
+  }, [shops, selectedFloor, displayFloors, floorLayout, currentFloorSetting]);
 
   // Layout calculation
   const currentLayoutKey = selectedFloor ? normalizeFloor(selectedFloor) : "ALL";
@@ -581,13 +597,12 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   // Default reference for aspect ratio (6 rows)
   const defaultRows = 6;
   const defaultHeight = (containerHeight - gap * (defaultRows - 1)) / defaultRows;
-  const defaultWidth = 376;
+  const defaultWidth = 345;
   const aspectRatio = defaultWidth / defaultHeight;
   
   // Calculate proportional width
   let cardWidth = cardHeight * aspectRatio;
-  if (cardWidth < defaultWidth) cardWidth = defaultWidth;
-
+  
   // Scale image height proportionally
   const defaultImageHeight = 251;
   const imageHeight = cardHeight * (defaultImageHeight / defaultHeight);
@@ -608,8 +623,9 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   const totalColumns = filteredShops.length > 0 ? Math.ceil(filteredShops.length / rowsPerColumn) : 0;
 
   // Logic to fill the screen width if there is extra space
-  // Only apply when a specific floor is selected (not in "ALL" mode)
-  if (totalColumns > 0 && selectedFloor) {
+  // Only apply when a specific floor is selected (not in "ALL" mode) AND autoWidth is enabled
+  const autoWidth = layoutConfig?.autoWidth ?? true;
+  if (totalColumns > 0 && selectedFloor && autoWidth) {
       const totalGapWidth = Math.max(0, totalColumns - 1) * columnGap;
       const totalSidePadding = 60; // 30px left + 30px right
       const currentTotalWidth = totalColumns * cardWidth + totalGapWidth + totalSidePadding;
@@ -699,7 +715,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
 
     // Show Prev if scrolled more than threshold (approx 1 column width: 376px + 20px gap)
     // User requested to show buttons when around the 2nd column
-    const threshold = 400;
+    const threshold = 200;
 
     setCanScrollPrev(currentScroll > threshold);
     // Show Next if not at the end (within threshold)
