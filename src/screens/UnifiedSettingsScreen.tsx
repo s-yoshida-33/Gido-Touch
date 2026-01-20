@@ -26,6 +26,7 @@ interface UnifiedSettingsScreenProps {
   floor: FloorId;
   onSaveFloor: (floor: FloorId) => Promise<void> | void;
   floorLayout: FloorLayout;
+  onSaveFloorLayout: (layout: FloorLayout) => Promise<void> | void;
   locationIconSettings: LocationIconSettingsPerFloor;
   onSaveLocationIconSettings: (settings: LocationIconSettingsPerFloor) => Promise<void> | void;
   imageSettings: ImageSettings;
@@ -44,7 +45,8 @@ interface UnifiedSettingsScreenProps {
 const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   floor: initialFloor,
   onSaveFloor,
-  floorLayout,
+  floorLayout: initialFloorLayout,
+  onSaveFloorLayout,
   locationIconSettings: initialLocationIconSettings,
   onSaveLocationIconSettings,
   imageSettings: initialImageSettings,
@@ -74,6 +76,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // Local state for editing (preserved when switching tabs)
   const [floor, setFloor] = useState<FloorId>(initialFloor);
+  const [floorLayout, setFloorLayout] = useState<FloorLayout>(initialFloorLayout);
   const [locationIconSettings, setLocationIconSettings] =
     useState<LocationIconSettingsPerFloor>(initialLocationIconSettings || DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR);
   const [imageSettings, setImageSettings] = useState<ImageSettings>(initialImageSettings);
@@ -159,6 +162,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setVisible(true);
         setActiveTab("image");
         setFloor(initialFloor);
+        setFloorLayout(initialFloorLayout);
         setLocationIconSettings(initialLocationIconSettings);
         setImageSettings(initialImageSettings);
         setShopPositions(initialShopPositions);
@@ -189,12 +193,13 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, calculateOtherTabCenterPosition]);
+  }, [initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, calculateOtherTabCenterPosition]);
 
   // Sync with external changes when screen is closed
   useEffect(() => {
     if (!visible) {
       setFloor(initialFloor);
+      setFloorLayout(initialFloorLayout);
       setLocationIconSettings(initialLocationIconSettings);
       setImageSettings(initialImageSettings);
       setShopPositions(initialShopPositions);
@@ -203,7 +208,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
       setCurrentAudioSettings(audioSettings);
     }
-  }, [visible, initialFloor, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, initialGenreSettings, audioSettings]);
+  }, [visible, initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, initialGenreSettings, audioSettings]);
 
   const handleClose = () => {
     setVisible(false);
@@ -213,6 +218,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const handleCancel = () => {
     // Revert to initial values
     setFloor(initialFloor);
+    setFloorLayout(initialFloorLayout);
     setLocationIconSettings(initialLocationIconSettings);
     setImageSettings(initialImageSettings);
     setShopPositions(initialShopPositions);
@@ -255,6 +261,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
       await Promise.all([
         onSaveFloor(floor),
+        onSaveFloorLayout(floorLayout),
         onSaveLocationIconSettings(locationIconSettings),
         onSaveImageSettings(imageSettings),
         onSaveShopPositions(shopPositions),
@@ -672,6 +679,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onChangeCurrentFloorSetting={setCurrentFloorSetting}
               displayFloors={displayFloors}
               onChangeDisplayFloors={setDisplayFloors}
+              floorLayout={floorLayout}
+              onChangeFloorLayout={setFloorLayout}
             />
           )}
           {activeTab === "localMedia" && (

@@ -11,6 +11,7 @@ import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import type { ShopPositionSettings } from "../types/shopPosition";
+import type { FloorLayout } from "../types/floorLayout";
 import { filterGenreMemos } from "../utils/genreUtils";
 
 // Simple in-memory cache for image URLs to prevent flickering
@@ -329,6 +330,7 @@ interface ShopListScreenProps {
   shops: Shop[];
   shopPositions?: ShopPositionSettings;
   displayFloors?: string[];
+  floorLayout?: FloorLayout;
 }
 
 /**
@@ -340,7 +342,7 @@ interface ShopListScreenProps {
  * Action space: 1140×2160 (right side)
  * Action space background: Black
  */
-const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions, displayFloors = ['1F', '2F', '3F', '4F'] }) => {
+const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions, displayFloors = ['1F', '2F', '3F', '4F'], floorLayout }) => {
   const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage, genreSettings } = useMall();
   
   // Scroll container ref
@@ -548,19 +550,84 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     });
   }, [shops, selectedFloor, displayFloors]);
 
-  // Layout: 6 rows per column
-  // Card count is dynamically calculated based on the number of shops from API
-  const rowsPerColumn = 6;
+  // Layout calculation
+  const currentLayoutKey = selectedFloor ? normalizeFloor(selectedFloor) : "ALL";
+  let layoutConfig = floorLayout?.[currentLayoutKey];
+
+  // Fallback for "ALL" mode if not configured
+  if (!selectedFloor && !layoutConfig) {
+      // Try "default" or just use undefined to trigger defaults below
+      layoutConfig = floorLayout?.["default"];
+  }
+  
+  // Base rows (fallback to 6 if not configured or not filtered by floor)
+  let rowsPerColumn = layoutConfig?.rowsPerCol ?? 6;
+
+  // Dynamic resizing logic based on maxRows
+  if (layoutConfig?.maxRows && layoutConfig.maxRows > 0) {
+    const totalShops = filteredShops.length;
+    if (totalShops > 0) {
+       rowsPerColumn = Math.min(totalShops, layoutConfig.maxRows);
+    }
+    if (rowsPerColumn < 1) rowsPerColumn = 1;
+  }
+
+  // Card size calculation with aspect ratio maintenance
+  const containerHeight = 2008;
+  const gap = 20;
+  
+  const cardHeight = (containerHeight - gap * (rowsPerColumn - 1)) / rowsPerColumn;
+  
+  // Default reference for aspect ratio (6 rows)
+  const defaultRows = 6;
+  const defaultHeight = (containerHeight - gap * (defaultRows - 1)) / defaultRows;
+  const defaultWidth = 376;
+  const aspectRatio = defaultWidth / defaultHeight;
+  
+  // Calculate proportional width
+  let cardWidth = cardHeight * aspectRatio;
+  if (cardWidth < defaultWidth) cardWidth = defaultWidth;
+
+  // Scale image height proportionally
+  const defaultImageHeight = 251;
+  const imageHeight = cardHeight * (defaultImageHeight / defaultHeight);
+
+  // Scale factor based on height relative to default height
+  const scaleFactor = cardHeight / defaultHeight;
+  
+  // Scaled dimensions for internal elements
+  const floorBadgeSize = 50 * scaleFactor;
+  const floorBadgeFontSize = 24 * scaleFactor;
+  const contentPadding = 12 * scaleFactor;
+  const firstLineFontSize = 16 * scaleFactor;
+  const firstLineMarginBottom = 8 * scaleFactor;
+  const shopNameFontSize = 24 * scaleFactor;
+  const borderRadius = 30 * scaleFactor; // Corner radius also needs scaling to look right
+
+  const columnGap = 20; // Column gap
   const totalColumns = filteredShops.length > 0 ? Math.ceil(filteredShops.length / rowsPerColumn) : 0;
 
-  // Card size calculation
-  // Content area: width: 2580px (2640 - 30*2), height: 2040px (2100 - 30*2)
-  // Card grid container height: 2032px (2040 - 4*2) with padding 12px top/bottom to accommodate animation and drop shadow
-  // Actual content area: 2008px (2032 - 12 - 12)
-  const cardHeight = (2008 - 20 * (rowsPerColumn - 1)) / rowsPerColumn; // Row gap: 20px
-  const cardWidth = 376; // Card width
-  const columnGap = 20; // Column gap
-  const imageHeight = 251; // Image height
+  // Logic to fill the screen width if there is extra space
+  // Only apply when a specific floor is selected (not in "ALL" mode)
+  if (totalColumns > 0 && selectedFloor) {
+      const totalGapWidth = Math.max(0, totalColumns - 1) * columnGap;
+      const totalSidePadding = 60; // 30px left + 30px right
+      const currentTotalWidth = totalColumns * cardWidth + totalGapWidth + totalSidePadding;
+      const maxContainerWidth = 2640;
+
+      // If current content fits within the container width with extra space
+      if (currentTotalWidth < maxContainerWidth) {
+          // Calculate new card width to fill the remaining space
+          // Available width for cards = maxContainerWidth - gaps - padding
+          const availableWidthForCards = maxContainerWidth - totalGapWidth - totalSidePadding;
+          const newCardWidth = availableWidthForCards / totalColumns;
+
+          // Only apply if it makes the cards wider
+          if (newCardWidth > cardWidth) {
+              cardWidth = newCardWidth;
+          }
+      }
+  }
 
   // Group shops by column
   const columns: Shop[][] = [];
@@ -1095,7 +1162,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                           width: `${cardWidth}px`,
                           height: `${cardHeight}px`,
                           backgroundColor: "#FFFFFF",
-                          borderRadius: "0 30px 30px 30px", // Top-right, bottom-left, bottom-right: 30px
+                          borderRadius: `0 ${borderRadius}px ${borderRadius}px ${borderRadius}px`,
                           display: "flex",
                           flexDirection: "column",
                           overflow: "hidden",
@@ -1112,14 +1179,14 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                               position: "absolute",
                               top: 0,
                               left: 0,
-                              width: "50px",
-                              height: "50px",
+                              width: `${floorBadgeSize}px`,
+                              height: `${floorBadgeSize}px`,
                               backgroundColor: "#E63B93",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
                               zIndex: 10,
-                              fontSize: "24px",
+                              fontSize: `${floorBadgeFontSize}px`,
                               fontWeight: 700,
                               color: "#FFFFFF",
                             }}
@@ -1137,7 +1204,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                             alignItems: "center",
                             justifyContent: "center",
                             overflow: "hidden",
-                            borderRadius: "0 30px 0 0",
+                            borderRadius: `0 ${borderRadius}px 0 0`,
                             boxSizing: "border-box",
                           }}
                         >
@@ -1157,7 +1224,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                             flex: 1,
                             display: "flex",
                             flexDirection: "column",
-                            padding: "12px",
+                            padding: `${contentPadding}px`,
                             backgroundColor: "#000000",
                             color: "#FFFFFF",
                             justifyContent: "center",
@@ -1168,9 +1235,9 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                           <ScalableText
                             text={firstLine}
                             style={{
-                              fontSize: "16px",
+                              fontSize: `${firstLineFontSize}px`,
                               fontWeight: 400,
-                              marginBottom: "8px",
+                              marginBottom: `${firstLineMarginBottom}px`,
                               lineHeight: "1.4",
                             }}
                           />
@@ -1178,7 +1245,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                           <ScalableText
                             text={shopName}
                             style={{
-                              fontSize: "24px",
+                              fontSize: `${shopNameFontSize}px`,
                               fontWeight: 700,
                               lineHeight: "1.4",
                             }}

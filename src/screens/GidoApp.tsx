@@ -13,7 +13,7 @@ import type { LocationIconSettings, LocationIconSettingsPerFloor } from "../type
 import { LocationIconsOverlay } from "../components/LocationIconsOverlay";
 import { getLocationIconSettingsForFloor } from "../config";
 import type { ImageSettings } from "../types/imageSettings";
-import type { FloorId } from "../types/floorLayout";
+import type { FloorId, FloorLayout } from "../types/floorLayout";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import { ShopPin } from "../components/ShopPin";
 
@@ -26,22 +26,6 @@ const TOP_HEIGHT_VH = 100 - LIST_HEIGHT_VH;
 // We use 1920px as the standard reference width (Full HD).
 const REFERENCE_MAP_WIDTH = 1920;
 const DEFAULT_PIN_SIZE = 80;
-
-type ColumnPadding = {
-  top?: number;
-  right?: number;
-  bottom?: number;
-  left?: number;
-};
-
-type FloorLayoutPerFloor = {
-  columns: number;
-  rowsPerCol: number;
-  perColumnRows?: number[];
-  perColumnPadding?: ColumnPadding[];
-};
-
-type FloorLayout = Record<string, FloorLayoutPerFloor>;
 
 const DEFAULT_FLOOR_LAYOUT: FloorLayout = {
   "1F": { columns: 3, rowsPerCol: 20 },
@@ -294,6 +278,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
               rowsPerColumn={currentLayout.rowsPerCol}
               perColumnRows={currentLayout.perColumnRows}
               perColumnPadding={currentLayout.perColumnPadding}
+              maxRows={currentLayout.maxRows}
             />
           )}
         </div>

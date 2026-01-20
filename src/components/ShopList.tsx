@@ -26,6 +26,7 @@ interface ShopListProps {
   rowsPerColumn?: number;
   perColumnRows?: number[]; // Column-by-column row overrides
   perColumnPadding?: ColumnPadding[]; // Column-by-column padding
+  maxRows?: number;
 }
 
 // Internal representation of a single line item (header or shop row)
@@ -92,6 +93,7 @@ const ShopList: React.FC<ShopListProps> = ({
   rowsPerColumn,
   perColumnRows,
   perColumnPadding,
+  maxRows,
 }) => {
   const normalizedFloor = normalizeFloor(floor);
 
@@ -191,6 +193,7 @@ const ShopList: React.FC<ShopListProps> = ({
 
     // Determine base rows per column
     const baseRowsPerCol = (() => {
+      if (maxRows && maxRows > 0) return maxRows;
       if (rowsPerColumn && rowsPerColumn > 0) return rowsPerColumn;
       if (defaultRowsPerCol && defaultRowsPerCol > 0) return defaultRowsPerCol;
       const auto = Math.ceil(totalLines / effectiveColumns);

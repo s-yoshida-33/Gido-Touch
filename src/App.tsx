@@ -631,6 +631,20 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveFloorLayout = async (layout: FloorLayout) => {
+    const api = window.electronAPI;
+    if (!api) return;
+
+    try {
+      const saved = await api.saveFloorLayout(layout);
+      if (saved) {
+        setFloorLayout(saved);
+      }
+    } catch (e) {
+      console.error("Failed to save floor layout", e);
+    }
+  };
+
 
   const handleSaveImageSettings = async (settings: ImageSettings) => {
     const api = window.electronAPI;
@@ -838,11 +852,13 @@ const App: React.FC = () => {
         shops={shops}
         shopPositions={shopPositions}
         displayFloors={displayFloors}
+        floorLayout={floorLayout}
       />
       <UnifiedSettingsScreen
         floor={floor}
         onSaveFloor={handleSaveFloor}
         floorLayout={floorLayout}
+        onSaveFloorLayout={handleSaveFloorLayout}
         locationIconSettings={locationSettings}
         onSaveLocationIconSettings={handleSaveLocationSettings}
         imageSettings={imageSettings}

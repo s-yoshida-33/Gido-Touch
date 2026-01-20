@@ -1,15 +1,25 @@
-import React from "react";
-import type { FloorId } from "../types/floorLayout";
+import React, { useState } from "react";
+import type { FloorId, FloorLayout } from "../types/floorLayout";
 
 export interface CurrentFloorSettingsTabProps {
   currentFloorSetting: string;
   onChangeCurrentFloorSetting: (floor: string) => void;
   displayFloors: string[];
   onChangeDisplayFloors: (floors: string[]) => void;
+  floorLayout?: FloorLayout;
+  onChangeFloorLayout?: (layout: FloorLayout) => void;
 }
 
-export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = ({ currentFloorSetting, onChangeCurrentFloorSetting, displayFloors, onChangeDisplayFloors }) => {
+export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = ({ 
+  currentFloorSetting, 
+  onChangeCurrentFloorSetting, 
+  displayFloors, 
+  onChangeDisplayFloors,
+  floorLayout,
+  onChangeFloorLayout
+}) => {
   const floors: FloorId[] = ["1F", "2F", "3F", "4F"];
+  const [editingLayoutFloor, setEditingLayoutFloor] = useState<string>("1F");
 
   const handleCurrentFloorChange = (newFloor: string) => {
     onChangeCurrentFloorSetting(newFloor);
@@ -27,6 +37,20 @@ export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = (
     // Sort to keep order consistent
     newDisplayFloors.sort();
     onChangeDisplayFloors(newDisplayFloors);
+  };
+
+  const handleLayoutChange = (key: 'columns' | 'rowsPerCol' | 'maxRows', value: number) => {
+    if (!floorLayout || !onChangeFloorLayout) return;
+    
+    const current = floorLayout[editingLayoutFloor] || { columns: 3, rowsPerCol: 20 };
+    const updated = {
+      ...floorLayout,
+      [editingLayoutFloor]: {
+        ...current,
+        [key]: value
+      }
+    };
+    onChangeFloorLayout(updated);
   };
 
   return (
@@ -50,7 +74,7 @@ export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = (
         </div>
       </div>
 
-      <div style={{ padding: 16, backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12 }}>
+      <div style={{ padding: 16, backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, marginBottom: 24 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <label style={{ display: "block", color: "rgba(255, 255, 255, 0.8)", fontSize: 13, fontWeight: 500 }}>
             表示フロア設定
@@ -70,6 +94,73 @@ export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = (
           </div>
         </div>
       </div>
+
+      {floorLayout && onChangeFloorLayout && (
+        <div style={{ padding: 16, backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12 }}>
+          <h4 style={{ color: "#ffffff", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
+            レイアウト設定 (詳細)
+          </h4>
+          
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", color: "rgba(255, 255, 255, 0.8)", fontSize: 13, fontWeight: 500, marginBottom: 8 }}>
+              編集対象フロア
+            </label>
+            <select
+              value={editingLayoutFloor}
+              onChange={(e) => setEditingLayoutFloor(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", backgroundColor: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: 6, color: "#ffffff", fontSize: 14 }}
+            >
+              <option value="ALL" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>一覧 (ALL)</option>
+              {floors.map((f) => (
+                <option key={f} value={f} style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>{f}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <label style={{ display: "block", color: "rgba(255, 255, 255, 0.8)", fontSize: 13, fontWeight: 500, marginBottom: 4 }}>
+                列数 (Columns)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={floorLayout[editingLayoutFloor]?.columns ?? 3}
+                onChange={(e) => handleLayoutChange('columns', parseInt(e.target.value) || 1)}
+                style={{ width: "100%", padding: "8px", backgroundColor: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: 6, color: "#ffffff" }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", color: "rgba(255, 255, 255, 0.8)", fontSize: 13, fontWeight: 500, marginBottom: 4 }}>
+                1列の行数 (Rows)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={floorLayout[editingLayoutFloor]?.rowsPerCol ?? 20}
+                onChange={(e) => handleLayoutChange('rowsPerCol', parseInt(e.target.value) || 1)}
+                style={{ width: "100%", padding: "8px", backgroundColor: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: 6, color: "#ffffff" }}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <label style={{ display: "block", color: "rgba(255, 255, 255, 0.8)", fontSize: 13, fontWeight: 500, marginBottom: 4 }}>
+              最大行数 (Max Rows) <span style={{fontSize: '0.8em', color: '#888'}}>※0で無効、設定時は自動伸縮</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="50"
+              value={floorLayout[editingLayoutFloor]?.maxRows ?? 0}
+              onChange={(e) => handleLayoutChange('maxRows', parseInt(e.target.value) || 0)}
+              style={{ width: "100%", padding: "8px", backgroundColor: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: 6, color: "#ffffff" }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
