@@ -265,6 +265,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('genre-settings-updated', listener);
     };
   },
+  getCmsSettings() {
+    return ipcRenderer.invoke('get-cms-settings');
+  },
+  saveCmsSettings(settings) {
+    return ipcRenderer.invoke('save-cms-settings', settings);
+  },
+  onCmsSettingsUpdated(callback) {
+    const listener = (_event, updated) => callback(updated);
+    ipcRenderer.on('cms-settings-updated', listener);
+
+    return () => {
+      ipcRenderer.removeListener('cms-settings-updated', listener);
+    };
+  },
 });
 
 contextBridge.exposeInMainWorld('wspApi', {

@@ -17,6 +17,7 @@ import type { Shop } from "../types/shop";
 import type { LocalMediaTextSettings } from "../types/global";
 import type { GenreSettings } from "../types/genreSettings";
 import { useAudioSettings } from "../hooks/useAudioSettings";
+import { useCmsSettings } from "../hooks/useCmsSettings";
 import type { MallId } from "../hooks/useMallAssets";
 import { DEFAULT_IGNORED_GENRE_KEYWORDS } from "../utils/genreUtils";
 
@@ -100,12 +101,23 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const { settings: audioSettings, saveSettings: saveAudioSettings, isLoading: isAudioSettingsLoading } = useAudioSettings();
   const [currentAudioSettings, setCurrentAudioSettings] = useState(audioSettings);
 
+  // CMS settings
+  const { settings: cmsSettings, updateSettings: updateCmsSettings, isLoading: isCmsSettingsLoading } = useCmsSettings();
+  const [currentCmsSettings, setCurrentCmsSettings] = useState(cmsSettings);
+
   // Sync with loaded audio settings
   useEffect(() => {
     if (!isAudioSettingsLoading) {
       setCurrentAudioSettings(audioSettings);
     }
   }, [audioSettings, isAudioSettingsLoading]);
+
+  // Sync with loaded CMS settings
+  useEffect(() => {
+    if (!isCmsSettingsLoading) {
+      setCurrentCmsSettings(cmsSettings);
+    }
+  }, [cmsSettings, isCmsSettingsLoading]);
 
   // Transform wrapper ref for programmatic control
   const transformRef = useRef<{
@@ -207,8 +219,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
       setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
       setCurrentAudioSettings(audioSettings);
+      setCurrentCmsSettings(cmsSettings);
     }
-  }, [visible, initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, initialGenreSettings, audioSettings]);
+  }, [visible, initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, initialGenreSettings, audioSettings, cmsSettings]);
 
   const handleClose = () => {
     setVisible(false);
@@ -226,6 +239,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
       setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
       setCurrentAudioSettings(audioSettings);
+      setCurrentCmsSettings(cmsSettings);
       setErrors({});
       // Reset transform - 現在のactiveTabに応じて適切な中央位置を計算
     if (transformRef.current && previewContainerRef.current) {
@@ -268,6 +282,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         onSaveLocalMediaTextSettings(localMediaTextSettings),
         onSaveGenreSettings(genreSettings),
         saveAudioSettings(currentAudioSettings),
+        updateCmsSettings(currentCmsSettings),
       ]);
       // currentFloorSettingの保存は同期的に行われる（App.tsx内でstate更新）が、
       // Electronへの保存も確実に行われるように呼び出す。
@@ -689,6 +704,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onChangeSettings={setLocalMediaTextSettings}
               audioSettings={currentAudioSettings}
               onChangeAudioSettings={setCurrentAudioSettings}
+              cmsSettings={currentCmsSettings}
+              onChangeCmsSettings={setCurrentCmsSettings}
               shops={shops}
             />
           )}

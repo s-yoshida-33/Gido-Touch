@@ -13,6 +13,7 @@ import type { VideoSettings } from "./videoSettings";
 import type { ShopPositionSettings } from "./shopPosition";
 import type { AudioSettings } from "./audioSettings";
 import type { GenreSettings } from "./genreSettings";
+import type { CmsSettings } from "./cmsSettings";
 
 export type LocalMediaTextSettings = Record<string, {  
   line1: string; 
@@ -105,6 +106,9 @@ interface ElectronAPI {
   getGenreSettings: () => Promise<GenreSettings>;
   saveGenreSettings: (settings: GenreSettings) => Promise<GenreSettings>;
   onGenreSettingsUpdated: (cb: (settings: GenreSettings) => void) => () => void;
+  getCmsSettings: () => Promise<CmsSettings>;
+  saveCmsSettings: (settings: CmsSettings) => Promise<CmsSettings>;
+  onCmsSettingsUpdated: (cb: (settings: CmsSettings) => void) => () => void;
   getDebugSettingsStatus: () => Promise<any>;
   manualUpdateCheck: () => void;
   oneClickUpdate: () => void;

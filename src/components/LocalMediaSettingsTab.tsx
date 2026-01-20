@@ -2,12 +2,15 @@ import React from 'react';
 import type { LocalMediaTextSettings } from '../types/global';
 import type { AudioSettings } from '../types/audioSettings';
 import type { Shop } from '../types/shop';
+import type { CmsSettings } from '../types/cmsSettings';
 
 interface LocalMediaSettingsTabProps {
   settings: LocalMediaTextSettings;
   onChangeSettings: (settings: LocalMediaTextSettings) => void;
   audioSettings: AudioSettings;
   onChangeAudioSettings: (settings: AudioSettings) => void;
+  cmsSettings: CmsSettings;
+  onChangeCmsSettings: (settings: CmsSettings) => void;
   shops: Shop[];
 }
 
@@ -62,6 +65,8 @@ const ToggleSwitch: React.FC<{
 export const LocalMediaSettingsTab: React.FC<LocalMediaSettingsTabProps> = ({
   audioSettings,
   onChangeAudioSettings,
+  cmsSettings,
+  onChangeCmsSettings,
 }) => {
   return (
     <div style={{ color: "#ffffff" }}>
@@ -69,6 +74,23 @@ export const LocalMediaSettingsTab: React.FC<LocalMediaSettingsTabProps> = ({
         ローカルメディア設定
       </h2>
       
+      {/* CMS Settings */}
+      <div style={{ marginBottom: 32 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, borderBottom: "1px solid #444", paddingBottom: 8 }}>
+          CMS連携設定
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <ToggleSwitch
+            checked={cmsSettings.enabled}
+            onChange={(checked) => onChangeCmsSettings({ ...cmsSettings, enabled: checked })}
+            label="右下のCMS枠（WSP連携）を表示する"
+          />
+        </div>
+        <p style={{ color: "#aaa", fontSize: 12, marginTop: 8 }}>
+          ※オフにするとCMSとの通信も停止します。
+        </p>
+      </div>
+
       {/* Audio Settings */}
       <div style={{ marginBottom: 32 }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, borderBottom: "1px solid #444", paddingBottom: 8 }}>

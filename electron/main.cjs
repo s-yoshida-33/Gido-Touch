@@ -246,6 +246,9 @@ function loadSettings() {
       ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS,
       maxItems: 3
     },
+    cmsSettings: {
+      enabled: true
+    },
   };
 
   // 1. Load user settings to check if a mallId is already set
@@ -451,6 +454,15 @@ function broadcastAudioSettings(settings) {
 function broadcastGenreSettings(settings) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('genre-settings-updated', settings);
+  }
+}
+
+/**
+ * Broadcast cms settings changes to renderer processes
+ */
+function broadcastCmsSettings(settings) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('cms-settings-updated', settings);
   }
 }
 
@@ -876,6 +888,7 @@ function createMainWindow() {
     broadcastLocalMediaTextSettings(settings.localMediaTextSettings);
     broadcastAudioSettings(settings.audioSettings);
     broadcastGenreSettings(settings.genreSettings);
+    broadcastCmsSettings(settings.cmsSettings);
   });
 
   mainWindow.on('closed', () => {
@@ -1368,6 +1381,19 @@ ipcMain.handle('save-genre-settings', (_event, genreSettings) => {
   const settings = saveSettings({ genreSettings });
   broadcastGenreSettings(settings.genreSettings);
   return settings.genreSettings;
+});
+
+ipcMain.handle('get-cms-settings', () => {
+  const settings = loadSettings();
+  logger.debug('IPC get-cms-settings');
+  return settings.cmsSettings || { enabled: true };
+});
+
+ipcMain.handle('save-cms-settings', (_event, cmsSettings) => {
+  logger.info('IPC save-cms-settings', { enabled: cmsSettings.enabled });
+  const settings = saveSettings({ cmsSettings });
+  broadcastCmsSettings(settings.cmsSettings);
+  return settings.cmsSettings;
 });
 
 // IPC Handler for exporting current settings as default

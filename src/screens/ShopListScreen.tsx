@@ -5,6 +5,7 @@ import VerticalVideoSlot from "../components/VerticalVideoSlot";
 import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
 
 import { useMall } from "../contexts/MallContext";
+import { useCmsSettings } from "../hooks/useCmsSettings";
 
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
@@ -344,6 +345,7 @@ interface ShopListScreenProps {
  */
 const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions, displayFloors = ['1F', '2F', '3F', '4F'], floorLayout }) => {
   const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage, genreSettings } = useMall();
+  const { settings: cmsSettings } = useCmsSettings();
   
   // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1725,6 +1727,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         <div style={{ flex: 1, minHeight: 0 }} />
 
         {/* CMS area (bottom) */}
+        {/* Always render container to maintain layout, but hide content if disabled */}
         <div
           style={{
             width: "1080px",
@@ -1737,16 +1740,19 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             overflow: "hidden",
             borderRadius: "30px",
             alignSelf: "flex-start",
+            visibility: cmsSettings.enabled ? "visible" : "hidden",
           }}
         >
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-            }}
-          >
-            <VerticalVideoSlot forceReload={refreshTrigger} />
-          </div>
+          {cmsSettings.enabled && (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+              }}
+            >
+              <VerticalVideoSlot forceReload={refreshTrigger} />
+            </div>
+          )}
         </div>
       </div>
 

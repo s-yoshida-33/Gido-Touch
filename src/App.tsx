@@ -21,6 +21,7 @@ import type { SseConnectionStatus } from "./api/sseClient";
 import type { LocalMediaTextSettings } from "./types/global";
 import { useMall } from "./contexts/MallContext";
 import type { GenreSettings } from "./types/genreSettings";
+import { useCmsSettings } from "./hooks/useCmsSettings";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
 
@@ -53,6 +54,7 @@ const App: React.FC = () => {
   );
   
   const { genreSettings } = useMall();
+  const { settings: cmsSettings } = useCmsSettings();
 
   // DEBUG STATE
   const [debugLog, setDebugLog] = useState<string[]>([]);
@@ -165,7 +167,11 @@ const App: React.FC = () => {
     let unsubscribeShops: (() => void) | undefined;
 
     // Start SSE connection
-    sseClient.connect();
+    if (cmsSettings.enabled) {
+      sseClient.connect();
+    } else {
+      sseClient.disconnect();
+    }
     shopSseClient.connect();
 
     // Helper to process/filter shops
@@ -604,7 +610,7 @@ const App: React.FC = () => {
       if (unsubscribeShops) unsubscribeShops();
       unsubscribeUpdate();
     };
-  }, []);
+  }, [cmsSettings.enabled]);
 
   const handleSaveLocationSettings = async (settings: LocationIconSettingsPerFloor) => {
     // Persist to Electron settings.json
