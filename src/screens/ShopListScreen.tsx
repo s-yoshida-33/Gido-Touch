@@ -1,11 +1,20 @@
 // src/screens/ShopListScreen.tsx
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import VerticalVideoSlot from "../components/VerticalVideoSlot";
 import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
 
 import { useMall } from "../contexts/MallContext";
 import { useCmsSettings } from "../hooks/useCmsSettings";
+
+import categoryBackground from "../assets/category/ja/background.svg";
+import categoryTakeout from "../assets/category/ja/takeout.svg";
+import categoryTakeoutHighlight from "../assets/category/ja/takeout-highlight.svg";
+import categoryAlcohol from "../assets/category/ja/alcohol.svg";
+import categoryAlcoholHighlight from "../assets/category/ja/alcohol-highlight.svg";
+import categoryMeat from "../assets/category/ja/meat.svg";
+import categoryMeatHighlight from "../assets/category/ja/meat-highlight.svg";
+import categorySweets from "../assets/category/ja/sweets.svg";
+import categorySweetsHighlight from "../assets/category/ja/sweets-highlight.svg";
 
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
@@ -358,6 +367,9 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   // Floor filter state
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
   
+  // Category filter state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
   // Selected shop for detail modal
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
 
@@ -376,7 +388,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const languageButtonRef = useRef<HTMLDivElement>(null);
   
-  // Ref to track active touch on floor buttons to prevent multi-touch highlighting
+  // Ref to track active touch on floor buttons to prevent flickering
   const activeTouchRef = useRef<string | null>(null);
   // Ref to track touch start position for detecting scroll gestures
   const touchStartPosRef = useRef<{x: number, y: number} | null>(null);
@@ -403,18 +415,34 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     }
   };
 
+  // Helper to handle category selection
+  const handleCategorySelect = (category: string) => {
+    // Close modal if open
+    if (selectedShop) {
+      setSelectedShop(null);
+    }
+    
+    if (selectedCategory === category) {
+      setSelectedCategory(null);
+    } else {
+      setSelectedCategory(category);
+    }
+  };
+
   // State refs for idle check (to access current state in interval)
   const selectedShopRef = useRef(selectedShop);
   const selectedFloorRef = useRef(selectedFloor);
+  const selectedCategoryRef = useRef(selectedCategory);
   const selectedLanguageRef = useRef(selectedLanguage);
   const isLanguageModalOpenRef = useRef(isLanguageModalOpen);
 
   useEffect(() => {
     selectedShopRef.current = selectedShop;
     selectedFloorRef.current = selectedFloor;
+    selectedCategoryRef.current = selectedCategory;
     selectedLanguageRef.current = selectedLanguage;
     isLanguageModalOpenRef.current = isLanguageModalOpen;
-  }, [selectedShop, selectedFloor, selectedLanguage, isLanguageModalOpen]);
+  }, [selectedShop, selectedFloor, selectedCategory, selectedLanguage, isLanguageModalOpen]);
 
   // Initialize language to Japanese on mount (force reset to Japanese)
   useEffect(() => {
@@ -461,6 +489,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         const isDefaultState =
           selectedShopRef.current === null &&
           selectedFloorRef.current === null &&
+          selectedCategoryRef.current === null &&
           selectedLanguageRef.current === "ja" &&
           isLanguageModalOpenRef.current === false &&
           (scrollContainerRef.current ? scrollContainerRef.current.scrollLeft < 5 : true);
@@ -482,6 +511,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             // 30 seconds of inactivity - refresh to default state
             setSelectedShop(null);
             setSelectedFloor(null); // Reset to no selection
+            setSelectedCategory(null); // Reset category
             setSelectedLanguage("ja"); // Reset to default Japanese (also saves to localStorage)
             setIsLanguageModalOpen(false);
             
@@ -537,10 +567,12 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         return shop.floors.some(f => displayFloors.includes(normalizeFloor(String(f))));
     });
 
+    let result = displayFilteredShops;
+
     if (selectedFloor) {
       const normalizedSelectedFloor = normalizeFloor(selectedFloor);
       
-      return displayFilteredShops.filter((shop) => {
+      result = result.filter((shop) => {
         // Check if any of the shop's floors match the selected floor
         return shop.floors.some((floor) => {
           const normalizedShopFloor = normalizeFloor(String(floor));
@@ -548,14 +580,33 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         });
       });
     }
+
+    if (selectedCategory) {
+      result = result.filter((shop) => {
+        const genreMemo = (shop.genreMemo || "").toLowerCase();
+        // Simple filtering logic based on category
+        switch (selectedCategory) {
+          case 'takeout':
+            return (shop.takeOut && shop.takeOut !== "0") || genreMemo.includes("テイクアウト") || genreMemo.includes("takeout");
+          case 'alcohol':
+            return (shop.alcohol && shop.alcohol !== "0") || genreMemo.includes("酒") || genreMemo.includes("アルコール") || genreMemo.includes("alcohol");
+          case 'meat':
+            return genreMemo.includes("肉") || genreMemo.includes("meat") || genreMemo.includes("ステーキ") || genreMemo.includes("ハンバーグ") || genreMemo.includes("焼肉");
+          case 'sweets':
+             return genreMemo.includes("スイーツ") || genreMemo.includes("甘味") || genreMemo.includes("デザート") || genreMemo.includes("カフェ") || genreMemo.includes("sweets") || genreMemo.includes("cafe");
+          default:
+            return true;
+        }
+      });
+    }
     
     // Logic for sorting if "prioritizeCurrentFloor" is enabled in "ALL" mode
     const allConfig = floorLayout?.["ALL"] || floorLayout?.["default"];
-    if (allConfig?.prioritizeCurrentFloor && currentFloorSetting) {
+    if (!selectedFloor && allConfig?.prioritizeCurrentFloor && currentFloorSetting) {
         const normalizedCurrentFloor = normalizeFloor(currentFloorSetting);
         
         // Sort: Current floor shops first, then others. Maintain relative order.
-        return [...displayFilteredShops].sort((a, b) => {
+        return [...result].sort((a, b) => {
             const aIsCurrent = a.floors?.some(f => normalizeFloor(String(f)) === normalizedCurrentFloor);
             const bIsCurrent = b.floors?.some(f => normalizeFloor(String(f)) === normalizedCurrentFloor);
             
@@ -565,8 +616,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         });
     }
     
-    return displayFilteredShops;
-  }, [shops, selectedFloor, displayFloors, floorLayout, currentFloorSetting]);
+    return result;
+  }, [shops, selectedFloor, selectedCategory, displayFloors, floorLayout, currentFloorSetting]);
 
   // Layout calculation
   const currentLayoutKey = selectedFloor ? normalizeFloor(selectedFloor) : "ALL";
@@ -756,7 +807,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       container.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", checkScrollState);
     };
-  }, [handleScroll, checkScrollState, filteredShops, selectedFloor]); // Re-run when content changes
+  }, [handleScroll, checkScrollState, filteredShops, selectedFloor, selectedCategory]); // Re-run when content changes
 
   // Additional check when content likely changes (animations, etc)
   useLayoutEffect(() => {
@@ -767,7 +818,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       clearTimeout(timer);
       clearTimeout(timer2);
     };
-  }, [filteredShops, selectedFloor, checkScrollState]);
+  }, [filteredShops, selectedFloor, selectedCategory, checkScrollState]);
 
   // Smooth scroll animation helper
   const smoothScrollTo = (targetScrollLeft: number, duration: number = 800) => {
@@ -1734,7 +1785,6 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         <div style={{ flex: 1, minHeight: 0 }} />
 
         {/* CMS area (bottom) */}
-        {/* Always render container to maintain layout, but hide content if disabled */}
         <div
           style={{
             width: "1080px",
@@ -1747,18 +1797,155 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             overflow: "hidden",
             borderRadius: "30px",
             alignSelf: "flex-start",
-            visibility: cmsSettings.enabled ? "visible" : "hidden",
+            position: "relative", // Needed for absolute positioning of children
           }}
         >
-          {cmsSettings.enabled && (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-              }}
-            >
-              <VerticalVideoSlot forceReload={refreshTrigger} />
-            </div>
+          {(cmsSettings.categorySearchEnabled ?? true) && (
+            <>
+              {/* Background Image */}
+              <img
+                src={categoryBackground}
+                alt=""
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  zIndex: 1,
+                }}
+              />
+              
+              {/* Category Buttons Overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  zIndex: 2,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-end",
+                  padding: "0px", // Remove padding to use full space
+                  boxSizing: "border-box",
+                }}
+              >
+              {/* Top Row: Takeout, Alcohol */}
+              <div style={{ height: "242.5px", width: "100%", display: "flex", flexDirection: "row", marginBottom: "30px" }}>
+                {/* Takeout Button (Top-Left) */}
+                <div 
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-start", position: "relative", height: "242.5px" }}
+                  onClick={() => handleCategorySelect('takeout')}
+                >
+                   <img 
+                      src={categoryTakeout} 
+                      alt="Takeout" 
+                      style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
+                      draggable={false}
+                   />
+                   <img
+                      src={categoryTakeoutHighlight}
+                      alt="Takeout Highlight"
+                      style={{ 
+                          position: "absolute",
+                          top: 0, left: 0,
+                          width: "525px", height: "242.5px", objectFit: "contain",
+                          opacity: selectedCategory === 'takeout' ? 1 : 0,
+                          transition: "opacity 0.2s",
+                          pointerEvents: "none" 
+                      }}
+                      draggable={false}
+                   />
+                </div>
+
+                {/* Alcohol Button (Top-Right) */}
+                <div 
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", position: "relative", height: "242.5px" }}
+                  onClick={() => handleCategorySelect('alcohol')}
+                >
+                   <img 
+                      src={categoryAlcohol} 
+                      alt="Alcohol" 
+                      style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
+                      draggable={false}
+                   />
+                   <img
+                      src={categoryAlcoholHighlight}
+                      alt="Alcohol Highlight"
+                      style={{ 
+                          position: "absolute",
+                          top: 0, 
+                          right: 0, // Position on the right side
+                          width: "525px", height: "242.5px", objectFit: "contain",
+                          opacity: selectedCategory === 'alcohol' ? 1 : 0,
+                          transition: "opacity 0.2s",
+                          pointerEvents: "none" 
+                      }}
+                      draggable={false}
+                   />
+                </div>
+              </div>
+
+              {/* Bottom Row: Meat, Sweets */}
+              <div style={{ height: "242.5px", width: "100%", display: "flex", flexDirection: "row" }}>
+                {/* Meat Button (Bottom-Left) */}
+                <div 
+                  style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "flex-start", position: "relative", height: "242.5px" }}
+                  onClick={() => handleCategorySelect('meat')}
+                >
+                   <img 
+                      src={categoryMeat} 
+                      alt="Meat" 
+                      style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
+                      draggable={false}
+                   />
+                   <img
+                      src={categoryMeatHighlight}
+                      alt="Meat Highlight"
+                      style={{ 
+                          position: "absolute",
+                          bottom: 0, left: 0,
+                          width: "525px", height: "242.5px", objectFit: "contain",
+                          opacity: selectedCategory === 'meat' ? 1 : 0,
+                          transition: "opacity 0.2s",
+                          pointerEvents: "none" 
+                      }}
+                      draggable={false}
+                   />
+                </div>
+
+                {/* Sweets Button (Bottom-Right) */}
+                <div 
+                  style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", position: "relative", height: "242.5px" }}
+                  onClick={() => handleCategorySelect('sweets')}
+                >
+                   <img 
+                      src={categorySweets} 
+                      alt="Sweets" 
+                      style={{ width: "525px", height: "100%", objectFit: "contain" }}
+                      draggable={false}
+                   />
+                   <img
+                      src={categorySweetsHighlight}
+                      alt="Sweets Highlight"
+                      style={{ 
+                          position: "absolute",
+                          bottom: 0, 
+                          right: 0, // Position on the right side
+                          width: "525px", height: "100%", objectFit: "contain",
+                          opacity: selectedCategory === 'sweets' ? 1 : 0,
+                          transition: "opacity 0.2s",
+                          pointerEvents: "none" 
+                      }}
+                      draggable={false}
+                   />
+                </div>
+              </div>
+              </div>
+            </>
           )}
         </div>
       </div>

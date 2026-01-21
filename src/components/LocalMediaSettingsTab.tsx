@@ -85,6 +85,11 @@ export const LocalMediaSettingsTab: React.FC<LocalMediaSettingsTabProps> = ({
             onChange={(checked) => onChangeCmsSettings({ ...cmsSettings, enabled: checked })}
             label="右下のCMS枠（WSP連携）を表示する"
           />
+          <ToggleSwitch
+            checked={cmsSettings.categorySearchEnabled ?? true}
+            onChange={(checked) => onChangeCmsSettings({ ...cmsSettings, categorySearchEnabled: checked })}
+            label="カテゴリー検索を表示する"
+          />
         </div>
         <p style={{ color: "#aaa", fontSize: 12, marginTop: 8 }}>
           ※オフにするとCMSとの通信も停止します。

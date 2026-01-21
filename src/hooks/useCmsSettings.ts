@@ -10,6 +10,7 @@ interface UseCmsSettingsResult {
 
 const DEFAULT_SETTINGS: CmsSettings = {
   enabled: true,
+  categorySearchEnabled: true,
 };
 
 export function useCmsSettings(): UseCmsSettingsResult {

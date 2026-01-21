@@ -43,5 +43,7 @@ export function convertSseShopDataToShop(item: any): Shop {
     description: item.description || "",
     openTime: item.openTime || "",
     tel: item.tel || "",
+    takeOut: item.takeOut,
+    alcohol: item.alcohol,
   };
 }

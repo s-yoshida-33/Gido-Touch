@@ -7,6 +7,7 @@ import type { Shop } from "../types/shop";
 import { useMall } from "../contexts/MallContext";
 import { APP_CONFIG } from "../config";
 import { useShops } from "../hooks/useShops";
+import { useCmsSettings } from "../hooks/useCmsSettings";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 
 import type { LocationIconSettings, LocationIconSettingsPerFloor } from "../types/locationIcon";
@@ -61,6 +62,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
   const { shops, error: shopsError } = useShops();
   const error = shopsError ? shopsError.message : null;
   const { assets, isLoading: isAssetsLoading } = useMall();
+  const { settings: cmsSettings } = useCmsSettings();
 
   const [floor, setFloor] = useState<string>(
     previewFloor ?? APP_CONFIG.floor
@@ -294,27 +296,40 @@ const GidoApp: React.FC<GidoAppProps> = ({
             margin: "0 auto",
           }}
         >
-          <img
-            src={openTimeImage}
-            alt="Open Time"
-            style={{
-              maxWidth: "100%",
-              maxHeight: "100%",
-              objectFit: "contain",
-              padding: "1.4em",
-            }}
-            onLoad={() => {
-              logInfo("SYS_INIT", "Open-time image loaded", {
-                src: openTimeImage,
-              });
-            }}
-            onError={(event) => {
-              logError("SYS_INIT", "Failed to load open-time image", {
-                src: openTimeImage,
-              });
-              (event.target as HTMLImageElement).style.visibility = "hidden";
-            }}
-          />
+          {cmsSettings.enabled ? (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                background: "#000",
+                overflow: "hidden",
+              }}
+            >
+              <VerticalVideoSlot />
+            </div>
+          ) : (
+            <img
+              src={openTimeImage}
+              alt="Open Time"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
+                padding: "1.4em",
+              }}
+              onLoad={() => {
+                logInfo("SYS_INIT", "Open-time image loaded", {
+                  src: openTimeImage,
+                });
+              }}
+              onError={(event) => {
+                logError("SYS_INIT", "Failed to load open-time image", {
+                  src: openTimeImage,
+                });
+                (event.target as HTMLImageElement).style.visibility = "hidden";
+              }}
+            />
+          )}
         </div>
       </div>
 

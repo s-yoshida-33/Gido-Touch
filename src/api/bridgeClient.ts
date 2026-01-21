@@ -135,6 +135,8 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
         description: item.description || "",
         openTime: item.openTime || "",
         tel: item.tel || "",
+        takeOut: item.takeOut,
+        alcohol: item.alcohol,
       };
     });
 
