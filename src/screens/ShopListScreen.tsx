@@ -400,6 +400,35 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   // State to track which card is currently being pressed (for animation)
   const [pressedCardId, setPressedCardId] = useState<string | null>(null);
 
+  // Check scroll state
+  const checkScrollState = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) {
+      setCanScrollPrev(false);
+      setCanScrollNext(false);
+      return;
+    }
+    
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    // Round values to avoid sub-pixel precision issues
+    const currentScroll = Math.ceil(scrollLeft);
+    const maxScroll = Math.ceil(scrollWidth - clientWidth);
+    
+    if (maxScroll <= 0) {
+      setCanScrollPrev(false);
+      setCanScrollNext(false);
+      return;
+    }
+
+    // Show Prev if scrolled more than threshold (approx 1 column width: 376px + 20px gap)
+    // User requested to show buttons when around the 2nd column
+    const threshold = 200;
+
+    setCanScrollPrev(currentScroll > threshold);
+    // Show Next if not at the end (within threshold)
+    setCanScrollNext(currentScroll < maxScroll - threshold);
+  }, []);
+
   // Helper to handle floor selection
   const handleFloorSelect = (floor: string) => {
     // Close modal if open
@@ -746,35 +775,6 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     container.style.userSelect = "";
   };
 
-  // Check scroll state
-  const checkScrollState = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container) {
-      setCanScrollPrev(false);
-      setCanScrollNext(false);
-      return;
-    }
-    
-    const { scrollLeft, scrollWidth, clientWidth } = container;
-    // Round values to avoid sub-pixel precision issues
-    const currentScroll = Math.ceil(scrollLeft);
-    const maxScroll = Math.ceil(scrollWidth - clientWidth);
-    
-    if (maxScroll <= 0) {
-      setCanScrollPrev(false);
-      setCanScrollNext(false);
-      return;
-    }
-
-    // Show Prev if scrolled more than threshold (approx 1 column width: 376px + 20px gap)
-    // User requested to show buttons when around the 2nd column
-    const threshold = 200;
-
-    setCanScrollPrev(currentScroll > threshold);
-    // Show Next if not at the end (within threshold)
-    setCanScrollNext(currentScroll < maxScroll - threshold);
-  }, []);
-
   // Handle scroll event
   const handleScroll = useCallback(() => {
     checkScrollState();
@@ -947,6 +947,12 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
           <AnimatePresence 
             mode="wait"
             onExitComplete={() => {
+              // Reset scroll position instantly when content changes (after exit animation)
+              if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollLeft = 0;
+                checkScrollState(); // Update buttons visibility
+              }
+
               // Recalculate scroll state after animation completes
               setTimeout(() => {
                 handleScroll();
