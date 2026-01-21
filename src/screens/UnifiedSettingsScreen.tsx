@@ -713,6 +713,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             <GenreSettingsTab
               settings={genreSettings}
               onChangeSettings={setGenreSettings}
+              shops={shops}
             />
           )}
         </div>

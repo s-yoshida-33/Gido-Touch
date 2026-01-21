@@ -34,7 +34,7 @@ import { LanguageSelectModal } from "../components/LanguageSelectModal";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { FloorLayout } from "../types/floorLayout";
-import { filterGenreMemos } from "../utils/genreUtils";
+import { filterGenreMemos, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
 
 // Simple in-memory cache for image URLs to prevent flickering
 const imageCache = new Map<string, string>();
@@ -653,19 +653,22 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     if (selectedCategory) {
       result = result.filter((shop) => {
         const genreMemo = (shop.genreMemo || "").toLowerCase();
-        // Simple filtering logic based on category
-        switch (selectedCategory) {
-          case 'takeout':
-            return (shop.takeOut && shop.takeOut !== "0") || genreMemo.includes("テイクアウト") || genreMemo.includes("takeout");
-          case 'alcohol':
-            return (shop.alcohol && shop.alcohol !== "0") || genreMemo.includes("酒") || genreMemo.includes("アルコール") || genreMemo.includes("alcohol");
-          case 'meat':
-            return genreMemo.includes("肉") || genreMemo.includes("meat") || genreMemo.includes("ステーキ") || genreMemo.includes("ハンバーグ") || genreMemo.includes("焼肉");
-          case 'sweets':
-             return genreMemo.includes("スイーツ") || genreMemo.includes("甘味") || genreMemo.includes("デザート") || genreMemo.includes("カフェ") || genreMemo.includes("sweets") || genreMemo.includes("cafe");
-          default:
+        
+        // 設定からキーワードを取得、なければデフォルト値を使用
+        const mapping = genreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS;
+        const keywords = mapping[selectedCategory] || [];
+
+        // テイクアウトとアルコールの特別処理（フラグチェック）は維持しつつ、キーワード検索を追加
+        if (selectedCategory === 'takeout' && (shop.takeOut && shop.takeOut !== "0")) {
             return true;
         }
+        if (selectedCategory === 'alcohol' && (shop.alcohol && shop.alcohol !== "0")) {
+            return true;
+        }
+
+        // キーワードの部分一致検索
+        // 設定されたキーワードのいずれかがジャンルメモに含まれていればヒット
+        return keywords.some(keyword => genreMemo.includes(keyword.toLowerCase()));
       });
     }
     

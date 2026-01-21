@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMallAssets, MALL_IDS } from '../hooks/useMallAssets';
 import type { MallId, Language } from '../hooks/useMallAssets';
 import type { GenreSettings } from '../types/genreSettings';
-import { DEFAULT_IGNORED_GENRE_KEYWORDS } from '../utils/genreUtils';
+import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from '../utils/genreUtils';
 
 // デフォルトはリストの先頭、なければ須坂
 const DEFAULT_MALL_ID: MallId = MALL_IDS[0] || 'suzaka';
@@ -11,7 +11,8 @@ const LANGUAGE_STORAGE_KEY = "gido-selected-language";
 
 const DEFAULT_GENRE_SETTINGS: GenreSettings = {
   ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS || [],
-  maxItems: 3
+  maxItems: 3,
+  categoryMapping: DEFAULT_CATEGORY_MAPPINGS
 };
 
 interface MallContextType {
