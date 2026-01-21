@@ -6,15 +6,27 @@ import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
 import { useMall } from "../contexts/MallContext";
 import { useCmsSettings } from "../hooks/useCmsSettings";
 
-import categoryBackground from "../assets/category/ja/background.svg";
-import categoryTakeout from "../assets/category/ja/takeout.svg";
-import categoryTakeoutHighlight from "../assets/category/ja/takeout-highlight.svg";
-import categoryAlcohol from "../assets/category/ja/alcohol.svg";
-import categoryAlcoholHighlight from "../assets/category/ja/alcohol-highlight.svg";
-import categoryMeat from "../assets/category/ja/meat.svg";
-import categoryMeatHighlight from "../assets/category/ja/meat-highlight.svg";
-import categorySweets from "../assets/category/ja/sweets.svg";
-import categorySweetsHighlight from "../assets/category/ja/sweets-highlight.svg";
+// JA assets
+import categoryBackgroundJa from "../assets/category/ja/background.svg";
+import categoryTakeoutJa from "../assets/category/ja/takeout.svg";
+import categoryTakeoutHighlightJa from "../assets/category/ja/takeout-highlight.svg";
+import categoryAlcoholJa from "../assets/category/ja/alcohol.svg";
+import categoryAlcoholHighlightJa from "../assets/category/ja/alcohol-highlight.svg";
+import categoryMeatJa from "../assets/category/ja/meat.svg";
+import categoryMeatHighlightJa from "../assets/category/ja/meat-highlight.svg";
+import categorySweetsJa from "../assets/category/ja/sweets.svg";
+import categorySweetsHighlightJa from "../assets/category/ja/sweets-highlight.svg";
+
+// EN assets
+import categoryBackgroundEn from "../assets/category/en/background.svg";
+import categoryTakeoutEn from "../assets/category/en/takeout.svg";
+import categoryTakeoutHighlightEn from "../assets/category/en/takeout-highlight.svg";
+import categoryAlcoholEn from "../assets/category/en/alcohol.svg";
+import categoryAlcoholHighlightEn from "../assets/category/en/alcohol-highlight.svg";
+import categoryMeatEn from "../assets/category/en/meat.svg";
+import categoryMeatHighlightEn from "../assets/category/en/meat-highlight.svg";
+import categorySweetsEn from "../assets/category/en/sweets.svg";
+import categorySweetsHighlightEn from "../assets/category/en/sweets-highlight.svg";
 
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
@@ -355,6 +367,34 @@ interface ShopListScreenProps {
 const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions, displayFloors = ['1F', '2F', '3F', '4F'], floorLayout }) => {
   const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage, genreSettings } = useMall();
   const { settings: cmsSettings } = useCmsSettings();
+
+  // Define category assets based on language
+  const categoryAssets = {
+    ja: {
+      background: categoryBackgroundJa,
+      takeout: categoryTakeoutJa,
+      takeoutHighlight: categoryTakeoutHighlightJa,
+      alcohol: categoryAlcoholJa,
+      alcoholHighlight: categoryAlcoholHighlightJa,
+      meat: categoryMeatJa,
+      meatHighlight: categoryMeatHighlightJa,
+      sweets: categorySweetsJa,
+      sweetsHighlight: categorySweetsHighlightJa,
+    },
+    en: {
+      background: categoryBackgroundEn,
+      takeout: categoryTakeoutEn,
+      takeoutHighlight: categoryTakeoutHighlightEn,
+      alcohol: categoryAlcoholEn,
+      alcoholHighlight: categoryAlcoholHighlightEn,
+      meat: categoryMeatEn,
+      meatHighlight: categoryMeatHighlightEn,
+      sweets: categorySweetsEn,
+      sweetsHighlight: categorySweetsHighlightEn,
+    }
+  };
+
+  const currentCategoryAssets = selectedLanguage === 'en' ? categoryAssets.en : categoryAssets.ja;
   
   // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1810,7 +1850,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             <>
               {/* Background Image */}
               <img
-                src={categoryBackground}
+                src={currentCategoryAssets.background}
                 alt=""
                 style={{
                   width: "100%",
@@ -1847,13 +1887,13 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                   onClick={() => handleCategorySelect('takeout')}
                 >
                    <img 
-                      src={categoryTakeout} 
+                      src={currentCategoryAssets.takeout} 
                       alt="Takeout" 
                       style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
                       draggable={false}
                    />
                    <img
-                      src={categoryTakeoutHighlight}
+                      src={currentCategoryAssets.takeoutHighlight}
                       alt="Takeout Highlight"
                       style={{ 
                           position: "absolute",
@@ -1873,13 +1913,13 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                   onClick={() => handleCategorySelect('alcohol')}
                 >
                    <img 
-                      src={categoryAlcohol} 
+                      src={currentCategoryAssets.alcohol} 
                       alt="Alcohol" 
                       style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
                       draggable={false}
                    />
                    <img
-                      src={categoryAlcoholHighlight}
+                      src={currentCategoryAssets.alcoholHighlight}
                       alt="Alcohol Highlight"
                       style={{ 
                           position: "absolute",
@@ -1903,13 +1943,13 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                   onClick={() => handleCategorySelect('meat')}
                 >
                    <img 
-                      src={categoryMeat} 
+                      src={currentCategoryAssets.meat} 
                       alt="Meat" 
                       style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
                       draggable={false}
                    />
                    <img
-                      src={categoryMeatHighlight}
+                      src={currentCategoryAssets.meatHighlight}
                       alt="Meat Highlight"
                       style={{ 
                           position: "absolute",
@@ -1929,13 +1969,13 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                   onClick={() => handleCategorySelect('sweets')}
                 >
                    <img 
-                      src={categorySweets} 
+                      src={currentCategoryAssets.sweets} 
                       alt="Sweets" 
                       style={{ width: "525px", height: "100%", objectFit: "contain" }}
                       draggable={false}
                    />
                    <img
-                      src={categorySweetsHighlight}
+                      src={currentCategoryAssets.sweetsHighlight}
                       alt="Sweets Highlight"
                       style={{ 
                           position: "absolute",
