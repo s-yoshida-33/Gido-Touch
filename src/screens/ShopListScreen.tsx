@@ -954,7 +954,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             }}
           >
             <motion.div
-              key={selectedFloor || "all"}
+              key={`${selectedFloor || "all"}-${selectedCategory || "all"}`}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
