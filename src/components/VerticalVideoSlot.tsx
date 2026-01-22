@@ -17,9 +17,17 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   const prevAssetIdRef = React.useRef<string | null>(null);
   const [objectFit, setObjectFit] = React.useState<'cover' | 'contain'>('cover');
 
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  // Reset error when asset changes
+  React.useEffect(() => {
+    setErrorMsg(null);
+  }, [asset?.id, asset?.src]);
+
   // Handle force reload
   React.useEffect(() => {
     if (forceReload > 0) {
+      setErrorMsg(null);
       logInfo('VIDEO', 'Force reload triggered in VerticalVideoSlot', { forceReload });
       if (videoRef.current) {
         videoRef.current.load();
@@ -127,13 +135,24 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
           width: '100%',
           height: '100%',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#888',
-          fontSize: 12,
+          color: '#fff',
+          fontSize: 14,
+          backgroundColor: '#333',
+          padding: 8,
+          textAlign: 'center',
         }}
       >
-        {isLoading ? 'Loading…' : 'No conected.'}
+        <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+          {isLoading ? 'Loading...' : 'No connected.'}
+        </div>
+        {!isLoading && (
+            <div style={{ fontSize: 10, color: '#aaa' }}>
+                Waiting for asset data from SSE...
+            </div>
+        )}
       </div>
     );
   }
@@ -146,152 +165,191 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   // Use both id and src in key to ensure remount when either changes
   const mediaKey = `${asset.id}-${asset.src}`;
 
+  // Debug/Error Overlay
+  const renderOverlay = () => {
+    if (!errorMsg) return null;
+    return (
+        <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            color: '#ff5555',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            padding: 20,
+            boxSizing: 'border-box',
+            zIndex: 100,
+            pointerEvents: 'none',
+        }}>
+            <div style={{ fontWeight: 'bold', marginBottom: 8 }}>Playback Error</div>
+            <div style={{ fontSize: 12, wordBreak: 'break-all' }}>{errorMsg}</div>
+            <div style={{ fontSize: 10, marginTop: 8, color: '#aaa' }}>{asset.src}</div>
+        </div>
+    );
+  };
+
   if (isImage) {
     // Render as image
     return (
-      <img
-        ref={imgRef}
-        key={mediaKey}
-        src={asset.src}
-        alt={asset.name || 'Media'}
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'block',
-          objectFit: objectFit,
-        }}
-        onLoad={(e) => {
-          const img = e.currentTarget;
-          const fit = calculateObjectFit(img.naturalWidth, img.naturalHeight);
-          setObjectFit(fit);
-          logInfo('VIDEO', 'Image loaded in VerticalVideoSlot', {
-            assetId: asset.id,
-            src: asset.src,
-            naturalWidth: img.naturalWidth,
-            naturalHeight: img.naturalHeight,
-            objectFit: fit,
-          });
-        }}
-        onError={() => {
-          logError('VIDEO', 'Image element error (VerticalVideoSlot)', {
-            assetId: asset.id,
-            src: asset.src,
-          });
-        }}
-      />
+      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+          {renderOverlay()}
+          <img
+            ref={imgRef}
+            key={mediaKey}
+            src={asset.src}
+            alt={asset.name || 'Media'}
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'block',
+              objectFit: objectFit,
+            }}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              const fit = calculateObjectFit(img.naturalWidth, img.naturalHeight);
+              setObjectFit(fit);
+              logInfo('VIDEO', 'Image loaded in VerticalVideoSlot', {
+                assetId: asset.id,
+                src: asset.src,
+                naturalWidth: img.naturalWidth,
+                naturalHeight: img.naturalHeight,
+                objectFit: fit,
+              });
+            }}
+            onError={() => {
+              const msg = `Failed to load image: ${asset.src}`;
+              logError('VIDEO', 'Image element error (VerticalVideoSlot)', {
+                assetId: asset.id,
+                src: asset.src,
+              });
+              setErrorMsg(msg);
+            }}
+          />
+      </div>
     );
   }
 
   // Render as video (default)
   return (
-    <video
-      ref={videoRef}
-      key={mediaKey}
-      src={asset.src}
-      autoPlay
-      muted={audioSettings.cmsMuted}
-      loop={true}
-      playsInline
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'block',
-        objectFit: objectFit,
-      }}
-      onLoadedMetadata={(e) => {
-        const video = e.currentTarget;
-        logInfo('VIDEO', 'Video metadata loaded', {
-          assetId: asset.id,
-          videoWidth: video.videoWidth,
-          videoHeight: video.videoHeight,
-          duration: video.duration,
-        });
-      }}
-      onLoadedData={(e) => {
-        const video = e.currentTarget;
-        const fit = calculateObjectFit(video.videoWidth, video.videoHeight);
-        setObjectFit(fit);
-        logInfo('VIDEO', 'Video loaded in VerticalVideoSlot', {
-          assetId: asset.id,
-          src: asset.src,
-          videoWidth: video.videoWidth,
-          videoHeight: video.videoHeight,
-          objectFit: fit,
-          paused: video.paused,
-          readyState: video.readyState,
-        });
-        // Ensure playback starts after loading
-        if (video.paused && video.readyState >= 2) {
-          video.play().then(() => {
-            logInfo('VIDEO', 'Video play() succeeded in onLoadedData', {
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+        {renderOverlay()}
+        <video
+          ref={videoRef}
+          key={mediaKey}
+          src={asset.src}
+          autoPlay
+          muted={audioSettings.cmsMuted}
+          loop={true}
+          playsInline
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'block',
+            objectFit: objectFit,
+          }}
+          onLoadedMetadata={(e) => {
+            const video = e.currentTarget;
+            logInfo('VIDEO', 'Video metadata loaded', {
               assetId: asset.id,
-              currentTime: video.currentTime,
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              duration: video.duration,
             });
-          }).catch((err) => {
-            logError('VIDEO', 'Failed to play video in onLoadedData', {
+          }}
+          onLoadedData={(e) => {
+            const video = e.currentTarget;
+            const fit = calculateObjectFit(video.videoWidth, video.videoHeight);
+            setObjectFit(fit);
+            logInfo('VIDEO', 'Video loaded in VerticalVideoSlot', {
               assetId: asset.id,
               src: asset.src,
-              error: err?.message,
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              objectFit: fit,
               paused: video.paused,
               readyState: video.readyState,
             });
-          });
-        }
-      }}
-      onCanPlay={(e) => {
-        const video = e.currentTarget;
-        logInfo('VIDEO', 'Video can play', {
-          assetId: asset.id,
-          readyState: video.readyState,
-          paused: video.paused,
-        });
-        // Ensure playback starts when video can play
-        if (video.paused) {
-          video.play().then(() => {
-            logInfo('VIDEO', 'Video play() succeeded in onCanPlay', {
-              assetId: asset.id,
-              currentTime: video.currentTime,
-            });
-          }).catch((err) => {
-            logError('VIDEO', 'Failed to play video in onCanPlay', {
-              assetId: asset.id,
-              error: err?.message,
-            });
-          });
-        }
-      }}
-      onPlay={() => {
-        logInfo('VIDEO', 'Video playback started', {
-          assetId: asset.id,
-          currentTime: videoRef.current?.currentTime,
-          duration: videoRef.current?.duration,
-        });
-      }}
-      onEnded={() => {
-        logInfo('VIDEO', 'Video playback ended (will loop)', {
-          assetId: asset.id,
-        });
-      }}
-      onError={(e) => {
-        const video = e.currentTarget;
-        logError('VIDEO', 'Video element error (VerticalVideoSlot)', {
-          assetId: asset.id,
-          src: asset.src,
-          error: video.error?.message,
-          errorCode: video.error?.code,
-          networkState: video.networkState,
-          readyState: video.readyState,
-        });
-        // Try to reload on error
-        if (videoRef.current) {
-          setTimeout(() => {
-            if (videoRef.current && asset.src) {
-              videoRef.current.load();
+            // Ensure playback starts after loading
+            if (video.paused && video.readyState >= 2) {
+              video.play().then(() => {
+                logInfo('VIDEO', 'Video play() succeeded in onLoadedData', {
+                  assetId: asset.id,
+                  currentTime: video.currentTime,
+                });
+              }).catch((err) => {
+                logError('VIDEO', 'Failed to play video in onLoadedData', {
+                  assetId: asset.id,
+                  src: asset.src,
+                  error: err?.message,
+                  paused: video.paused,
+                  readyState: video.readyState,
+                });
+              });
             }
-          }, 1000);
-        }
-      }}
-    />
+          }}
+          onCanPlay={(e) => {
+            const video = e.currentTarget;
+            logInfo('VIDEO', 'Video can play', {
+              assetId: asset.id,
+              readyState: video.readyState,
+              paused: video.paused,
+            });
+            // Ensure playback starts when video can play
+            if (video.paused) {
+              video.play().then(() => {
+                logInfo('VIDEO', 'Video play() succeeded in onCanPlay', {
+                  assetId: asset.id,
+                  currentTime: video.currentTime,
+                });
+              }).catch((err) => {
+                logError('VIDEO', 'Failed to play video in onCanPlay', {
+                  assetId: asset.id,
+                  error: err?.message,
+                });
+              });
+            }
+          }}
+          onPlay={() => {
+            logInfo('VIDEO', 'Video playback started', {
+              assetId: asset.id,
+              currentTime: videoRef.current?.currentTime,
+              duration: videoRef.current?.duration,
+            });
+          }}
+          onEnded={() => {
+            logInfo('VIDEO', 'Video playback ended (will loop)', {
+              assetId: asset.id,
+            });
+          }}
+          onError={(e) => {
+            const video = e.currentTarget;
+            const msg = video.error?.message || 'Unknown video error';
+            logError('VIDEO', 'Video element error (VerticalVideoSlot)', {
+              assetId: asset.id,
+              src: asset.src,
+              error: msg,
+              errorCode: video.error?.code,
+              networkState: video.networkState,
+              readyState: video.readyState,
+            });
+            setErrorMsg(`Video Error: ${msg} (Code: ${video.error?.code})`);
+            
+            // Try to reload on error
+            if (videoRef.current) {
+              setTimeout(() => {
+                if (videoRef.current && asset.src) {
+                  videoRef.current.load();
+                }
+              }, 1000);
+            }
+          }}
+        />
+    </div>
   );
 };
 

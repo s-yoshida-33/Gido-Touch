@@ -2,6 +2,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
+import VerticalVideoSlot from "../components/VerticalVideoSlot";
 
 import { useMall } from "../contexts/MallContext";
 import { useCmsSettings } from "../hooks/useCmsSettings";
@@ -1849,22 +1850,44 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             position: "relative", // Needed for absolute positioning of children
           }}
         >
+          {/* CMS Video Layer */}
+          {cmsSettings.enabled && (
+            <div 
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                zIndex: 0,
+              }}
+            >
+              <VerticalVideoSlot forceReload={refreshTrigger} />
+            </div>
+          )}
+
           {(cmsSettings.categorySearchEnabled ?? true) && (
             <>
-              {/* Background Image */}
-              <img
-                src={currentCategoryAssets.background}
-                alt=""
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  zIndex: 1,
-                }}
-              />
+              {/* Background Image - Only show if CMS disabled, or if we want to overlay? 
+                  If CMS is enabled, let's assume video is background. 
+                  But if buttons need background to be visible, we might need a semi-transparent one.
+                  For now, let's hide background if CMS is enabled to let video show through.
+              */}
+              {!cmsSettings.enabled && (
+                <img
+                  src={currentCategoryAssets.background}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    zIndex: 1,
+                  }}
+                />
+              )}
               
               {/* Category Buttons Overlay */}
               <div

@@ -83,7 +83,7 @@ export const LocalMediaSettingsTab: React.FC<LocalMediaSettingsTabProps> = ({
           <ToggleSwitch
             checked={cmsSettings.enabled}
             onChange={(checked) => onChangeCmsSettings({ ...cmsSettings, enabled: checked })}
-            label="右下のCMS枠（WSP連携）を表示する"
+            label="CMS枠（WSP連携）を表示する"
           />
           <ToggleSwitch
             checked={cmsSettings.categorySearchEnabled ?? true}
@@ -105,12 +105,12 @@ export const LocalMediaSettingsTab: React.FC<LocalMediaSettingsTabProps> = ({
           <ToggleSwitch
             checked={!audioSettings.localMediaMuted}
             onChange={(checked) => onChangeAudioSettings({ ...audioSettings, localMediaMuted: !checked })}
-            label="右上のローカルメディアの音声を有効にする"
+            label="ローカルメディアの音声を有効にする"
           />
           <ToggleSwitch
             checked={!audioSettings.cmsMuted}
             onChange={(checked) => onChangeAudioSettings({ ...audioSettings, cmsMuted: !checked })}
-            label="右下のCMS配信の音声を有効にする"
+            label="CMS配信の音声を有効にする"
           />
         </div>
         <p style={{ color: "#aaa", fontSize: 12, marginTop: 8 }}>

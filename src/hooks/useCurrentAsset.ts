@@ -17,6 +17,22 @@ interface ApiTimelineItem {
   data: WspTimelineItem;
 }
 
+// Helper to convert file path to URL
+function toFileUrl(filePath: string): string {
+  if (!filePath) return "";
+  if (filePath.startsWith("file://") || filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:")) {
+    return filePath;
+  }
+  const normalized = filePath.replace(/\\/g, "/");
+  if (normalized.match(/^[A-Za-z]:\//)) {
+    return `file:///${normalized}`;
+  }
+  if (normalized.startsWith("/")) {
+    return `file://${normalized}`;
+  }
+  return `file:///${normalized}`;
+}
+
 function mapToCurrentAsset(item: ApiTimelineItem | WspTimelineItem | any): CurrentAsset | null {
   // Use explicit casting to handle the discriminated union properly with the index signature of WspTimelineItem
   const timelineItem = (item.data || item) as WspTimelineItem;
@@ -30,7 +46,9 @@ function mapToCurrentAsset(item: ApiTimelineItem | WspTimelineItem | any): Curre
 
   // Map to CurrentAsset
   // Note: API.md shows localPath, types/wsp.ts shows url, we might need to handle both
-  const src = (mediaAsset as any).localPath || mediaAsset.url;
+  const rawSrc = (mediaAsset as any).localPath || mediaAsset.url;
+  const src = toFileUrl(rawSrc);
+  
   const name = timelineItem.media_info?.[0]?.filename || mediaAsset.id;
 
   return {
