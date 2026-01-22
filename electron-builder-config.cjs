@@ -14,6 +14,10 @@ const config = {
     "electron/**/*",
     "package.json"
   ],
+  // ffmpeg-staticのバイナリをasarの外に出す
+  asarUnpack: [
+    "**/node_modules/ffmpeg-static/**"
+  ],
   // extraResourcesを動的に生成
   extraResources: [
     // メディアファイルはビルドに含めず、起動時にGitHub Releasesからダウンロードする運用に変更

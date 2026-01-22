@@ -5,6 +5,7 @@ const https = require('https');
 const AdmZip = require('adm-zip');
 const { app } = require('electron');
 const logger = require('./logger.cjs');
+const { optimizeAllVideosInDirectory } = require('./videoOptimizer.cjs');
 
 /**
  * Download a file from a URL to a destination path
@@ -162,7 +163,56 @@ async function ensureMediaFiles(mallId, patchWindow) {
     }
     
     zip.extractAllTo(mallMediaDir, true);
+
+    // ==========================================
+    // Optimize videos after extraction
+    // ==========================================
+    if (patchWindow && !patchWindow.isDestroyed()) {
+        patchWindow.webContents.send('update-status', {
+          state: 'media_downloading',
+          message: '動画データを最適化中...',
+        });
+    }
+
+    logger.info('Starting video optimization for extracted files...');
     
+    await optimizeAllVideosInDirectory(mallMediaDir, (current, total, filename) => {
+        logger.info(`Optimizing video ${current}/${total}: ${filename}`);
+        if (patchWindow && !patchWindow.isDestroyed()) {
+            patchWindow.webContents.send('update-status', {
+              state: 'media_downloading',
+              message: `動画を最適化中... (${current}/${total})`,
+            });
+        }
+    });
+    
+    logger.info('Video optimization completed.');
+
+    // ==========================================
+    // Optimize CMS Assets (C:\SignageData\assets)
+    // ==========================================
+    const cmsAssetsDir = 'C:\\SignageData\\assets';
+    if (fs.existsSync(cmsAssetsDir)) {
+        logger.info(`Found CMS assets directory: ${cmsAssetsDir}. Starting optimization check...`);
+        if (patchWindow && !patchWindow.isDestroyed()) {
+            patchWindow.webContents.send('update-status', {
+              state: 'media_downloading',
+              message: 'CMS動画データを最適化中...',
+            });
+        }
+        
+        await optimizeAllVideosInDirectory(cmsAssetsDir, (current, total, filename) => {
+            logger.info(`Optimizing CMS video ${current}/${total}: ${filename}`);
+            if (patchWindow && !patchWindow.isDestroyed()) {
+                patchWindow.webContents.send('update-status', {
+                  state: 'media_downloading',
+                  message: `CMS動画を最適化中... (${current}/${total})`,
+                });
+            }
+        });
+        logger.info('CMS assets optimization completed.');
+    }
+
     // Write version file
     fs.writeFileSync(versionFilePath, appVersion, 'utf-8');
     
