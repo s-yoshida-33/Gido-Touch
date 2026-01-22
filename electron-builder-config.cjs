@@ -16,7 +16,8 @@ const config = {
   ],
   // ffmpeg-staticのバイナリをasarの外に出す
   asarUnpack: [
-    "**/node_modules/ffmpeg-static/**"
+    "**/node_modules/ffmpeg-static/**",
+    "**/node_modules/ffprobe-static/**"
   ],
   // extraResourcesを動的に生成
   extraResources: [

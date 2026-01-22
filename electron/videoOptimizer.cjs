@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
+const ffprobePath = require('ffprobe-static');
 const logger = require('./logger.cjs');
 
 // Electron本番環境(asar)でのパス問題を回避するための設定
@@ -11,6 +12,16 @@ if (binaryPath.includes('app.asar')) {
   binaryPath = binaryPath.replace('app.asar', 'app.asar.unpacked');
 }
 ffmpeg.setFfmpegPath(binaryPath);
+
+// ffprobe-staticのバイナリパス設定
+let probePath = ffprobePath.path;
+if (probePath.includes('app.asar')) {
+  probePath = probePath.replace('app.asar', 'app.asar.unpacked');
+}
+ffmpeg.setFfprobePath(probePath);
+
+const OPTIMIZED_SIGNATURE = 'gido-optimized-baseline';
+const TIMEOUT_MS = 300000; // 5分
 
 /**
  * ファイルがロックされていないかチェックする（書き込み可能か確認）
@@ -34,6 +45,28 @@ function isFileLocked(filePath) {
 }
 
 /**
+ * 動画が既に最適化済みかチェックする
+ * @param {string} filePath
+ * @returns {Promise<boolean>}
+ */
+function isAlreadyOptimized(filePath) {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) {
+        // 読み込めない、または動画でない場合は未最適化として扱う（エラーログは出さない）
+        return resolve(false);
+      }
+      const tags = metadata.format.tags || {};
+      // コメントタグに署名があるか確認
+      if (tags.comment === OPTIMIZED_SIGNATURE) {
+        return resolve(true);
+      }
+      resolve(false);
+    });
+  });
+}
+
+/**
  * 動画ファイルをCPU負荷の低い形式に最適化する
  * @param {string} inputPath 入力ファイルパス
  * @param {string} outputPath 出力ファイルパス
@@ -43,7 +76,7 @@ function optimizeVideo(inputPath, outputPath) {
   return new Promise((resolve, reject) => {
     logger.info(`Starting video optimization: ${path.basename(inputPath)}`);
     
-    ffmpeg(inputPath)
+    const command = ffmpeg(inputPath)
       .outputOptions([
         '-vf scale=1080:-2,fps=30', // 横幅1080pxにリサイズ(縦は比率維持)、30fps化
         '-c:v libx264',             // H.264
@@ -54,16 +87,33 @@ function optimizeVideo(inputPath, outputPath) {
         '-bufsize 5000k',
         '-c:a aac',                 // 音声
         '-b:a 128k',
-        '-movflags +faststart'      // Web再生最適化
-      ])
+        '-movflags +faststart',     // Web再生最適化
+        '-metadata', `comment=${OPTIMIZED_SIGNATURE}` // 最適化済みフラグ
+      ]);
+
+    // タイムアウト設定
+    const timeout = setTimeout(() => {
+        logger.error(`Optimization timed out for ${path.basename(inputPath)}`);
+        command.kill('SIGKILL');
+        reject(new Error('Optimization timed out'));
+    }, TIMEOUT_MS);
+
+    command
       .save(outputPath)
       .on('end', () => {
+        clearTimeout(timeout);
         logger.info(`Optimization completed: ${path.basename(inputPath)}`);
         resolve();
       })
       .on('error', (err) => {
-        logger.error(`Optimization failed: ${path.basename(inputPath)}`, { error: err.message });
-        reject(err);
+        clearTimeout(timeout);
+        // killした場合はエラーになるのでここでキャッチ
+        if (err.message.includes('SIGKILL')) {
+            // timeout処理側でrejectしているのでここは無視でも良いが念のため
+        } else {
+            logger.error(`Optimization failed: ${path.basename(inputPath)}`, { error: err.message });
+            reject(err);
+        }
       });
   });
 }
@@ -99,6 +149,7 @@ async function optimizeAllVideosInDirectory(dirPath, onProgress) {
   // 2. 順次処理
   for (let i = 0; i < filesToProcess.length; i++) {
     const inputPath = filesToProcess[i];
+    const tempPath = inputPath + '.temp.mp4';
     const filename = path.basename(inputPath);
 
     if (onProgress) {
@@ -111,7 +162,12 @@ async function optimizeAllVideosInDirectory(dirPath, onProgress) {
       continue;
     }
 
-    const tempPath = inputPath + '.temp.mp4';
+    // 既に最適化済みならスキップ
+    const optimized = await isAlreadyOptimized(inputPath);
+    if (optimized) {
+       logger.info(`Skipping already optimized file: ${filename}`);
+       continue;
+    }
 
     try {
       // 最適化を実行して一時ファイルに出力
