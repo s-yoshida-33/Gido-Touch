@@ -9,13 +9,13 @@ interface GenreSettingsTabProps {
   shops?: Shop[];
 }
 
-type CategoryKey = "takeout" | "alcohol" | "meat" | "sweets";
+type CategoryKey = "sweets" | "alcohol" | "kids" | "takeout";
 
 const CATEGORY_LABELS: Record<CategoryKey, string> = {
-  takeout: "テイクアウト",
-  alcohol: "アルコール",
-  meat: "お肉",
   sweets: "スイーツ",
+  alcohol: "アルコール",
+  kids: "キッズメニュー",
+  takeout: "テイクアウト",
 };
 
 export const GenreSettingsTab: React.FC<GenreSettingsTabProps> = ({
@@ -29,7 +29,7 @@ export const GenreSettingsTab: React.FC<GenreSettingsTabProps> = ({
   const ignoredInputRef = useRef<HTMLInputElement>(null);
 
   // カテゴリー設定用のステート
-  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("takeout");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("sweets");
   const [newCategoryKeyword, setNewCategoryKeyword] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);

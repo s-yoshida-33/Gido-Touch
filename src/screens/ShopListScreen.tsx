@@ -13,8 +13,8 @@ import categoryTakeoutJa from "../assets/category/ja/takeout.svg";
 import categoryTakeoutHighlightJa from "../assets/category/ja/takeout-highlight.svg";
 import categoryAlcoholJa from "../assets/category/ja/alcohol.svg";
 import categoryAlcoholHighlightJa from "../assets/category/ja/alcohol-highlight.svg";
-import categoryMeatJa from "../assets/category/ja/meat.svg";
-import categoryMeatHighlightJa from "../assets/category/ja/meat-highlight.svg";
+import categoryKidsJa from "../assets/category/ja/kids.svg";
+import categoryKidsHighlightJa from "../assets/category/ja/kids-highlight.svg";
 import categorySweetsJa from "../assets/category/ja/sweets.svg";
 import categorySweetsHighlightJa from "../assets/category/ja/sweets-highlight.svg";
 
@@ -24,8 +24,8 @@ import categoryTakeoutEn from "../assets/category/en/takeout.svg";
 import categoryTakeoutHighlightEn from "../assets/category/en/takeout-highlight.svg";
 import categoryAlcoholEn from "../assets/category/en/alcohol.svg";
 import categoryAlcoholHighlightEn from "../assets/category/en/alcohol-highlight.svg";
-import categoryMeatEn from "../assets/category/en/meat.svg";
-import categoryMeatHighlightEn from "../assets/category/en/meat-highlight.svg";
+import categoryKidsEn from "../assets/category/en/kids.svg";
+import categoryKidsHighlightEn from "../assets/category/en/kids-highlight.svg";
 import categorySweetsEn from "../assets/category/en/sweets.svg";
 import categorySweetsHighlightEn from "../assets/category/en/sweets-highlight.svg";
 
@@ -377,8 +377,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       takeoutHighlight: categoryTakeoutHighlightJa,
       alcohol: categoryAlcoholJa,
       alcoholHighlight: categoryAlcoholHighlightJa,
-      meat: categoryMeatJa,
-      meatHighlight: categoryMeatHighlightJa,
+      kids: categoryKidsJa,
+      kidsHighlight: categoryKidsHighlightJa,
       sweets: categorySweetsJa,
       sweetsHighlight: categorySweetsHighlightJa,
     },
@@ -388,8 +388,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       takeoutHighlight: categoryTakeoutHighlightEn,
       alcohol: categoryAlcoholEn,
       alcoholHighlight: categoryAlcoholHighlightEn,
-      meat: categoryMeatEn,
-      meatHighlight: categoryMeatHighlightEn,
+      kids: categoryKidsEn,
+      kidsHighlight: categoryKidsHighlightEn,
       sweets: categorySweetsEn,
       sweetsHighlight: categorySweetsHighlightEn,
     }
@@ -1905,27 +1905,27 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                   boxSizing: "border-box",
                 }}
               >
-              {/* Top Row: Takeout, Alcohol */}
+              {/* Top Row: Sweets, Alcohol */}
               <div style={{ height: "242.5px", width: "100%", display: "flex", flexDirection: "row", marginBottom: "30px" }}>
                 {/* Takeout Button (Top-Left) */}
                 <div 
                   style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-start", position: "relative", height: "242.5px" }}
-                  onClick={() => handleCategorySelect('takeout')}
+                  onClick={() => handleCategorySelect('sweets')}
                 >
                    <img 
-                      src={currentCategoryAssets.takeout} 
-                      alt="Takeout" 
+                      src={currentCategoryAssets.sweets} 
+                      alt="Sweets" 
                       style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
                       draggable={false}
                    />
                    <img
-                      src={currentCategoryAssets.takeoutHighlight}
+                      src={currentCategoryAssets.sweetsHighlight}
                       alt="Takeout Highlight"
                       style={{ 
                           position: "absolute",
                           top: 0, left: 0,
                           width: "525px", height: "242.5px", objectFit: "contain",
-                          opacity: selectedCategory === 'takeout' ? 1 : 0,
+                          opacity: selectedCategory === 'sweets' ? 1 : 0,
                           transition: "opacity 0.2s",
                           pointerEvents: "none" 
                       }}
@@ -1961,27 +1961,27 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 </div>
               </div>
 
-              {/* Bottom Row: Meat, Sweets */}
+              {/* Bottom Row: Kids, Takeout */}
               <div style={{ height: "242.5px", width: "100%", display: "flex", flexDirection: "row" }}>
-                {/* Meat Button (Bottom-Left) */}
+                {/* Kids Button (Bottom-Left) */}
                 <div 
                   style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "flex-start", position: "relative", height: "242.5px" }}
-                  onClick={() => handleCategorySelect('meat')}
+                  onClick={() => handleCategorySelect('kids')}
                 >
                    <img 
-                      src={currentCategoryAssets.meat} 
-                      alt="Meat" 
+                      src={currentCategoryAssets.kids} 
+                      alt="Kids" 
                       style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
                       draggable={false}
                    />
                    <img
-                      src={currentCategoryAssets.meatHighlight}
-                      alt="Meat Highlight"
+                      src={currentCategoryAssets.kidsHighlight}
+                      alt="Kids Highlight"
                       style={{ 
                           position: "absolute",
                           bottom: 0, left: 0,
                           width: "525px", height: "242.5px", objectFit: "contain",
-                          opacity: selectedCategory === 'meat' ? 1 : 0,
+                          opacity: selectedCategory === 'kids' ? 1 : 0,
                           transition: "opacity 0.2s",
                           pointerEvents: "none" 
                       }}
@@ -1989,26 +1989,26 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                    />
                 </div>
 
-                {/* Sweets Button (Bottom-Right) */}
+                {/* Takeout Button (Bottom-Right) */}
                 <div 
                   style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", position: "relative", height: "242.5px" }}
-                  onClick={() => handleCategorySelect('sweets')}
+                  onClick={() => handleCategorySelect('takeout')}
                 >
                    <img 
-                      src={currentCategoryAssets.sweets} 
-                      alt="Sweets" 
+                      src={currentCategoryAssets.takeout} 
+                      alt="Takeout" 
                       style={{ width: "525px", height: "100%", objectFit: "contain" }}
                       draggable={false}
                    />
                    <img
-                      src={currentCategoryAssets.sweetsHighlight}
-                      alt="Sweets Highlight"
+                      src={currentCategoryAssets.takeoutHighlight}
+                      alt="Takeout Highlight"
                       style={{ 
                           position: "absolute",
                           bottom: 0, 
                           right: 0, // Position on the right side
                           width: "525px", height: "100%", objectFit: "contain",
-                          opacity: selectedCategory === 'sweets' ? 1 : 0,
+                          opacity: selectedCategory === 'takeout' ? 1 : 0,
                           transition: "opacity 0.2s",
                           pointerEvents: "none" 
                       }}
