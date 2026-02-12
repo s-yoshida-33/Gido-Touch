@@ -1,5 +1,9 @@
-import React, { useState } from "react";
+// src/components/CurrentFloorSettingsTab.tsx
+import React, { useState, useMemo } from "react";
 import type { FloorId, FloorLayout } from "../types/floorLayout";
+import type { Shop } from "../types/shop";
+import type { SubFloorSettings } from "../types/global";
+import type { MallId } from "../hooks/useMallAssets";
 
 export interface CurrentFloorSettingsTabProps {
   currentFloorSetting: string;
@@ -8,6 +12,10 @@ export interface CurrentFloorSettingsTabProps {
   onChangeDisplayFloors: (floors: string[]) => void;
   floorLayout?: FloorLayout;
   onChangeFloorLayout?: (layout: FloorLayout) => void;
+  shops?: Shop[];
+  subFloorSettings?: SubFloorSettings;
+  onChangeSubFloorSettings?: (settings: SubFloorSettings) => void;
+  mallId: MallId;
 }
 
 export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = ({ 
@@ -16,10 +24,21 @@ export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = (
   displayFloors, 
   onChangeDisplayFloors,
   floorLayout,
-  onChangeFloorLayout
+  onChangeFloorLayout,
+  shops = [],
+  subFloorSettings = { "1F-1": [], "1F-2": [] },
+  onChangeSubFloorSettings,
+  mallId
 }) => {
   const floors: FloorId[] = ["1F", "2F", "3F", "4F"];
   const [editingLayoutFloor, setEditingLayoutFloor] = useState<string>("1F");
+
+  const shopList1F = useMemo(() => {
+    return shops.filter(s => {
+      if (Array.isArray(s.floors)) return s.floors.includes("1F");
+      return String(s.floors || "").includes("1F");
+    }).sort((a, b) => (a.number || "").localeCompare(b.number || ""));
+  }, [shops]);
 
   const handleCurrentFloorChange = (newFloor: string) => {
     onChangeCurrentFloorSetting(newFloor);
@@ -52,6 +71,30 @@ export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = (
     };
     onChangeFloorLayout(updated);
   };
+
+  const handleSubFloorShopToggle = (subFloor: "1F-1" | "1F-2", shopId: string, checked: boolean) => {
+    if (!onChangeSubFloorSettings) return;
+    
+    const currentIds = subFloorSettings[subFloor] || [];
+    let newIds: string[];
+    
+    if (checked) {
+      if (!currentIds.includes(shopId)) {
+        newIds = [...currentIds, shopId];
+      } else {
+        newIds = currentIds;
+      }
+    } else {
+      newIds = currentIds.filter(id => id !== shopId);
+    }
+    
+    onChangeSubFloorSettings({
+      ...subFloorSettings,
+      [subFloor]: newIds
+    });
+  };
+
+  const isSendai = mallId === 'sendaikamisugi';
 
   return (
     <div>
@@ -94,6 +137,43 @@ export const CurrentFloorSettingsTab: React.FC<CurrentFloorSettingsTabProps> = (
           </div>
         </div>
       </div>
+
+      {isSendai && onChangeSubFloorSettings && (
+        <div style={{ padding: 16, backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, marginBottom: 24 }}>
+          <h4 style={{ color: "#ffffff", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
+            1Fサブフロア設定 (表示店舗選択) [仙台上杉限定]
+          </h4>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            {["1F-1", "1F-2"].map((subFloor) => (
+              <div key={subFloor}>
+                <h5 style={{ color: "#ffffff", fontSize: 14, fontWeight: 600, marginBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 4 }}>
+                  {subFloor} ボタン表示店舗
+                </h5>
+                <div style={{ maxHeight: "200px", overflowY: "auto", display: "grid", gridTemplateColumns: "1fr", gap: 4, padding: 8, backgroundColor: "rgba(0,0,0,0.2)", borderRadius: 6 }}>
+                  {shopList1F.map(shop => {
+                    const shopId = shop.shopId || shop.number || "";
+                    const isChecked = (subFloorSettings[subFloor] || []).includes(shopId);
+                    return (
+                      <label key={`${subFloor}-${shopId}`} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "#ffffff", fontSize: 13 }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => handleSubFloorShopToggle(subFloor as any, shopId, e.target.checked)}
+                          style={{ cursor: "pointer" }}
+                        />
+                        <span style={{opacity: 0.7, fontSize: 11, width: 30}}>{shop.number}</span>
+                        <span>{shop.name}</span>
+                      </label>
+                    );
+                  })}
+                  {shopList1F.length === 0 && <div style={{color: "#888", fontSize: 12}}>1Fの店舗データがありません</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {floorLayout && onChangeFloorLayout && (
         <div style={{ padding: 16, backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12 }}>

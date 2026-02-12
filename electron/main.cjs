@@ -249,6 +249,10 @@ function loadSettings() {
     cmsSettings: {
       enabled: true
     },
+    subFloorSettings: {
+      "1F-1": [],
+      "1F-2": []
+    },
   };
 
   // 1. Load user settings to check if a mallId is already set
@@ -1128,6 +1132,25 @@ ipcMain.handle('save-mall-id', (_event, mallId) => {
   const settings = saveSettings({ mallId });
   broadcastMallId(settings.mallId);
   return settings.mallId;
+});
+
+/**
+ * IPC handlers for subFloorSettings
+ */
+ipcMain.handle('get-sub-floor-settings', () => {
+  const settings = loadSettings();
+  logger.debug('IPC get-sub-floor-settings');
+  return settings.subFloorSettings || { "1F-1": [], "1F-2": [] };
+});
+
+ipcMain.handle('save-sub-floor-settings', (_event, subFloorSettings) => {
+  logger.info('IPC save-sub-floor-settings');
+  const settings = saveSettings({ subFloorSettings });
+  // Broadcast if needed, or just return
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('sub-floor-settings-updated', settings.subFloorSettings);
+  }
+  return settings.subFloorSettings;
 });
 
 /**

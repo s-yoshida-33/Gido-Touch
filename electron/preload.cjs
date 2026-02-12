@@ -279,6 +279,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('cms-settings-updated', listener);
     };
   },
+  getSubFloorSettings() {
+    return ipcRenderer.invoke('get-sub-floor-settings');
+  },
+  saveSubFloorSettings(settings) {
+    return ipcRenderer.invoke('save-sub-floor-settings', settings);
+  },
+  onSubFloorSettingsUpdated(callback) {
+    const listener = (_event, updated) => callback(updated);
+    ipcRenderer.on('sub-floor-settings-updated', listener);
+    return () => {
+      ipcRenderer.removeListener('sub-floor-settings-updated', listener);
+    };
+  },
 });
 
 contextBridge.exposeInMainWorld('wspApi', {

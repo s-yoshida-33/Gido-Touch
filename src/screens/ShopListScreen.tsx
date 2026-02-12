@@ -36,6 +36,7 @@ import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { FloorLayout } from "../types/floorLayout";
 import { filterGenreMemos, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
+import type { SubFloorSettings } from "../types/global";
 
 // Simple in-memory cache for image URLs to prevent flickering
 const imageCache = new Map<string, string>();
@@ -354,6 +355,7 @@ interface ShopListScreenProps {
   shopPositions?: ShopPositionSettings;
   displayFloors?: string[];
   floorLayout?: FloorLayout;
+  subFloorSettings?: SubFloorSettings;
 }
 
 /**
@@ -365,9 +367,19 @@ interface ShopListScreenProps {
  * Action space: 1140×2160 (right side)
  * Action space background: Black
  */
-const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions, displayFloors = ['1F', '2F', '3F', '4F'], floorLayout }) => {
-  const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage, genreSettings } = useMall();
+const ShopListScreen: React.FC<ShopListScreenProps> = ({ 
+  currentFloorSetting, 
+  locationIconSettings, 
+  shops, 
+  shopPositions, 
+  displayFloors = ['1F', '2F', '3F', '4F'], 
+  floorLayout,
+  subFloorSettings = { "1F-1": [], "1F-2": [] }
+ }) => {
+  const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage, genreSettings, mallId } = useMall();
   const { settings: cmsSettings } = useCmsSettings();
+
+  const isSendai = mallId === 'sendaikamisugi';
 
   // Define category assets based on language
   const categoryAssets = {
@@ -640,15 +652,23 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     let result = displayFilteredShops;
 
     if (selectedFloor) {
-      const normalizedSelectedFloor = normalizeFloor(selectedFloor);
-      
-      result = result.filter((shop) => {
-        // Check if any of the shop's floors match the selected floor
-        return shop.floors.some((floor) => {
-          const normalizedShopFloor = normalizeFloor(String(floor));
-          return normalizedShopFloor === normalizedSelectedFloor;
-        });
-      });
+      // 1F-1, 1F-2 logic
+      if (selectedFloor === "1F-1" || selectedFloor === "1F-2") {
+         const allowedIds = subFloorSettings[selectedFloor] || [];
+         result = result.filter(s => {
+             // IDが含まれているかチェック
+             return allowedIds.includes(s.shopId || s.number || "");
+         });
+      } else {
+         // Standard logic for 4F, 2F
+         const normalizedSelectedFloor = normalizeFloor(selectedFloor);
+         result = result.filter((shop) => {
+            return shop.floors.some((floor) => {
+              const normalizedShopFloor = normalizeFloor(String(floor));
+              return normalizedShopFloor === normalizedSelectedFloor;
+            });
+         });
+      }
     }
 
     if (selectedCategory) {
@@ -690,7 +710,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     }
     
     return result;
-  }, [shops, selectedFloor, selectedCategory, displayFloors, floorLayout, currentFloorSetting]);
+  }, [shops, selectedFloor, selectedCategory, displayFloors, floorLayout, currentFloorSetting, subFloorSettings]);
 
   // Layout calculation
   const currentLayoutKey = selectedFloor ? normalizeFloor(selectedFloor) : "ALL";
@@ -1474,279 +1494,212 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               display: "flex",
               flexDirection: "column",
               alignItems: "flex-start",
-              gap: "50px",
+              gap: isSendai ? "30px" : "50px",
               height: "100%",
             }}
           >
-              {/* 4F button */}
-              {displayFloors.includes("4F") && assets.buttons["4F"] && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "30px",
-                }}
-              >
-                <div
-                  style={{
-                    position: "relative",
-                    display: "inline-block",
-                    cursor: "pointer",
-                    touchAction: "none",
-                  }}
-                  onClick={() => handleFloorSelect("4F")}
-                >
-                <img
-                  src={assets.buttons["4F"].default}
-                  alt="4F"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={assets.buttons["4F"].highlight}
-                  alt="4F Highlight"
-                  className="highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: selectedFloor === "4F" ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
-                
-                {/* Current Location Icon */}
-                {currentFloorSetting === "4F" && (
-                  <img 
-                    src={assets.common.iconCurrentFloor}
-                    alt="Current Floor"
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{
-                      position: "absolute",
-                      top: "5%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      zIndex: 5,
-                      pointerEvents: "none",
-                      width: "50%",
-                      height: "auto",
-                    }}
-                  />
+            {/* ----------------------------------------------------------- */}
+            {/* 仙台上杉 (Sendai) 用レイアウト: 4F -> 2F -> 1F-2 -> 1F-1 */}
+            {/* ----------------------------------------------------------- */}
+            {isSendai ? (
+              <>
+                {/* 1. 4F button */}
+                {displayFloors.includes("4F") && assets.buttons["4F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("4F")}
+                    >
+                      <img src={assets.buttons["4F"].default} alt="4F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["4F"].highlight} alt="4F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "4F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "4F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "-10%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
                 )}
-              </div>
-            </div>
-            )}
 
-              {/* 3F button and FOOD FOREST */}
-              {displayFloors.includes("3F") && assets.buttons["3F"] && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "30px",
-                }}
-              >
-                <div
-                  style={{
-                    position: "relative",
-                    display: "inline-block",
-                    cursor: "pointer",
-                    touchAction: "none", // Prevent default touch actions like scrolling/zooming on the button
-                  }}
-                  onClick={() => handleFloorSelect("3F")}
-                >
-                <img
-                  src={assets.buttons["3F"].default}
-                  alt="3F"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={assets.buttons["3F"].highlight}
-                  alt="3F Highlight"
-                  className="highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: selectedFloor === "3F" ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
-                
-                {/* Current Location Icon */}
-                {currentFloorSetting === "3F" && (
-                  <img 
-                    src={assets.common.iconCurrentFloor}
-                    alt="Current Floor"
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{
-                      position: "absolute",
-                      top: "5%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      zIndex: 5,
-                      pointerEvents: "none",
-                      width: "50%", // Adjust size relative to button
-                      height: "auto",
-                    }}
-                  />
+                {/* 2. 2F button (Moved up) */}
+                {displayFloors.includes("2F") && assets.buttons["2F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("2F")}
+                    >
+                      <img src={assets.buttons["2F"].default} alt="2F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["2F"].highlight} alt="2F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "2F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "2F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "-10%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
                 )}
-              </div>
-              {/* TODO: Add FOOD FOREST button */}
-            </div>
-            )}
 
-              {/* 2F button and RESTAURANT */}
-              {displayFloors.includes("2F") && assets.buttons["2F"] && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "30px",
-                }}
-              >
-                <div
-                  style={{
-                    position: "relative",
-                    display: "inline-block",
-                    cursor: "pointer",
-                    touchAction: "none",
-                  }}
-                  onClick={() => handleFloorSelect("2F")}
-                >
-                <img
-                  src={assets.buttons["2F"].default}
-                  alt="2F"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={assets.buttons["2F"].highlight}
-                  alt="2F Highlight"
-                  className="highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: selectedFloor === "2F" ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
-                
-                {/* Current Location Icon */}
-                {currentFloorSetting === "2F" && (
-                  <img 
-                    src={assets.common.iconCurrentFloor}
-                    alt="Current Floor"
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{
-                      position: "absolute",
-                      top: "5%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      zIndex: 5,
-                      pointerEvents: "none",
-                      width: "50%", // Adjust size relative to button
-                      height: "auto",
-                    }}
-                  />
+                {/* 3. 1F-2 button (Display if 1F is enabled) */}
+                {displayFloors.includes("1F") && assets.buttons["1F-2"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("1F-2")}
+                    >
+                      <img src={assets.buttons["1F-2"].default} alt="1F-2" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["1F-2"].highlight} alt="1F-2 Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "1F-2" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                    </div>
+                  </div>
                 )}
-              </div>
-              {/* TODO: Add RESTAURANT button */}
-            </div>
-            )}
 
-              {/* 1F button and SUZAKA 蔵 */}
-              {displayFloors.includes("1F") && assets.buttons["1F"] && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "30px",
-                }}
-              >
-                <div
-                  style={{
-                    position: "relative",
-                    display: "inline-block",
-                    cursor: "pointer",
-                    touchAction: "none",
-                  }}
-                  onClick={() => handleFloorSelect("1F")}
-                >
-                <img
-                  src={assets.buttons["1F"].default}
-                  alt="1F"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={assets.buttons["1F"].highlight}
-                  alt="1F Highlight"
-                  className="highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: selectedFloor === "1F" ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
-
-                {/* Current Location Icon */}
-                {currentFloorSetting === "1F" && (
-                  <img 
-                    src={assets.common.iconCurrentFloor}
-                    alt="Current Floor"
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{
-                      position: "absolute",
-                      top: "5%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      zIndex: 5,
-                      pointerEvents: "none",
-                      width: "50%", // Adjust size relative to button
-                      height: "auto",
-                    }}
-                  />
+                {/* 4. 1F-1 button (Display if 1F is enabled) */}
+                {displayFloors.includes("1F") && assets.buttons["1F-1"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("1F-1")}
+                    >
+                      <img src={assets.buttons["1F-1"].default} alt="1F-1" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["1F-1"].highlight} alt="1F-1 Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "1F-1" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                    </div>
+                  </div>
                 )}
-              </div>
-              {/* TODO: Add SUZAKA 蔵 button */}
-            </div>
+              </>
+            ) : (
+              // -----------------------------------------------------------
+              // 通常 (Others) レイアウト: 4F -> 3F -> 2F -> 1F
+              // -----------------------------------------------------------
+              <>
+                {/* 4F button */}
+                {displayFloors.includes("4F") && assets.buttons["4F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("4F")}
+                    >
+                      <img src={assets.buttons["4F"].default} alt="4F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["4F"].highlight} alt="4F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "4F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "4F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "5%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3F button */}
+                {displayFloors.includes("3F") && assets.buttons["3F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("3F")}
+                    >
+                      <img src={assets.buttons["3F"].default} alt="3F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["3F"].highlight} alt="3F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "3F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "3F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "5%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2F button */}
+                {displayFloors.includes("2F") && assets.buttons["2F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("2F")}
+                    >
+                      <img src={assets.buttons["2F"].default} alt="2F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["2F"].highlight} alt="2F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "2F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "2F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "5%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 1F button */}
+                {displayFloors.includes("1F") && assets.buttons["1F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("1F")}
+                    >
+                      <img src={assets.buttons["1F"].default} alt="1F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["1F"].highlight} alt="1F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "1F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "1F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "5%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

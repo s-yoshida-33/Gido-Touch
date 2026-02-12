@@ -18,7 +18,7 @@ import { sseClient, shopSseClient } from "./api/sseClient";
 import type { ShopsEvent } from "./api/sseClient";
 import { convertSseShopDataToShop } from "./utils/shopConverter";
 import type { SseConnectionStatus } from "./api/sseClient";
-import type { LocalMediaTextSettings } from "./types/global";
+import type { LocalMediaTextSettings, SubFloorSettings } from "./types/global";
 import { useMall } from "./contexts/MallContext";
 import type { GenreSettings } from "./types/genreSettings";
 import { useCmsSettings } from "./hooks/useCmsSettings";
@@ -153,6 +153,7 @@ const App: React.FC = () => {
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings>({ positions: {} });
   const [shops, setShops] = useState<Shop[]>([]);
   const [localMediaTextSettings, setLocalMediaTextSettings] = useState<LocalMediaTextSettings>({});
+  const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>({ "1F-1": [], "1F-2": [] });
   
   // Current floor setting (lifted from ShopPositionSettingsTab)
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>("1F");
@@ -498,6 +499,17 @@ const App: React.FC = () => {
         console.error("Failed to load current floor setting", e);
         addDebug(`Floor load error: ${e.message}`);
       }
+
+      // Load subFloorSettings
+      const loadSubFloorSettings = async () => {
+        if (api.getSubFloorSettings) {
+          const settings = await api.getSubFloorSettings();
+          if (settings) {
+            setSubFloorSettings(settings);
+          }
+        }
+      };
+      loadSubFloorSettings();
     };
 
     init();
@@ -598,6 +610,12 @@ const App: React.FC = () => {
       if (api.onDisplayFloorsUpdated) {
         unsubscribeDisplayFloors = api.onDisplayFloorsUpdated((floors) => {
           setDisplayFloors(floors);
+        });
+      }
+
+      if (api.onSubFloorSettingsUpdated) {
+        api.onSubFloorSettingsUpdated((updated) => {
+          setSubFloorSettings(updated);
         });
       }
     }
@@ -706,6 +724,17 @@ const App: React.FC = () => {
     const api = window.electronAPI;
     if (api && api.saveGenreSettings) {
       await api.saveGenreSettings(settings);
+    }
+  };
+
+  const handleSaveSubFloorSettings = async (settings: SubFloorSettings) => {
+    const api = window.electronAPI;
+    if (!api) return;
+    try {
+      const saved = await api.saveSubFloorSettings(settings);
+      if (saved) setSubFloorSettings(saved);
+    } catch (e) {
+      console.error("Failed to save sub floor settings", e);
     }
   };
 
@@ -859,6 +888,7 @@ const App: React.FC = () => {
         shopPositions={shopPositions}
         displayFloors={displayFloors}
         floorLayout={floorLayout}
+        subFloorSettings={subFloorSettings}
       />
       <UnifiedSettingsScreen
         floor={floor}
@@ -878,6 +908,8 @@ const App: React.FC = () => {
         onSaveLocalMediaTextSettings={handleSaveLocalMediaTextSettings}
         genreSettings={genreSettings || { ignoredKeywords: [], maxItems: 3 }}
         onSaveGenreSettings={handleSaveGenreSettings}
+        subFloorSettings={subFloorSettings}
+        onSaveSubFloorSettings={handleSaveSubFloorSettings}
       />
       <VersionInfoScreen onClose={() => {}} />
     </>

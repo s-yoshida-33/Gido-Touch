@@ -22,6 +22,8 @@ export type LocalMediaTextSettings = Record<string, {
   line2En?: string;
 }>;
 
+export type SubFloorSettings = Record<string, string[]>;
+
 type ColumnPadding = {
   top?: number;
   right?: number;
@@ -114,6 +116,9 @@ interface ElectronAPI {
   oneClickUpdate: () => void;
   quitApp: () => void;
   exportCurrentSettingsAsDefault: () => Promise<{ success: boolean; path?: string; error?: string }>;
+  getSubFloorSettings: () => Promise<SubFloorSettings>;
+  saveSubFloorSettings: (settings: SubFloorSettings) => Promise<SubFloorSettings>;
+  onSubFloorSettingsUpdated: (cb: (settings: SubFloorSettings) => void) => () => void;
 }
 
 export type StatusState = 'checking' | 'available' | 'none' | 'downloaded' | 'error' | 'media_downloading';

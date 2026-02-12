@@ -20,6 +20,7 @@ import { useAudioSettings } from "../hooks/useAudioSettings";
 import { useCmsSettings } from "../hooks/useCmsSettings";
 import type { MallId } from "../hooks/useMallAssets";
 import { DEFAULT_IGNORED_GENRE_KEYWORDS } from "../utils/genreUtils";
+import type { SubFloorSettings } from "../types/global";
 
 type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre";
 
@@ -41,6 +42,8 @@ interface UnifiedSettingsScreenProps {
   onSaveLocalMediaTextSettings: (settings: LocalMediaTextSettings) => Promise<void> | void;
   genreSettings: GenreSettings;
   onSaveGenreSettings: (settings: GenreSettings) => Promise<void> | void;
+  subFloorSettings: SubFloorSettings;
+  onSaveSubFloorSettings: (settings: SubFloorSettings) => Promise<void> | void;
 }
 
 const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
@@ -61,6 +64,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   onSaveLocalMediaTextSettings,
   genreSettings: initialGenreSettings,
   onSaveGenreSettings,
+  subFloorSettings: initialSubFloorSettings,
+  onSaveSubFloorSettings,
 }) => {
   const [visible, setVisible] = useState(false);
   
@@ -87,6 +92,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [localMediaTextSettings, setLocalMediaTextSettings] = useState<LocalMediaTextSettings>(initialLocalMediaTextSettings || {});
   const [genreSettings, setGenreSettings] = useState<GenreSettings>(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+  const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
 
   // Mall settings
   const [mallId, setMallId] = useState<MallId>('suzaka');
@@ -181,6 +187,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setCurrentFloorSetting(initialCurrentFloorSetting);
         setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
         setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
+        setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
         
         // Load display floors
         if (window.electronAPI?.getDisplayFloors) {
@@ -220,6 +227,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
       setCurrentAudioSettings(audioSettings);
       setCurrentCmsSettings(cmsSettings);
+      setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
     }
   }, [visible, initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, initialGenreSettings, audioSettings, cmsSettings]);
 
@@ -240,6 +248,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
       setCurrentAudioSettings(audioSettings);
       setCurrentCmsSettings(cmsSettings);
+      setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
       setErrors({});
       // Reset transform - 現在のactiveTabに応じて適切な中央位置を計算
     if (transformRef.current && previewContainerRef.current) {
@@ -283,6 +292,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         onSaveGenreSettings(genreSettings),
         saveAudioSettings(currentAudioSettings),
         updateCmsSettings(currentCmsSettings),
+        onSaveSubFloorSettings(subFloorSettings),
       ]);
       // currentFloorSettingの保存は同期的に行われる（App.tsx内でstate更新）が、
       // Electronへの保存も確実に行われるように呼び出す。
@@ -696,6 +706,10 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onChangeDisplayFloors={setDisplayFloors}
               floorLayout={floorLayout}
               onChangeFloorLayout={setFloorLayout}
+              shops={shops}
+              subFloorSettings={subFloorSettings}
+              onChangeSubFloorSettings={setSubFloorSettings}
+              mallId={mallId}
             />
           )}
           {activeTab === "localMedia" && (
