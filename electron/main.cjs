@@ -1153,6 +1153,53 @@ ipcMain.handle('save-sub-floor-settings', (_event, subFloorSettings) => {
   return settings.subFloorSettings;
 });
 
+// Batch save to avoid race conditions when multiple settings are updated at once
+ipcMain.handle('save-all-settings', (_event, payload = {}) => {
+  const next = saveSettings(payload);
+
+  if (payload.floor !== undefined) {
+    broadcastFloor(next.floor);
+  }
+  if (payload.floorLayout !== undefined) {
+    broadcastFloorLayout(next.floorLayout);
+  }
+  if (payload.locationIcons !== undefined) {
+    broadcastLocationIconSettings(next.locationIcons);
+  }
+  if (payload.currentFloorSetting !== undefined) {
+    broadcastCurrentFloorSetting(next.currentFloorSetting);
+  }
+  if (payload.displayFloors !== undefined) {
+    broadcastDisplayFloors(next.displayFloors);
+  }
+  if (payload.mallId !== undefined) {
+    broadcastMallId(next.mallId);
+  }
+  if (payload.shopPositions !== undefined) {
+    broadcastShopPositions(next.shopPositions);
+  }
+  if (payload.localMediaTextSettings !== undefined) {
+    broadcastLocalMediaTextSettings(next.localMediaTextSettings);
+  }
+  if (payload.audioSettings !== undefined) {
+    broadcastAudioSettings(next.audioSettings);
+  }
+  if (payload.genreSettings !== undefined) {
+    broadcastGenreSettings(next.genreSettings);
+  }
+  if (payload.cmsSettings !== undefined) {
+    broadcastCmsSettings(next.cmsSettings);
+  }
+  if (payload.subFloorSettings !== undefined && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('sub-floor-settings-updated', next.subFloorSettings);
+  }
+  if (payload.imageSettings !== undefined && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('image-settings-updated', next.imageSettings);
+  }
+
+  return { success: true, settings: next };
+});
+
 /**
  * Get images directory path (userData/images)
  */

@@ -119,6 +119,12 @@ interface ElectronAPI {
   getSubFloorSettings: () => Promise<SubFloorSettings>;
   saveSubFloorSettings: (settings: SubFloorSettings) => Promise<SubFloorSettings>;
   onSubFloorSettingsUpdated: (cb: (settings: SubFloorSettings) => void) => () => void;
+  saveCurrentFloor: (currentFloor: { floor: number }) => Promise<void>;
+  saveLocalMedia: (localMedia: { enabled: boolean }) => Promise<void>;
+  saveAllSettings: (settings: Record<string, unknown>) => Promise<void>;
+
+  // Main to Renderer
+  on: (channel: string, callback: (...args: unknown[]) => void) => void;
 }
 
 export type StatusState = 'checking' | 'available' | 'none' | 'downloaded' | 'error' | 'media_downloading';

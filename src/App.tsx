@@ -20,7 +20,6 @@ import { convertSseShopDataToShop } from "./utils/shopConverter";
 import type { SseConnectionStatus } from "./api/sseClient";
 import type { LocalMediaTextSettings, SubFloorSettings } from "./types/global";
 import { useMall } from "./contexts/MallContext";
-import type { GenreSettings } from "./types/genreSettings";
 import { useCmsSettings } from "./hooks/useCmsSettings";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
@@ -630,114 +629,6 @@ const App: React.FC = () => {
     };
   }, [cmsSettings.enabled]);
 
-  const handleSaveLocationSettings = async (settings: LocationIconSettingsPerFloor) => {
-    // Persist to Electron settings.json
-    if (window.electronAPI?.saveLocationIconSettings) {
-      const saved =
-        (await window.electronAPI.saveLocationIconSettings(settings as unknown as LocationIconSettings)) ??
-        settings;
-      setLocationSettings(saved as unknown as LocationIconSettingsPerFloor);
-    } else {
-      // Fallback: no Electron available (dev in browser)
-      setLocationSettings(settings);
-    }
-  };
-
-
-  const handleSaveFloor = async (nextFloor: FloorId) => {
-    const api = window.electronAPI;
-    if (!api) return;
-
-    try {
-      api.setFloor(nextFloor);
-    } catch (e) {
-      console.error("Failed to save floor", e);
-    }
-  };
-
-  const handleSaveFloorLayout = async (layout: FloorLayout) => {
-    const api = window.electronAPI;
-    if (!api) return;
-
-    try {
-      const saved = await api.saveFloorLayout(layout);
-      if (saved) {
-        setFloorLayout(saved);
-      }
-    } catch (e) {
-      console.error("Failed to save floor layout", e);
-    }
-  };
-
-
-  const handleSaveImageSettings = async (settings: ImageSettings) => {
-    const api = window.electronAPI;
-    if (!api) return;
-
-    try {
-      const saved = await api.saveImageSettings(settings);
-      if (saved) {
-        setImageSettings(saved);
-      }
-    } catch (e) {
-      console.error("Failed to save image settings", e);
-    }
-  };
-
-  const handleSaveShopPositions = async (settings: ShopPositionSettings) => {
-    const api = window.electronAPI;
-    if (!api) return;
-
-    try {
-      const saved = await api.saveShopPositions(settings);
-      if (saved) {
-        setShopPositions(saved);
-      }
-    } catch (e) {
-      console.error("Failed to save shop positions", e);
-    }
-  };
-
-  const handleSaveLocalMediaTextSettings = async (settings: LocalMediaTextSettings) => {
-    const api = window.electronAPI;
-    if (!api) return;
-
-    try {
-      const saved = await api.saveLocalMediaTextSettings(settings);
-      if (saved) {
-        setLocalMediaTextSettings(saved);
-      }
-    } catch (e) {
-      console.error("Failed to save local media text settings", e);
-    }
-  };
-
-  const handleSaveCurrentFloorSetting = (newFloor: string) => {
-    setCurrentFloorSetting(newFloor);
-    const api = window.electronAPI;
-    if (api && api.saveCurrentFloorSetting) {
-      api.saveCurrentFloorSetting(newFloor);
-    }
-  };
-
-  const handleSaveGenreSettings = async (settings: GenreSettings) => {
-    const api = window.electronAPI;
-    if (api && api.saveGenreSettings) {
-      await api.saveGenreSettings(settings);
-    }
-  };
-
-  const handleSaveSubFloorSettings = async (settings: SubFloorSettings) => {
-    const api = window.electronAPI;
-    if (!api) return;
-    try {
-      const saved = await api.saveSubFloorSettings(settings);
-      if (saved) setSubFloorSettings(saved);
-    } catch (e) {
-      console.error("Failed to save sub floor settings", e);
-    }
-  };
-
   return (
     <>
       {isDebugVisible && (
@@ -892,24 +783,15 @@ const App: React.FC = () => {
       />
       <UnifiedSettingsScreen
         floor={floor}
-        onSaveFloor={handleSaveFloor}
         floorLayout={floorLayout}
-        onSaveFloorLayout={handleSaveFloorLayout}
         locationIconSettings={locationSettings}
-        onSaveLocationIconSettings={handleSaveLocationSettings}
         imageSettings={imageSettings}
-        onSaveImageSettings={handleSaveImageSettings}
         shopPositions={shopPositions}
-        onSaveShopPositions={handleSaveShopPositions}
         shops={shops}
         currentFloorSetting={currentFloorSetting}
-        onSaveCurrentFloorSetting={handleSaveCurrentFloorSetting}
         localMediaTextSettings={localMediaTextSettings}
-        onSaveLocalMediaTextSettings={handleSaveLocalMediaTextSettings}
         genreSettings={genreSettings || { ignoredKeywords: [], maxItems: 3 }}
-        onSaveGenreSettings={handleSaveGenreSettings}
         subFloorSettings={subFloorSettings}
-        onSaveSubFloorSettings={handleSaveSubFloorSettings}
       />
       <VersionInfoScreen onClose={() => {}} />
     </>

@@ -292,6 +292,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('sub-floor-settings-updated', listener);
     };
   },
+  saveShopPosition: (shopPosition) => ipcRenderer.invoke('save-shop-position', shopPosition),
+  saveCurrentFloor: (currentFloor) => ipcRenderer.invoke('save-current-floor', currentFloor),
+  saveLocalMedia: (localMedia) => ipcRenderer.invoke('save-local-media', localMedia),
+  saveAllSettings: (settings) => ipcRenderer.invoke('save-all-settings', settings),
+
+  // Main to Renderer
+  on: (channel, callback) => {
+    ipcRenderer.on(channel, callback);
+  },
 });
 
 contextBridge.exposeInMainWorld('wspApi', {

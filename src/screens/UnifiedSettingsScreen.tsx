@@ -26,46 +26,28 @@ type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genr
 
 interface UnifiedSettingsScreenProps {
   floor: FloorId;
-  onSaveFloor: (floor: FloorId) => Promise<void> | void;
   floorLayout: FloorLayout;
-  onSaveFloorLayout: (layout: FloorLayout) => Promise<void> | void;
   locationIconSettings: LocationIconSettingsPerFloor;
-  onSaveLocationIconSettings: (settings: LocationIconSettingsPerFloor) => Promise<void> | void;
   imageSettings: ImageSettings;
-  onSaveImageSettings: (settings: ImageSettings) => Promise<void> | void;
   shopPositions: ShopPositionSettings;
-  onSaveShopPositions: (settings: ShopPositionSettings) => Promise<void> | void;
   shops: Shop[];
   currentFloorSetting: string;
-  onSaveCurrentFloorSetting: (floor: string) => void;
   localMediaTextSettings: LocalMediaTextSettings;
-  onSaveLocalMediaTextSettings: (settings: LocalMediaTextSettings) => Promise<void> | void;
   genreSettings: GenreSettings;
-  onSaveGenreSettings: (settings: GenreSettings) => Promise<void> | void;
   subFloorSettings: SubFloorSettings;
-  onSaveSubFloorSettings: (settings: SubFloorSettings) => Promise<void> | void;
 }
 
 const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   floor: initialFloor,
-  onSaveFloor,
   floorLayout: initialFloorLayout,
-  onSaveFloorLayout,
   locationIconSettings: initialLocationIconSettings,
-  onSaveLocationIconSettings,
   imageSettings: initialImageSettings,
-  onSaveImageSettings,
   shopPositions: initialShopPositions,
-  onSaveShopPositions,
   shops,
   currentFloorSetting: initialCurrentFloorSetting,
-  onSaveCurrentFloorSetting,
   localMediaTextSettings: initialLocalMediaTextSettings,
-  onSaveLocalMediaTextSettings,
   genreSettings: initialGenreSettings,
-  onSaveGenreSettings,
   subFloorSettings: initialSubFloorSettings,
-  onSaveSubFloorSettings,
 }) => {
   const [visible, setVisible] = useState(false);
   
@@ -77,7 +59,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   }, [visible]);
 
   const [activeTab, setActiveTab] = useState<TabType>("image");
-  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Local state for editing (preserved when switching tabs)
@@ -104,11 +85,11 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   }, [visible]);
 
   // Audio settings
-  const { settings: audioSettings, saveSettings: saveAudioSettings, isLoading: isAudioSettingsLoading } = useAudioSettings();
+  const { settings: audioSettings, isLoading: isAudioSettingsLoading } = useAudioSettings();
   const [currentAudioSettings, setCurrentAudioSettings] = useState(audioSettings);
 
   // CMS settings
-  const { settings: cmsSettings, updateSettings: updateCmsSettings, isLoading: isCmsSettingsLoading } = useCmsSettings();
+  const { settings: cmsSettings, isLoading: isCmsSettingsLoading } = useCmsSettings();
   const [currentCmsSettings, setCurrentCmsSettings] = useState(cmsSettings);
 
   // Sync with loaded audio settings
@@ -262,53 +243,30 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     handleClose();
   };
 
-  const validateSettings = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSave = async () => {
-    if (!validateSettings()) {
-      return;
-    }
-
     try {
-      setSaving(true);
-      
-      // Save Mall ID first
+      const newSettings = {
+        floor,
+        floorLayout,
+        locationIcons: locationIconSettings,
+        imageSettings,
+        shopPositions,
+        currentFloorSetting,
+        displayFloors,
+        localMediaTextSettings,
+        genreSettings,
+        subFloorSettings,
+        mallId,
+        audioSettings: currentAudioSettings,
+        cmsSettings: currentCmsSettings,
+      };
       if (window.electronAPI) {
-        await window.electronAPI.saveMallId(mallId);
+        await window.electronAPI.saveAllSettings(newSettings);
+        alert('設定を保存しました。');
       }
-
-      await Promise.all([
-        onSaveFloor(floor),
-        onSaveFloorLayout(floorLayout),
-        onSaveLocationIconSettings(locationIconSettings),
-        onSaveImageSettings(imageSettings),
-        onSaveShopPositions(shopPositions),
-        onSaveLocalMediaTextSettings(localMediaTextSettings),
-        onSaveGenreSettings(genreSettings),
-        saveAudioSettings(currentAudioSettings),
-        updateCmsSettings(currentCmsSettings),
-        onSaveSubFloorSettings(subFloorSettings),
-      ]);
-      // currentFloorSettingの保存は同期的に行われる（App.tsx内でstate更新）が、
-      // Electronへの保存も確実に行われるように呼び出す。
-      // onSaveCurrentFloorSetting自体はvoidを返すが、内部でIPCを呼ぶ。
-      onSaveCurrentFloorSetting(currentFloorSetting);
-      
-      if (window.electronAPI?.saveDisplayFloors) {
-        await window.electronAPI.saveDisplayFloors(displayFloors);
-      }
-      
-      handleClose();
-    } catch (e) {
-      console.error("Failed to save settings", e);
-      setErrors({ save: "設定の保存に失敗しました" });
-    } finally {
-      setSaving(false);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      alert('設定の保存に失敗しました。');
     }
   };
 
@@ -449,38 +407,48 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
           )}
 
           <button
-          onClick={handleCancel}
-          disabled={saving}
-          style={{
-            padding: "8px 24px",
-            backgroundColor: "rgba(255, 255, 255, 0.1)",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-            borderRadius: 6,
-            color: "#ffffff",
-            fontSize: 14,
-            cursor: saving ? "not-allowed" : "pointer",
-            opacity: saving ? 0.5 : 1,
-          }}
-        >
-          キャンセル
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          style={{
-            padding: "8px 24px",
-            backgroundColor: "#007aff",
-            border: "none",
-            borderRadius: 6,
-            color: "#ffffff",
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: saving ? "not-allowed" : "pointer",
-            opacity: saving ? 0.5 : 1,
-          }}
-        >
-          {saving ? "保存中..." : "保存"}
-        </button>
+            onClick={handleClose}
+            style={{
+              padding: "8px 24px",
+              backgroundColor: "rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              borderRadius: 6,
+              color: "#ffffff",
+              fontSize: 14,
+              cursor: "pointer",
+            }}
+          >
+            閉じる
+          </button>
+          <button
+            onClick={handleCancel}
+            style={{
+              padding: "8px 24px",
+              backgroundColor: "rgba(255, 255, 255, 0.1)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              borderRadius: 6,
+              color: "#ffffff",
+              fontSize: 14,
+              cursor: "pointer",
+            }}
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: "8px 24px",
+              backgroundColor: "#007aff",
+              border: "none",
+              borderRadius: 6,
+              color: "#ffffff",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            保存
+          </button>
         </div>
       </div>
 
