@@ -725,13 +725,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
   // Base rows (fallback to 6 if not configured or not filtered by floor)
   let rowsPerColumn = layoutConfig?.rowsPerCol ?? 6;
 
-  // Dynamic resizing logic based on maxRows
   if (layoutConfig?.maxRows && layoutConfig.maxRows > 0) {
-    const totalShops = filteredShops.length;
-    if (totalShops > 0) {
-       rowsPerColumn = Math.min(totalShops, layoutConfig.maxRows);
-    }
-    if (rowsPerColumn < 1) rowsPerColumn = 1;
+    rowsPerColumn = Math.max(layoutConfig.maxRows, 1);
   }
 
   // Card size calculation with aspect ratio maintenance
