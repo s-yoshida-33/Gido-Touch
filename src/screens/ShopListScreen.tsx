@@ -29,6 +29,9 @@ import categoryKidsHighlightEn from "../assets/category/en/kids-highlight.svg";
 import categorySweetsEn from "../assets/category/en/sweets.svg";
 import categorySweetsHighlightEn from "../assets/category/en/sweets-highlight.svg";
 
+// Empty icon
+import emptyIcon from "../assets/icon/enmpty.svg";
+
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
@@ -1034,7 +1037,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
                 display: "flex",
                 flexDirection: "row",
                 height: "2032px",
-                width: `${30 + totalColumns * cardWidth + (totalColumns - 1) * columnGap + 30}px`,
+                width: filteredShops.length === 0 ? "2640px" : `${30 + totalColumns * cardWidth + (totalColumns - 1) * columnGap + 30}px`,
                 gap: `${columnGap}px`,
                 paddingTop: "20px",
                 paddingBottom: "12px",
@@ -1044,12 +1047,23 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
               {filteredShops.length === 0 ? (
                 <div 
                   style={{ 
-                    padding: "30px", 
-                    color: "#FFFFFF", 
-                    fontSize: "24px",
+                    width: "100%",
+                    height: "100%",
+                    margin: "0 auto",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  店舗データがありません
+                  <img 
+                    src={emptyIcon} 
+                    alt="empty" 
+                    style={{
+                      width: "1200px",
+                      height: "auto",
+                      opacity: 0.6,
+                    }}
+                  />
                 </div>
               ) : (
                 columns.map((columnShops, columnIndex) => (
