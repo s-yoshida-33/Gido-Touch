@@ -167,14 +167,21 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setShopPositions(initialShopPositions);
         setCurrentFloorSetting(initialCurrentFloorSetting);
         setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
-        // genreSettingsの初期化時に必ずcategoryMappingを保持する
-        setGenreSettings(initialGenreSettings && initialGenreSettings.categoryMapping 
-          ? initialGenreSettings 
-          : { 
-              ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS, 
-              maxItems: initialGenreSettings?.maxItems || 3, 
-              categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS 
-            });
+        
+        // Check if categoryMapping has valid content (not empty object)
+        const hasValidMapping = 
+          initialGenreSettings?.categoryMapping && 
+          Object.keys(initialGenreSettings.categoryMapping).length > 0;
+
+        setGenreSettings(
+          hasValidMapping
+            ? initialGenreSettings
+            : {
+                ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS,
+                maxItems: initialGenreSettings?.maxItems || 3,
+                categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
+              }
+        );
         setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
         
         // Load display floors

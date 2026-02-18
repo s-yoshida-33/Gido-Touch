@@ -19,8 +19,9 @@ import type { ShopsEvent } from "./api/sseClient";
 import { convertSseShopDataToShop } from "./utils/shopConverter";
 import type { SseConnectionStatus } from "./api/sseClient";
 import type { LocalMediaTextSettings, SubFloorSettings } from "./types/global";
-import { useMall } from "./contexts/MallContext";
+import type { GenreSettings } from "./types/genreSettings";
 import { useCmsSettings } from "./hooks/useCmsSettings";
+import { DEFAULT_CATEGORY_MAPPINGS, DEFAULT_IGNORED_GENRE_KEYWORDS } from "./utils/genreUtils";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
 
@@ -52,8 +53,14 @@ const App: React.FC = () => {
     DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR
   );
   
-  const { genreSettings } = useMall();
   const { settings: cmsSettings } = useCmsSettings();
+
+  // Load genreSettings explicitly at App level to avoid timing issues
+  const [localGenreSettings, setLocalGenreSettings] = useState<GenreSettings>({
+    ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS,
+    maxItems: 3,
+    categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
+  });
 
   // DEBUG STATE
   const [debugLog, setDebugLog] = useState<string[]>([]);
@@ -440,6 +447,18 @@ const App: React.FC = () => {
         console.error("Failed to load image settings", e);
       }
 
+      // Load genre settings
+      try {
+        if (api.getGenreSettings) {
+          const saved = await api.getGenreSettings();
+          if (saved) {
+            setLocalGenreSettings(saved);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load genre settings", e);
+      }
+
       // Load shop positions
       try {
         if (api.getShopPositions) {
@@ -617,6 +636,12 @@ const App: React.FC = () => {
           setSubFloorSettings(updated);
         });
       }
+
+      if (api.onGenreSettingsUpdated) {
+        api.onGenreSettingsUpdated((updated) => {
+          setLocalGenreSettings(updated);
+        });
+      }
     }
 
     return () => {
@@ -790,7 +815,7 @@ const App: React.FC = () => {
         shops={shops}
         currentFloorSetting={currentFloorSetting}
         localMediaTextSettings={localMediaTextSettings}
-        genreSettings={genreSettings || { ignoredKeywords: [], maxItems: 3, categoryMapping: {} }}
+        genreSettings={localGenreSettings}
         subFloorSettings={subFloorSettings}
       />
       <VersionInfoScreen onClose={() => {}} />
