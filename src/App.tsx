@@ -790,7 +790,7 @@ const App: React.FC = () => {
         shops={shops}
         currentFloorSetting={currentFloorSetting}
         localMediaTextSettings={localMediaTextSettings}
-        genreSettings={genreSettings || { ignoredKeywords: [], maxItems: 3 }}
+        genreSettings={genreSettings || { ignoredKeywords: [], maxItems: 3, categoryMapping: {} }}
         subFloorSettings={subFloorSettings}
       />
       <VersionInfoScreen onClose={() => {}} />

@@ -19,7 +19,7 @@ import type { GenreSettings } from "../types/genreSettings";
 import { useAudioSettings } from "../hooks/useAudioSettings";
 import { useCmsSettings } from "../hooks/useCmsSettings";
 import type { MallId } from "../hooks/useMallAssets";
-import { DEFAULT_IGNORED_GENRE_KEYWORDS } from "../utils/genreUtils";
+import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
 import type { SubFloorSettings } from "../types/global";
 
 type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre";
@@ -71,7 +71,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>(initialCurrentFloorSetting);
   const [displayFloors, setDisplayFloors] = useState<string[]>(['1F', '2F', '3F', '4F']); // Default all
   const [localMediaTextSettings, setLocalMediaTextSettings] = useState<LocalMediaTextSettings>(initialLocalMediaTextSettings || {});
-  const [genreSettings, setGenreSettings] = useState<GenreSettings>(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
+  const [genreSettings, setGenreSettings] = useState<GenreSettings>(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3, categoryMapping: DEFAULT_CATEGORY_MAPPINGS });
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
 
@@ -167,7 +167,14 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setShopPositions(initialShopPositions);
         setCurrentFloorSetting(initialCurrentFloorSetting);
         setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
-        setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
+        // genreSettingsの初期化時に必ずcategoryMappingを保持する
+        setGenreSettings(initialGenreSettings && initialGenreSettings.categoryMapping 
+          ? initialGenreSettings 
+          : { 
+              ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS, 
+              maxItems: initialGenreSettings?.maxItems || 3, 
+              categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS 
+            });
         setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
         
         // Load display floors
@@ -205,7 +212,14 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setShopPositions(initialShopPositions);
       setCurrentFloorSetting(initialCurrentFloorSetting);
       setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
-      setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
+      // genreSettingsの初期化時に必ずcategoryMappingを保持する
+      setGenreSettings(initialGenreSettings && initialGenreSettings.categoryMapping 
+        ? initialGenreSettings 
+        : { 
+            ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS, 
+            maxItems: initialGenreSettings?.maxItems || 3, 
+            categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS 
+          });
       setCurrentAudioSettings(audioSettings);
       setCurrentCmsSettings(cmsSettings);
       setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
@@ -226,7 +240,14 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setShopPositions(initialShopPositions);
     setCurrentFloorSetting(initialCurrentFloorSetting);
       setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
-      setGenreSettings(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 });
+      // genreSettingsの初期化時に必ずcategoryMappingを保持する
+      setGenreSettings(initialGenreSettings && initialGenreSettings.categoryMapping 
+        ? initialGenreSettings 
+        : { 
+            ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS, 
+            maxItems: initialGenreSettings?.maxItems || 3, 
+            categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS 
+          });
       setCurrentAudioSettings(audioSettings);
       setCurrentCmsSettings(cmsSettings);
       setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });

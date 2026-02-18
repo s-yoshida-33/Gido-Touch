@@ -48,6 +48,14 @@ const DEFAULT_IGNORED_GENRE_KEYWORDS = [
   "エキトマチケット加盟店"
 ];
 
+// Default category mappings (Japanese) - sync with src/utils/genreUtils.ts
+const DEFAULT_CATEGORY_MAPPINGS = {
+  takeout: ["テイクアウト", "takeout", "お弁当", "弁当"],
+  alcohol: ["酒", "アルコール", "alcohol", "居酒屋", "バー", "バル"],
+  meat: ["肉", "meat", "ステーキ", "ハンバーグ", "焼肉", "とんかつ", "牛タン", "しゃぶしゃぶ"],
+  sweets: ["スイーツ", "甘味", "デザート", "カフェ", "sweets", "cafe", "ケーキ", "クレープ", "アイス", "ソフトクリーム", "喫茶"]
+};
+
 // Default location icon settings (single floor)
 const DEFAULT_LOCATION_ICON_SETTINGS_SINGLE = {
   speechBubble: {
@@ -244,7 +252,8 @@ function loadSettings() {
     localMediaTextSettings: {},
     genreSettings: {
       ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS,
-      maxItems: 3
+      maxItems: 3,
+      categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
     },
     cmsSettings: {
       enabled: true
@@ -290,6 +299,19 @@ function loadSettings() {
 
   // 3. Merge user settings over base (base now includes mall-specific defaults)
   const merged = deepMerge(base, userSettings);
+
+  // Ensure genreSettings always has categoryMapping with defaults for missing keys
+  if (merged.genreSettings) {
+    if (!merged.genreSettings.categoryMapping) {
+      merged.genreSettings.categoryMapping = DEFAULT_CATEGORY_MAPPINGS;
+    } else {
+      // Ensure all default keys exist in categoryMapping
+      merged.genreSettings.categoryMapping = {
+        ...DEFAULT_CATEGORY_MAPPINGS,
+        ...merged.genreSettings.categoryMapping,
+      };
+    }
+  }
 
   // Special handling for legacy locationIcons format
   if (merged.locationIcons) {
@@ -1157,6 +1179,13 @@ ipcMain.handle('save-sub-floor-settings', (_event, subFloorSettings) => {
 ipcMain.handle('save-all-settings', (_event, payload = {}) => {
   const next = saveSettings(payload);
 
+  if (payload.genreSettings !== undefined) {
+    logger.info('save-all-settings genreSettings', {
+      hasCategoryMapping: !!payload.genreSettings.categoryMapping,
+      categoryMappingKeys: payload.genreSettings.categoryMapping ? Object.keys(payload.genreSettings.categoryMapping) : [],
+    });
+    broadcastGenreSettings(next.genreSettings);
+  }
   if (payload.floor !== undefined) {
     broadcastFloor(next.floor);
   }
@@ -1183,9 +1212,6 @@ ipcMain.handle('save-all-settings', (_event, payload = {}) => {
   }
   if (payload.audioSettings !== undefined) {
     broadcastAudioSettings(next.audioSettings);
-  }
-  if (payload.genreSettings !== undefined) {
-    broadcastGenreSettings(next.genreSettings);
   }
   if (payload.cmsSettings !== undefined) {
     broadcastCmsSettings(next.cmsSettings);
@@ -1441,9 +1467,18 @@ ipcMain.handle('save-audio-settings', (_event, audioSettings) => {
 
 ipcMain.handle('get-genre-settings', () => {
   const settings = loadSettings();
-  logger.debug('IPC get-genre-settings');
+  logger.info('IPC get-genre-settings', { 
+    hasCategoryMapping: !!settings.genreSettings?.categoryMapping,
+    categoryMappingKeys: settings.genreSettings?.categoryMapping ? Object.keys(settings.genreSettings.categoryMapping) : [],
+  });
   // Return default if not set
-  return settings.genreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3 };
+  const result = settings.genreSettings || { 
+    ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, 
+    maxItems: 3,
+    categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
+  };
+  logger.debug('IPC get-genre-settings returning', { hasCategoryMapping: !!result.categoryMapping });
+  return result;
 });
 
 ipcMain.handle('save-genre-settings', (_event, genreSettings) => {
