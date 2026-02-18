@@ -156,10 +156,22 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
-    if (window.electronAPI?.onOpenSettings) {
-      unsubscribe = window.electronAPI.onOpenSettings(() => {
-        setVisible(true);
-        setActiveTab("image");
+    const api = window.electronAPI;
+    if (api?.onOpenSettings) {
+      // Change callback to async to force-fetch latest genre settings
+      unsubscribe = api.onOpenSettings(async () => {
+        
+        // Force fetch the latest genre settings directly from main process
+        let loadedGenreSettings = null;
+        try {
+          if (api.getGenreSettings) {
+            loadedGenreSettings = await api.getGenreSettings();
+          }
+        } catch (e) {
+          console.error("Failed to force fetch genre settings:", e);
+        }
+
+        // Reset other settings from Props (existing behavior)
         setFloor(initialFloor);
         setFloorLayout(initialFloorLayout);
         setLocationIconSettings(initialLocationIconSettings);
@@ -167,32 +179,37 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setShopPositions(initialShopPositions);
         setCurrentFloorSetting(initialCurrentFloorSetting);
         setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+        setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
+
+        // Load display floors
+        if (api?.getDisplayFloors) {
+          api.getDisplayFloors().then(setDisplayFloors);
+        }
+
+        // Use loaded settings if available, otherwise fallback to Props, then defaults
+        const settingsToUse = loadedGenreSettings || initialGenreSettings;
         
         // Check if categoryMapping has valid content (not empty object)
         const hasValidMapping = 
-          initialGenreSettings?.categoryMapping && 
-          Object.keys(initialGenreSettings.categoryMapping).length > 0;
+          settingsToUse?.categoryMapping && 
+          Object.keys(settingsToUse.categoryMapping).length > 0;
 
         setGenreSettings(
           hasValidMapping
-            ? initialGenreSettings
+            ? settingsToUse
             : {
-                ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS,
-                maxItems: initialGenreSettings?.maxItems || 3,
+                ignoredKeywords: settingsToUse?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS,
+                maxItems: settingsToUse?.maxItems || 3,
                 categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
               }
         );
-        setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
-        
-        // Load display floors
-        if (window.electronAPI?.getDisplayFloors) {
-            window.electronAPI.getDisplayFloors().then(setDisplayFloors);
-        }
 
-        // Note: Audio settings are handled by the hook
+        // Display screen after all state is initialized
+        setActiveTab("image");
+        setVisible(true);
         setErrors({});
+
         // Reset transform when opening settings
-        // 設定画面を開くときは"floor"タブが選択されるので、3840×2160のコンテンツを中央に配置
         if (transformRef.current && previewContainerRef.current) {
           requestAnimationFrame(() => {
             if (transformRef.current && previewContainerRef.current) {
@@ -207,7 +224,18 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, calculateOtherTabCenterPosition]);
+  }, [
+    initialFloor, 
+    initialFloorLayout, 
+    initialLocationIconSettings, 
+    initialImageSettings, 
+    initialShopPositions, 
+    initialCurrentFloorSetting, 
+    initialLocalMediaTextSettings, 
+    initialGenreSettings,
+    initialSubFloorSettings,
+    calculateOtherTabCenterPosition
+  ]);
 
   // Sync with external changes when screen is closed
   useEffect(() => {
