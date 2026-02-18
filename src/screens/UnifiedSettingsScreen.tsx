@@ -226,6 +226,19 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     }
   }, [visible, initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, initialGenreSettings, audioSettings, cmsSettings]);
 
+  // Force fetch the latest genreSettings when the screen becomes visible
+  useEffect(() => {
+    if (visible && window.electronAPI?.getGenreSettings) {
+      window.electronAPI.getGenreSettings().then((settings) => {
+        if (settings) {
+          setGenreSettings(settings);
+        }
+      }).catch((err) => {
+        console.error('Failed to fetch genre settings on screen open:', err);
+      });
+    }
+  }, [visible]);
+
   const handleClose = () => {
     setVisible(false);
     setErrors({});

@@ -300,16 +300,34 @@ function loadSettings() {
   // 3. Merge user settings over base (base now includes mall-specific defaults)
   const merged = deepMerge(base, userSettings);
 
-  // Ensure genreSettings always has categoryMapping with defaults for missing keys
-  if (merged.genreSettings) {
-    if (!merged.genreSettings.categoryMapping) {
-      merged.genreSettings.categoryMapping = DEFAULT_CATEGORY_MAPPINGS;
-    } else {
-      // Ensure all default keys exist in categoryMapping
-      merged.genreSettings.categoryMapping = {
+  // Explicitly protect and merge genreSettings to prevent data loss
+  if (userSettings.genreSettings) {
+    logger.info('loadSettings: User genreSettings exists', {
+      hasIgnoredKeywords: !!userSettings.genreSettings.ignoredKeywords,
+      hasCategoryMapping: !!userSettings.genreSettings.categoryMapping,
+      categoryMappingKeys: userSettings.genreSettings.categoryMapping ? Object.keys(userSettings.genreSettings.categoryMapping) : [],
+    });
+    
+    merged.genreSettings = {
+      ...base.genreSettings,
+      ...userSettings.genreSettings,
+      categoryMapping: {
         ...DEFAULT_CATEGORY_MAPPINGS,
-        ...merged.genreSettings.categoryMapping,
-      };
+        ...(userSettings.genreSettings.categoryMapping || {}),
+      },
+    };
+  } else {
+    // Ensure genreSettings always has categoryMapping with defaults for missing keys
+    if (merged.genreSettings) {
+      if (!merged.genreSettings.categoryMapping) {
+        merged.genreSettings.categoryMapping = DEFAULT_CATEGORY_MAPPINGS;
+      } else {
+        // Ensure all default keys exist in categoryMapping
+        merged.genreSettings.categoryMapping = {
+          ...DEFAULT_CATEGORY_MAPPINGS,
+          ...merged.genreSettings.categoryMapping,
+        };
+      }
     }
   }
 
