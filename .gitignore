@@ -38,6 +38,10 @@ out/
 media/*
 !media/.gitkeep
 
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
 # Temporary files
 tmp/
 
