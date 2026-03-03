@@ -582,6 +582,11 @@ fn get_gpu_name() -> String {
 
 // ---------------------------------------------------------------------------
 // Media download commands (GitHub Releases ZIP)
+//
+// Version management: .media-meta.json stores the GitHub asset's `updated_at`
+// timestamp. On each check we query the GitHub API for the current asset
+// metadata, so re-uploading the same-named ZIP to the same release will
+// trigger a re-download.
 // ---------------------------------------------------------------------------
 
 fn get_media_dir() -> Result<PathBuf, String> {
@@ -591,6 +596,71 @@ fn get_media_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct MediaMeta {
+    app_version: String,
+    updated_at: String,
+}
+
+fn get_media_meta_path(mall_dir: &std::path::Path) -> PathBuf {
+    mall_dir.join(".media-meta.json")
+}
+
+fn read_media_meta(mall_dir: &std::path::Path) -> Option<MediaMeta> {
+    let path = get_media_meta_path(mall_dir);
+    let content = fs::read_to_string(&path).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+fn write_media_meta(mall_dir: &std::path::Path, meta: &MediaMeta) -> Result<(), String> {
+    let path = get_media_meta_path(mall_dir);
+    let json = serde_json::to_string_pretty(meta)
+        .map_err(|e| format!("Failed to serialize media meta: {}", e))?;
+    fs::write(&path, json)
+        .map_err(|e| format!("Failed to write media meta: {}", e))
+}
+
+/// Query GitHub API for the `updated_at` of `media-{mallId}.zip` in a release.
+fn fetch_remote_asset_updated_at(mall_id: &str, app_version: &str) -> Result<Option<String>, String> {
+    let api_url = format!(
+        "https://api.github.com/repos/s-yoshida-33/Gido-Touch/releases/tags/v{}",
+        app_version
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Client build error: {}", e))?;
+
+    let response = client
+        .get(&api_url)
+        .header("User-Agent", "Gido-Touch-Updater")
+        .header("Accept", "application/vnd.github.v3+json")
+        .send()
+        .map_err(|e| format!("GitHub API error: {}", e))?;
+
+    if !response.status().is_success() {
+        // Release not found or API error – caller handles gracefully
+        return Ok(None);
+    }
+
+    let body: serde_json::Value = response
+        .json()
+        .map_err(|e| format!("Failed to parse GitHub API response: {}", e))?;
+
+    let target_name = format!("media-{}.zip", mall_id);
+    if let Some(assets) = body["assets"].as_array() {
+        for asset in assets {
+            if asset["name"].as_str() == Some(&target_name) {
+                return Ok(asset["updated_at"].as_str().map(|s| s.to_string()));
+            }
+        }
+    }
+
+    // Asset not found in release
+    Ok(None)
+}
+
 #[derive(Serialize)]
 struct MediaDownloadResult {
     success: bool,
@@ -598,65 +668,108 @@ struct MediaDownloadResult {
     skipped: bool,
 }
 
-/// Check if media needs to be downloaded (version mismatch or missing).
+/// Check if media needs to be downloaded.
+/// Compares the local `.media-meta.json` against the GitHub Release asset's
+/// `updated_at` timestamp. A re-upload of the ZIP (even at the same app
+/// version) will produce a different timestamp and trigger a download.
 #[tauri::command]
 fn check_media_status(mall_id: String, app_version: String) -> Result<MediaDownloadResult, String> {
     let media_root = get_media_dir()?;
     let mall_dir = media_root.join(&mall_id);
-    let version_file = mall_dir.join(".version");
+
+    let local_meta = read_media_meta(&mall_dir);
 
     let has_files = mall_dir.exists() && fs::read_dir(&mall_dir)
-        .map(|entries| entries.count() > 0)
+        .map(|mut entries| entries.any(|e| {
+            e.ok().map_or(false, |e| {
+                !e.file_name().to_string_lossy().starts_with('.')
+            })
+        }))
         .unwrap_or(false);
 
-    let current_version = if version_file.exists() {
-        fs::read_to_string(&version_file)
-            .unwrap_or_default()
-            .trim()
-            .to_string()
-    } else {
-        String::new()
+    // Ask GitHub for the current asset timestamp
+    let remote_updated_at = match fetch_remote_asset_updated_at(&mall_id, &app_version) {
+        Ok(Some(ts)) => ts,
+        Ok(None) => {
+            // Asset not found on GitHub
+            if has_files {
+                return Ok(MediaDownloadResult {
+                    success: true,
+                    message: "Media asset not found on server. Local files are kept.".to_string(),
+                    skipped: true,
+                });
+            }
+            return Ok(MediaDownloadResult {
+                success: true,
+                message: format!("No media asset for {} v{} on GitHub.", mall_id, app_version),
+                skipped: true,
+            });
+        }
+        Err(e) => {
+            // API unreachable – if we have local files, keep them
+            if has_files {
+                return Ok(MediaDownloadResult {
+                    success: true,
+                    message: format!("GitHub API check failed ({}). Using local files.", e),
+                    skipped: true,
+                });
+            }
+            return Ok(MediaDownloadResult {
+                success: false,
+                message: format!("GitHub API check failed: {}", e),
+                skipped: false,
+            });
+        }
     };
 
-    if has_files && current_version == app_version {
-        return Ok(MediaDownloadResult {
-            success: true,
-            message: format!("Media files for {} are up to date (v{})", mall_id, app_version),
-            skipped: true,
-        });
+    // Compare with stored metadata
+    if has_files {
+        if let Some(meta) = &local_meta {
+            if meta.updated_at == remote_updated_at {
+                return Ok(MediaDownloadResult {
+                    success: true,
+                    message: format!(
+                        "Media for {} is up to date (updated_at={})",
+                        mall_id, remote_updated_at
+                    ),
+                    skipped: true,
+                });
+            }
+        }
     }
 
     Ok(MediaDownloadResult {
         success: true,
         message: format!(
-            "Media update needed: current={}, app={}",
-            if current_version.is_empty() { "none" } else { &current_version },
-            app_version
+            "Media update needed for {}: remote_updated_at={}",
+            mall_id, remote_updated_at
         ),
         skipped: false,
     })
 }
 
-/// Download media ZIP from GitHub Releases, extract, and update version marker.
+/// Download media ZIP from GitHub Releases, extract, and store metadata.
 #[tauri::command]
 fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadResult, String> {
     let media_root = get_media_dir()?;
     let mall_dir = media_root.join(&mall_id);
-    let version_file = mall_dir.join(".version");
     let zip_path = media_root.join(format!("media-{}.zip", &mall_id));
+
+    // First, get the remote updated_at for metadata storage
+    let remote_updated_at = fetch_remote_asset_updated_at(&mall_id, &app_version)
+        .unwrap_or(None)
+        .unwrap_or_default();
 
     let download_url = format!(
         "https://github.com/s-yoshida-33/Gido-Touch/releases/download/v{}/media-{}.zip",
         app_version, mall_id
     );
 
-    // Build HTTP client with redirect support
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
         .build()
         .map_err(|e| format!("Client build error: {}", e))?;
 
-    // Download
     let response = client
         .get(&download_url)
         .send()
@@ -665,18 +778,22 @@ fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadR
     let status = response.status();
 
     if status == reqwest::StatusCode::NOT_FOUND {
-        // 404: Media not available for this version
         let has_files = mall_dir.exists() && fs::read_dir(&mall_dir)
-            .map(|entries| entries.count() > 0)
+            .map(|mut entries| entries.any(|e| {
+                e.ok().map_or(false, |e| {
+                    !e.file_name().to_string_lossy().starts_with('.')
+                })
+            }))
             .unwrap_or(false);
 
         if has_files {
-            // Keep existing media, update version marker
+            // Keep existing, write meta so we don't re-check
             fs::create_dir_all(&mall_dir)
                 .map_err(|e| format!("Failed to create directory: {}", e))?;
-            fs::write(&version_file, &app_version)
-                .map_err(|e| format!("Failed to write version file: {}", e))?;
-
+            write_media_meta(&mall_dir, &MediaMeta {
+                app_version: app_version.clone(),
+                updated_at: remote_updated_at,
+            })?;
             return Ok(MediaDownloadResult {
                 success: true,
                 message: "Media not found on server. Keeping existing files.".to_string(),
@@ -699,12 +816,10 @@ fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadR
         });
     }
 
-    // Read response body
     let bytes = response
         .bytes()
         .map_err(|e| format!("Failed to read response body: {}", e))?;
 
-    // Write ZIP to temp file
     fs::write(&zip_path, &bytes)
         .map_err(|e| format!("Failed to write zip file: {}", e))?;
 
@@ -744,16 +859,21 @@ fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadR
         }
     }
 
-    // Write version file
-    fs::write(&version_file, &app_version)
-        .map_err(|e| format!("Failed to write version file: {}", e))?;
+    // Write media metadata
+    write_media_meta(&mall_dir, &MediaMeta {
+        app_version: app_version.clone(),
+        updated_at: remote_updated_at.clone(),
+    })?;
 
     // Cleanup zip
     let _ = fs::remove_file(&zip_path);
 
     Ok(MediaDownloadResult {
         success: true,
-        message: format!("Media extracted to {} (v{})", mall_dir.display(), app_version),
+        message: format!(
+            "Media extracted to {} (v{}, updated_at={})",
+            mall_dir.display(), app_version, remote_updated_at
+        ),
         skipped: false,
     })
 }
