@@ -4,6 +4,7 @@ import type { MallId, Language } from '../hooks/useMallAssets';
 import type { GenreSettings } from '../types/genreSettings';
 import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from '../utils/genreUtils';
 import { loadGlobalSettings, saveGlobalSettings, loadMallSettings } from '../utils/settings';
+import type { GlobalSettings } from '../utils/settings';
 
 // デフォルトはリストの先頭、なければ須坂
 const DEFAULT_MALL_ID: MallId = MALL_IDS[0] || 'suzaka';
@@ -82,7 +83,7 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMallId(id);
     try {
       const global = await loadGlobalSettings();
-      await saveGlobalSettings({ ...global, mallId: id });
+      await saveGlobalSettings({ ...global, mallId: id } as GlobalSettings);
 
       // 新しいモールのジャンル設定を読み込む
       const mallSettings = await loadMallSettings(id);

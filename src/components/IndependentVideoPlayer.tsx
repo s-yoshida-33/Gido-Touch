@@ -147,7 +147,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const currentSrcRef = React.useRef<string | null>(null);
   
   // Local reload trigger for when mall ID changes
-  const [localReload, setLocalReload] = React.useState(0);
+  const [localReload] = React.useState(0);
   
   // Save previous state for override
   const savedStateRef = React.useRef<{ playlist: string[], index: number, currentTime: number } | null>(null);

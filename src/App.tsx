@@ -21,13 +21,9 @@ import type { GenreSettings } from "./types/genreSettings";
 import {
   loadGlobalSettings,
   loadMallSettings,
-  saveGlobalSettings,
-  saveMallSettings as saveMallSettingsToFile,
   ensureMallSettingsFile,
   migrateFromLegacyIfNeeded,
-  saveImageFile,
 } from "./utils/settings";
-import type { MallSettingsFile } from "./utils/settings";
 import { DEFAULT_CATEGORY_MAPPINGS, DEFAULT_IGNORED_GENRE_KEYWORDS } from "./utils/genreUtils";
 import { getVersion } from "@tauri-apps/api/app";
 
@@ -54,19 +50,6 @@ const DEFAULT_FLOOR_LAYOUT: FloorLayout = {
   "2F": { columns: 2, rowsPerCol: 19 },
   "3F": { columns: 3, rowsPerCol: 20 },
   "4F": { columns: 2, rowsPerCol: 18 },
-};
-
-/**
- * Check if an image path is a user-saved custom path (absolute file path or data URL).
- * Vite-bundled asset URLs are NOT considered custom.
- */
-const isCustomImagePath = (path: string): boolean => {
-  if (!path) return false;
-  if (path.startsWith("data:")) return true;
-  if (/^[A-Za-z]:[/\\]/.test(path)) return true;
-  if (path.startsWith("\\\\")) return true;
-  if (path.startsWith("/") && !path.startsWith("/assets/")) return true;
-  return false;
 };
 
 // Error boundary for React render failures
@@ -404,77 +387,6 @@ const App: React.FC = () => {
       window.removeEventListener("unhandledrejection", handleUnhandledRejection);
     };
   }, []);
-
-  // Unified save handler: writes global + per-mall settings
-  const handleSaveAllSettings = async (
-    global: { mallId: string; floor: string },
-    mallData: MallSettingsFile,
-  ) => {
-    try {
-      const processedImageSettings = { ...mallData.imageSettings };
-      const floorKeys: FloorId[] = ["1F", "2F", "3F", "4F"];
-
-      for (const floorKey of floorKeys) {
-        const mapValue = processedImageSettings.floorMaps[floorKey];
-        if (mapValue && mapValue.startsWith("data:")) {
-          const response = await fetch(mapValue);
-          const blob = await response.blob();
-          const arrayBuffer = await blob.arrayBuffer();
-          const uint8Array = new Uint8Array(arrayBuffer);
-          const ext = blob.type.includes("png") ? "png" : blob.type.includes("svg") ? "svg" : "jpg";
-          const filename = `floormap-${floorKey}.${ext}`;
-          const savedPath = await saveImageFile(filename, uint8Array);
-          processedImageSettings.floorMaps[floorKey] = savedPath;
-        } else if (!isCustomImagePath(mapValue)) {
-          processedImageSettings.floorMaps[floorKey] = "";
-        }
-      }
-
-      if (processedImageSettings.openTimeImage && processedImageSettings.openTimeImage.startsWith("data:")) {
-        const response = await fetch(processedImageSettings.openTimeImage);
-        const blob = await response.blob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        const ext = blob.type.includes("png") ? "png" : blob.type.includes("svg") ? "svg" : "jpg";
-        const filename = `open-time.${ext}`;
-        const savedPath = await saveImageFile(filename, uint8Array);
-        processedImageSettings.openTimeImage = savedPath;
-      } else if (!isCustomImagePath(processedImageSettings.openTimeImage)) {
-        processedImageSettings.openTimeImage = "";
-      }
-
-      const processedMallData: MallSettingsFile = {
-        ...mallData,
-        imageSettings: processedImageSettings,
-      };
-
-      await saveGlobalSettings({
-        mallId: global.mallId as any,
-        floor: global.floor,
-      });
-
-      await saveMallSettingsToFile(global.mallId, processedMallData);
-
-      // Update App state
-      setMallId(global.mallId);
-      setFloor(global.floor as FloorId);
-      setLocationSettings(processedMallData.locationIcons);
-      setImageSettings(processedMallData.imageSettings);
-      setShopPositions(processedMallData.shopPositions);
-      setLocalGenreSettings(processedMallData.genreSettings);
-      setCmsEnabled(processedMallData.cmsSettings?.enabled ?? true);
-      setCurrentFloorSetting(processedMallData.currentFloorSetting || "1F");
-      setDisplayFloors(processedMallData.displayFloors || ['1F', '2F', '3F', '4F']);
-      setLocalMediaTextSettings(processedMallData.localMediaTextSettings || {});
-      setSubFloorSettings(processedMallData.subFloorSettings || { "1F-1": [], "1F-2": [] });
-      setFloorLayout(processedMallData.floorLayout || DEFAULT_FLOOR_LAYOUT);
-
-      logInfo("app", "All settings saved", { mallId: global.mallId });
-    } catch (e) {
-      logError("app", "Failed to save settings", { error: e });
-      throw e;
-    }
-  };
 
   return (
     <ErrorBoundary>

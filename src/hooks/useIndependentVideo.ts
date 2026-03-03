@@ -1,7 +1,7 @@
 // src/hooks/useIndependentVideo.ts
 import { useEffect, useState } from 'react';
 import type { VideoSettings } from '../types/videoSettings';
-import { logInfo, logWarn, logError } from '../logs/logging';
+import { logInfo, logError } from '../logs/logging';
 import { loadMallSettings, saveMallSettings } from '../utils/settings';
 import type { MallId } from '../utils/settings';
 

@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import appIcon from '../../build/icon.ico';
-import type { StatusState } from '../types/global';
 import { getVersion } from '@tauri-apps/api/app';
+
+type StatusState = 'checking' | 'available' | 'downloaded' | 'none' | 'error' | 'media_downloading';
 
 export function PatchScreen() {
   const [statusState, setStatusState] = useState<StatusState>('checking');
-  const [statusMessage, setStatusMessage] = useState<string>('起動しています…');
-  const [percent, setPercent] = useState<number | null>(null);
-  const [transferred, setTransferred] = useState<number | null>(null);
-  const [total, setTotal] = useState<number | null>(null);
-  const [speed, setSpeed] = useState<number | null>(null);
+  const [statusMessage] = useState<string>('起動しています…');
+  const [percent,] = useState<number | null>(null);
+  const [transferred,] = useState<number | null>(null);
+  const [total,] = useState<number | null>(null);
+  const [speed,] = useState<number | null>(null);
   const [appVersion, setAppVersion] = useState<string>('');
   
   // Wait state

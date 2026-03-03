@@ -311,7 +311,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         imageSettings: newSettings.imageSettings,
         genreSettings: newSettings.genreSettings,
         cmsSettings: newSettings.cmsSettings,
-        videoSettings: {},
+        videoSettings: { enabled: false, source: '', loop: false, autoplay: false },
         audioSettings: newSettings.audioSettings,
         displayFloors: newSettings.displayFloors,
         currentFloorSetting: newSettings.currentFloorSetting,
