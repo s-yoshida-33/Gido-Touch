@@ -42,6 +42,10 @@ media/*
 src-tauri/target/
 src-tauri/gen/
 
+# Private keys / secrets
+~/*
+!~/.gitkeep
+
 # Temporary files
 tmp/
 
