@@ -3,7 +3,8 @@ import React, { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 
 interface Props {
-  onClose?: () => void;
+  visible: boolean;
+  onClose: () => void;
 }
 
 interface VersionInfo {
@@ -16,8 +17,7 @@ interface VersionInfo {
   error: string | null;
 }
 
-const VersionInfoScreen: React.FC<Props> = () => {
-  const [visible, setVisible] = useState(false);
+const VersionInfoScreen: React.FC<Props> = ({ visible, onClose }) => {
   const [versionInfo, setVersionInfo] = useState<VersionInfo>({
     current: "",
     latest: null,
@@ -32,10 +32,10 @@ const VersionInfoScreen: React.FC<Props> = () => {
   });
 
   useEffect(() => {
-    // In Tauri, version info screen is triggered via context menu or settings,
-    // not via Electron IPC. The visibility is managed by the parent component.
-    // If needed, trigger checkVersion on mount when visible.
-  }, []);
+    if (visible) {
+      checkVersion();
+    }
+  }, [visible]);
 
   const checkVersion = async () => {
     setVersionInfo((prev) => ({ ...prev, checking: true, error: null }));
@@ -63,7 +63,7 @@ const VersionInfoScreen: React.FC<Props> = () => {
   };
 
   const handleClose = () => {
-    setVisible(false);
+    onClose();
   };
 
   const handleDragMouseDown: React.MouseEventHandler<HTMLDivElement> = (e) => {

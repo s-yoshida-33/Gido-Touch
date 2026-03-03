@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import ShopListScreen from "./screens/ShopListScreen";
 import VersionInfoScreen from "./screens/VersionInfoScreen";
 import UnifiedSettingsScreen from "./screens/UnifiedSettingsScreen";
+import { ContextMenu } from "./components/ContextMenu";
 import {
   DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR,
 } from "./config";
@@ -110,6 +111,10 @@ const App: React.FC = () => {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDebugVisible, setIsDebugVisible] = useState(false);
   const [appVersion, setAppVersion] = useState<string>("");
+
+  // Context menu screen visibility
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isVersionInfoOpen, setIsVersionInfoOpen] = useState(false);
 
   // Mall ID state
   const [mallId, setMallId] = useState<string>("suzaka");
@@ -515,16 +520,23 @@ const App: React.FC = () => {
         </div>
       </div>
       )}
-      <ShopListScreen
-        currentFloorSetting={currentFloorSetting}
-        locationIconSettings={locationSettings}
-        shops={shops}
-        shopPositions={shopPositions}
-        displayFloors={displayFloors}
-        floorLayout={floorLayout}
-        subFloorSettings={subFloorSettings}
-      />
+      <ContextMenu
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenVersionInfo={() => setIsVersionInfoOpen(true)}
+      >
+        <ShopListScreen
+          currentFloorSetting={currentFloorSetting}
+          locationIconSettings={locationSettings}
+          shops={shops}
+          shopPositions={shopPositions}
+          displayFloors={displayFloors}
+          floorLayout={floorLayout}
+          subFloorSettings={subFloorSettings}
+        />
+      </ContextMenu>
       <UnifiedSettingsScreen
+        visible={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
         floor={floor}
         floorLayout={floorLayout}
         locationIconSettings={locationSettings}
@@ -536,7 +548,10 @@ const App: React.FC = () => {
         genreSettings={localGenreSettings}
         subFloorSettings={subFloorSettings}
       />
-      <VersionInfoScreen onClose={() => {}} />
+      <VersionInfoScreen
+        visible={isVersionInfoOpen}
+        onClose={() => setIsVersionInfoOpen(false)}
+      />
     </ErrorBoundary>
   );
 };

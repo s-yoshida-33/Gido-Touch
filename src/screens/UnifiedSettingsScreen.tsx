@@ -26,6 +26,8 @@ import { loadGlobalSettings, loadMallSettings, saveMallSettings as saveMallSetti
 type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre";
 
 interface UnifiedSettingsScreenProps {
+  visible: boolean;
+  onClose: () => void;
   floor: FloorId;
   floorLayout: FloorLayout;
   locationIconSettings: LocationIconSettingsPerFloor;
@@ -39,6 +41,8 @@ interface UnifiedSettingsScreenProps {
 }
 
 const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
+  visible,
+  onClose,
   floor: initialFloor,
   floorLayout: initialFloorLayout,
   locationIconSettings: initialLocationIconSettings,
@@ -50,8 +54,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   genreSettings: initialGenreSettings,
   subFloorSettings: initialSubFloorSettings,
 }) => {
-  const [visible, setVisible] = useState(false);
-  
   // Notify parent about visibility (no longer needed with Tauri - no separate window)
   // Settings visibility is managed by React state in parent
 
@@ -250,7 +252,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   // No separate Electron IPC fetch needed.
 
   const handleClose = () => {
-    setVisible(false);
+    onClose();
     setErrors({});
   };
 
