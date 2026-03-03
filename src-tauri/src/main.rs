@@ -7,7 +7,7 @@ use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use chrono::Local;
 use sysinfo::System;
 use std::io::Read as _;
@@ -515,7 +515,10 @@ struct SystemInfoResponse {
 #[tauri::command]
 fn get_system_info() -> SystemInfoResponse {
     let mut sys = System::new_all();
-    sys.refresh_all();
+    sys.refresh_cpu_all();
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    sys.refresh_cpu_usage();
+    sys.refresh_memory();
 
     let cpu_name = sys.cpus().first()
         .map(|c| c.brand().to_string())
@@ -531,7 +534,7 @@ fn get_system_info() -> SystemInfoResponse {
         0.0
     };
 
-    let gpu_name = get_gpu_name();
+    let gpu_name = get_gpu_name_cached();
 
     let os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
     let os_version = System::os_version().unwrap_or_else(|| "Unknown".to_string());
@@ -547,6 +550,12 @@ fn get_system_info() -> SystemInfoResponse {
         os_name,
         os_version,
     }
+}
+
+static GPU_NAME_CACHE: OnceLock<String> = OnceLock::new();
+
+fn get_gpu_name_cached() -> String {
+    GPU_NAME_CACHE.get_or_init(|| get_gpu_name()).clone()
 }
 
 fn get_gpu_name() -> String {
