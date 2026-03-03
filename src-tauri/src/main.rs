@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use chrono::Local;
 use sysinfo::System;
+use std::io::Read as _;
 
 // ---------------------------------------------------------------------------
 // State management structure
@@ -571,6 +572,238 @@ fn get_gpu_name() -> String {
 }
 
 // ---------------------------------------------------------------------------
+// Media download commands (GitHub Releases ZIP)
+// ---------------------------------------------------------------------------
+
+fn get_media_dir() -> Result<PathBuf, String> {
+    let dir = get_app_data_dir()?.join("media");
+    fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create media directory: {}", e))?;
+    Ok(dir)
+}
+
+#[derive(Serialize)]
+struct MediaDownloadResult {
+    success: bool,
+    message: String,
+    skipped: bool,
+}
+
+/// Check if media needs to be downloaded (version mismatch or missing).
+#[tauri::command]
+fn check_media_status(mall_id: String, app_version: String) -> Result<MediaDownloadResult, String> {
+    let media_root = get_media_dir()?;
+    let mall_dir = media_root.join(&mall_id);
+    let version_file = mall_dir.join(".version");
+
+    let has_files = mall_dir.exists() && fs::read_dir(&mall_dir)
+        .map(|entries| entries.count() > 0)
+        .unwrap_or(false);
+
+    let current_version = if version_file.exists() {
+        fs::read_to_string(&version_file)
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    } else {
+        String::new()
+    };
+
+    if has_files && current_version == app_version {
+        return Ok(MediaDownloadResult {
+            success: true,
+            message: format!("Media files for {} are up to date (v{})", mall_id, app_version),
+            skipped: true,
+        });
+    }
+
+    Ok(MediaDownloadResult {
+        success: true,
+        message: format!(
+            "Media update needed: current={}, app={}",
+            if current_version.is_empty() { "none" } else { &current_version },
+            app_version
+        ),
+        skipped: false,
+    })
+}
+
+/// Download media ZIP from GitHub Releases, extract, and update version marker.
+#[tauri::command]
+fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadResult, String> {
+    let media_root = get_media_dir()?;
+    let mall_dir = media_root.join(&mall_id);
+    let version_file = mall_dir.join(".version");
+    let zip_path = media_root.join(format!("media-{}.zip", &mall_id));
+
+    let download_url = format!(
+        "https://github.com/s-yoshida-33/Gido-Touch/releases/download/v{}/media-{}.zip",
+        app_version, mall_id
+    );
+
+    // Build HTTP client with redirect support
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(300))
+        .build()
+        .map_err(|e| format!("Client build error: {}", e))?;
+
+    // Download
+    let response = client
+        .get(&download_url)
+        .send()
+        .map_err(|e| format!("Download error: {}", e))?;
+
+    let status = response.status();
+
+    if status == reqwest::StatusCode::NOT_FOUND {
+        // 404: Media not available for this version
+        let has_files = mall_dir.exists() && fs::read_dir(&mall_dir)
+            .map(|entries| entries.count() > 0)
+            .unwrap_or(false);
+
+        if has_files {
+            // Keep existing media, update version marker
+            fs::create_dir_all(&mall_dir)
+                .map_err(|e| format!("Failed to create directory: {}", e))?;
+            fs::write(&version_file, &app_version)
+                .map_err(|e| format!("Failed to write version file: {}", e))?;
+
+            return Ok(MediaDownloadResult {
+                success: true,
+                message: "Media not found on server. Keeping existing files.".to_string(),
+                skipped: true,
+            });
+        }
+
+        return Ok(MediaDownloadResult {
+            success: false,
+            message: format!("Media not available: HTTP {}", status),
+            skipped: false,
+        });
+    }
+
+    if !status.is_success() {
+        return Ok(MediaDownloadResult {
+            success: false,
+            message: format!("Download failed: HTTP {}", status),
+            skipped: false,
+        });
+    }
+
+    // Read response body
+    let bytes = response
+        .bytes()
+        .map_err(|e| format!("Failed to read response body: {}", e))?;
+
+    // Write ZIP to temp file
+    fs::write(&zip_path, &bytes)
+        .map_err(|e| format!("Failed to write zip file: {}", e))?;
+
+    // Extract ZIP
+    fs::create_dir_all(&mall_dir)
+        .map_err(|e| format!("Failed to create mall media directory: {}", e))?;
+
+    let zip_file = fs::File::open(&zip_path)
+        .map_err(|e| format!("Failed to open zip file: {}", e))?;
+    let mut archive = zip::ZipArchive::new(zip_file)
+        .map_err(|e| format!("Failed to read zip archive: {}", e))?;
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)
+            .map_err(|e| format!("Failed to read zip entry: {}", e))?;
+
+        let out_path = match file.enclosed_name() {
+            Some(path) => mall_dir.join(path),
+            None => continue,
+        };
+
+        if file.is_dir() {
+            fs::create_dir_all(&out_path)
+                .map_err(|e| format!("Failed to create directory: {}", e))?;
+        } else {
+            if let Some(parent) = out_path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("Failed to create parent directory: {}", e))?;
+            }
+            let mut outfile = fs::File::create(&out_path)
+                .map_err(|e| format!("Failed to create file: {}", e))?;
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf)
+                .map_err(|e| format!("Failed to read zip entry data: {}", e))?;
+            outfile.write_all(&buf)
+                .map_err(|e| format!("Failed to write extracted file: {}", e))?;
+        }
+    }
+
+    // Write version file
+    fs::write(&version_file, &app_version)
+        .map_err(|e| format!("Failed to write version file: {}", e))?;
+
+    // Cleanup zip
+    let _ = fs::remove_file(&zip_path);
+
+    Ok(MediaDownloadResult {
+        success: true,
+        message: format!("Media extracted to {} (v{})", mall_dir.display(), app_version),
+        skipped: false,
+    })
+}
+
+/// Get media file path for a given mall and relative path.
+#[tauri::command]
+fn get_media_file_path(mall_id: String, relative_path: String) -> Result<String, String> {
+    let media_root = get_media_dir()?;
+    let file_path = media_root.join(&mall_id).join(&relative_path);
+
+    if file_path.exists() {
+        Ok(file_path
+            .canonicalize()
+            .unwrap_or(file_path)
+            .to_string_lossy()
+            .to_string())
+    } else {
+        Ok(String::new())
+    }
+}
+
+/// List all media files for a given mall.
+#[tauri::command]
+fn list_media_files(mall_id: String) -> Result<Vec<String>, String> {
+    let media_root = get_media_dir()?;
+    let mall_dir = media_root.join(&mall_id);
+
+    if !mall_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut files = Vec::new();
+    collect_files_recursive(&mall_dir, &mall_dir, &mut files)?;
+    Ok(files)
+}
+
+fn collect_files_recursive(base: &PathBuf, dir: &PathBuf, files: &mut Vec<String>) -> Result<(), String> {
+    let entries = fs::read_dir(dir)
+        .map_err(|e| format!("Failed to read directory: {}", e))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_files_recursive(base, &path, files)?;
+        } else {
+            // Return relative path from base
+            if let Ok(rel) = path.strip_prefix(base) {
+                let rel_str = rel.to_string_lossy().to_string();
+                // Skip hidden files like .version
+                if !rel_str.starts_with('.') {
+                    files.push(rel_str);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Quit app command
 // ---------------------------------------------------------------------------
 
@@ -607,6 +840,10 @@ fn main() {
             read_mall_asset,
             get_shop_image,
             get_system_info,
+            check_media_status,
+            download_media,
+            get_media_file_path,
+            list_media_files,
             quit_app,
         ]);
 
