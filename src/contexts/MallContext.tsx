@@ -3,6 +3,7 @@ import { useMallAssets, MALL_IDS } from '../hooks/useMallAssets';
 import type { MallId, Language } from '../hooks/useMallAssets';
 import type { GenreSettings } from '../types/genreSettings';
 import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from '../utils/genreUtils';
+import { loadGlobalSettings, saveGlobalSettings, loadMallSettings } from '../utils/settings';
 
 // デフォルトはリストの先頭、なければ須坂
 const DEFAULT_MALL_ID: MallId = MALL_IDS[0] || 'suzaka';
@@ -40,55 +41,28 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [language, setLanguageState] = useState<Language>(DEFAULT_LANGUAGE);
   const [genreSettings, setGenreSettings] = useState<GenreSettings>(DEFAULT_GENRE_SETTINGS);
   
-  // Electronから設定を読み込む
+  // Tauri設定から読み込む
   useEffect(() => {
-    const api = window.electronAPI;
-    if (!api) return;
-
-    // モールID
-    api.getMallId()
-      .then((savedId) => {
-        // savedIdが有効なIDリストに含まれているか確認
-        if (MALL_IDS.includes(savedId)) {
-          setMallId(savedId as MallId);
+    const loadSettings = async () => {
+      try {
+        // グローバル設定からmallIdを取得
+        const global = await loadGlobalSettings();
+        if (global.mallId && MALL_IDS.includes(global.mallId as MallId)) {
+          setMallId(global.mallId as MallId);
         }
-      })
-      .catch((err) => {
-        console.error("Failed to load mall ID setting", err);
-      });
 
-    // ジャンル設定
-    if (api.getGenreSettings) {
-      api.getGenreSettings()
-        .then((settings) => {
-          if (settings) {
-            setGenreSettings(settings);
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to load genre settings", err);
-        });
-    }
-
-    // モールIDの更新を監視
-    const unsubscribeMall = api.onMallIdUpdated((updatedId) => {
-       if (MALL_IDS.includes(updatedId)) {
-          setMallId(updatedId as MallId);
-       }
-    });
-
-    // ジャンル設定の更新を監視
-    let unsubscribeGenre = () => {};
-    if (api.onGenreSettingsUpdated) {
-      unsubscribeGenre = api.onGenreSettingsUpdated((updatedSettings) => {
-        setGenreSettings(updatedSettings);
-      });
-    }
-
-    return () => {
-      unsubscribeMall();
-      unsubscribeGenre();
+        // モール別設定からジャンル設定を取得
+        const currentMallId = global.mallId || DEFAULT_MALL_ID;
+        const mallSettings = await loadMallSettings(currentMallId);
+        if (mallSettings.genreSettings) {
+          setGenreSettings(mallSettings.genreSettings);
+        }
+      } catch (err) {
+        console.error("Failed to load settings", err);
+      }
     };
+
+    loadSettings();
   }, []);
 
   // 言語設定の読み込み
@@ -103,11 +77,20 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const { assets, isLoading } = useMallAssets(mallId, language);
 
-  // setMallIdのラッパー (Electronにも保存する)
-  const handleSetMallId = (id: MallId) => {
+  // setMallIdのラッパー (Tauri設定にも保存する)
+  const handleSetMallId = async (id: MallId) => {
     setMallId(id);
-    if (window.electronAPI) {
-      window.electronAPI.saveMallId(id).catch(console.error);
+    try {
+      const global = await loadGlobalSettings();
+      await saveGlobalSettings({ ...global, mallId: id });
+
+      // 新しいモールのジャンル設定を読み込む
+      const mallSettings = await loadMallSettings(id);
+      if (mallSettings.genreSettings) {
+        setGenreSettings(mallSettings.genreSettings);
+      }
+    } catch (err) {
+      console.error("Failed to save mall ID", err);
     }
   };
 

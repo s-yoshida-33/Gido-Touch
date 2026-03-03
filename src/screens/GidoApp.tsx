@@ -70,67 +70,11 @@ const GidoApp: React.FC<GidoAppProps> = ({
     previewFloorLayout ?? DEFAULT_FLOOR_LAYOUT
   );
 
-  useEffect(() => {
-    if (previewFloor || !window.electronAPI?.getFloor) {
-      return;
-    }
+  // Floor is now managed via props from App.tsx settings.
+  // No need for Electron IPC subscriptions.
 
-    let cancelled = false;
-
-    const init = async () => {
-      try {
-        const current = await window.electronAPI!.getFloor();
-        if (!cancelled && current) {
-          setFloor(current);
-        }
-      } catch (e) {
-        console.error("Failed to get floor from Electron", e);
-      }
-    };
-
-    init();
-
-    window.electronAPI.onFloorChanged((nextFloor) => {
-      if (!cancelled) {
-        setFloor(nextFloor);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [previewFloor]);
-
-  useEffect(() => {
-    const api = window.electronAPI;
-    if (previewFloorLayout || !api) return;
-
-    let cancelled = false;
-
-    const init = async () => {
-      try {
-        const layout = await api.getFloorLayout();
-        if (!cancelled && layout) {
-          setFloorLayout(layout);
-        }
-      } catch (e) {
-        console.error("Failed to get floor layout from Electron", e);
-      }
-    };
-
-    init();
-
-    const unsubscribe = api.onFloorLayoutChanged((layout) => {
-      if (!cancelled) {
-        setFloorLayout(layout);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe && unsubscribe();
-    };
-  }, [previewFloorLayout]);
+  // Floor layout is now managed via props from App.tsx settings.
+  // No need for Electron IPC subscriptions.
 
   useEffect(() => {
     if (previewFloor !== undefined) {

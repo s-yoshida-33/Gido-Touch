@@ -1,10 +1,12 @@
 // src/components/IndependentVideoPlayer.tsx
 import React from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useIndependentVideo } from '../hooks/useIndependentVideo';
 import { useAudioSettings } from '../hooks/useAudioSettings';
 import { logInfo, logError, logWarn } from '../logs/logging';
 import type { Shop } from '../types/shop';
 import { getDefaultMediaSettings } from '../utils/localMediaUtils';
+import { getShopImageDataUrl } from '../utils/imageUtils';
 
 /**
  * Check if a URL is a video file
@@ -235,16 +237,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     </div>
   );
 
-  // Listen for Mall ID updates
-  React.useEffect(() => {
-    const unsubscribe = window.electronAPI?.onMallIdUpdated?.(() => {
-      logInfo('SYS_INIT', 'Mall ID updated, reloading media files');
-      setLocalReload(prev => prev + 1);
-    });
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
+  // Mall ID changes are now handled via props/context, no IPC subscription needed
+  // The component will re-render when mallId changes in context
 
   // Update playlist when overrideShopId changes
   React.useEffect(() => {
@@ -297,20 +291,15 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 const imagePath = buildImagePath(photoToUse, overrideShopId);
                 
                 if (imagePath) {
-                   const electronAPI = window.electronAPI;
-                   if (electronAPI && electronAPI.getShopImage) {
-                      try {
-                         const dataUrl = await electronAPI.getShopImage(imagePath);
-                         if (dataUrl) {
-                            setOverrideImage(dataUrl);
-                         } else {
-                            setOverrideImage(toFileUrl(imagePath));
-                         }
-                      } catch (e) {
-                         console.error("Failed to load shop image", e);
+                   try {
+                      const dataUrl = await getShopImageDataUrl(imagePath);
+                      if (dataUrl) {
+                         setOverrideImage(dataUrl);
+                      } else {
                          setOverrideImage(toFileUrl(imagePath));
                       }
-                   } else {
+                   } catch (e) {
+                      console.error("Failed to load shop image", e);
                       setOverrideImage(toFileUrl(imagePath));
                    }
                 }
@@ -382,15 +371,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
     const loadMediaFiles = async () => {
       try {
-        if (!window.electronAPI?.getLocalMediaFiles) {
-          logWarn('SYS_INIT', 'electronAPI.getLocalMediaFiles is not available');
-          if (isMounted) {
-            setIsLoadingMedia(false);
-          }
-          return;
-        }
-
-        const files = await window.electronAPI.getLocalMediaFiles();
+        const files = await invoke<string[]>('list_media_files');
         
         if (!isMounted) return;
 

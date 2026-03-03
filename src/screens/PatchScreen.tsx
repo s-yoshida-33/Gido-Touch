@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import appIcon from '../../build/icon.ico';
 import type { StatusState } from '../types/global';
+import { getVersion } from '@tauri-apps/api/app';
 
 export function PatchScreen() {
   const [statusState, setStatusState] = useState<StatusState>('checking');
   const [statusMessage, setStatusMessage] = useState<string>('起動しています…');
-  // const [percent, setPercent] = useState<number | null>(null); // Replaced logic
   const [percent, setPercent] = useState<number | null>(null);
   const [transferred, setTransferred] = useState<number | null>(null);
   const [total, setTotal] = useState<number | null>(null);
@@ -18,44 +18,11 @@ export function PatchScreen() {
   const [countdown, setCountdown] = useState(90);
 
   useEffect(() => {
-    // Mock data for browser preview
-    const isBrowser = !window.electronAPI;
-    
-    if (isBrowser) {
-      // ... (keep existing browser mock if needed, or update it)
-      return;
-    }
-
-    if (!window.updater) return;
-
-    window.updater.onStatus((data) => {
-      setStatusState(data.state);
-
-      if (data.state === 'none' || data.state === 'error') {
-        setIsWaiting(true);
-        // setStatusMessage... is handled below in render
-        
-        // Clear download stats
-        setPercent(null);
-        setTransferred(null);
-        setTotal(null);
-        setSpeed(null);
-      } else {
-        setStatusMessage(data.message);
-      }
-    });
-
-    window.updater.onProgress((data) => {
-      setPercent(data.percent);
-      setTransferred(data.transferred);
-      setTotal(data.total);
-      setSpeed(data.speed);
-    });
-
-    // Notify main process that we are ready for updates
-    if (window.updater.checkForUpdatesReady) {
-      window.updater.checkForUpdatesReady();
-    }
+    // In Tauri, updates are handled by the Tauri updater plugin.
+    // TODO: Implement Tauri updater integration (check → download → install)
+    // For now, auto-proceed to main app after a brief check.
+    setStatusState('none');
+    setIsWaiting(true);
   }, []);
 
   useEffect(() => {
@@ -82,9 +49,8 @@ export function PatchScreen() {
   }, [isWaiting]);
 
   const finishWait = () => {
-    if (window.updater?.startupWaitCompleted) {
-      window.updater.startupWaitCompleted();
-    }
+    // In Tauri, startup wait is handled by the main window readiness.
+    // The parent (App.tsx) will unmount PatchScreen when ready.
   };
 
   const handleSkip = () => {
@@ -92,17 +58,7 @@ export function PatchScreen() {
   };
 
   useEffect(() => {
-    // Mock data for browser preview
-    const isBrowser = !window.electronAPI;
-    
-    if (isBrowser) {
-      // Already set in the previous useEffect
-      return;
-    }
-
-    if (!window.appInfo) return;
-    window.appInfo
-      .getVersion()
+    getVersion()
       .then((v) => {
         setAppVersion(v);
       })

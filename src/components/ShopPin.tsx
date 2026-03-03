@@ -4,6 +4,7 @@ import { motion, type Variants } from "framer-motion";
 import type { ShopPosition } from "../types/shop";
 import type { AnimationConfig } from "../types/locationIcon";
 import speechBubbleIcon from "../assets/location/shop.svg";
+import { getShopImageDataUrl } from "../utils/imageUtils";
 
 const dropInVariants: Variants = {
   hidden: { 
@@ -215,19 +216,16 @@ export const ShopPin: React.FC<ShopPinProps> = ({
         return;
       }
 
-      const electronAPI = window.electronAPI;
-      if (electronAPI && electronAPI.getShopImage) {
-        try {
-          const normalizedPath = imagePath.replace(/\\/g, "/");
-          const dataUrl = await electronAPI.getShopImage(normalizedPath);
-          if (dataUrl) {
-            setLogoUrl(dataUrl);
-            setLogoLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.error("Failed to load logo via IPC:", error);
+      try {
+        const normalizedPath = imagePath.replace(/\\/g, "/");
+        const dataUrl = await getShopImageDataUrl(normalizedPath);
+        if (dataUrl) {
+          setLogoUrl(dataUrl);
+          setLogoLoading(false);
+          return;
         }
+      } catch (error) {
+        console.error("Failed to load logo via IPC:", error);
       }
 
       const fileUrl = toFileUrl(imagePath);

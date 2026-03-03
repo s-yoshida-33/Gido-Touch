@@ -21,6 +21,7 @@ import { useCmsSettings } from "../hooks/useCmsSettings";
 import type { MallId } from "../hooks/useMallAssets";
 import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
 import type { SubFloorSettings } from "../types/global";
+import { loadGlobalSettings, loadMallSettings, saveMallSettings as saveMallSettingsToFile } from "../utils/settings";
 
 type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre";
 
@@ -51,12 +52,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 }) => {
   const [visible, setVisible] = useState(false);
   
-  // Notify main process about visibility to pause focus watchdog
-  useEffect(() => {
-    if (window.electronAPI?.setSettingsVisibility) {
-      window.electronAPI.setSettingsVisibility(visible);
-    }
-  }, [visible]);
+  // Notify parent about visibility (no longer needed with Tauri - no separate window)
+  // Settings visibility is managed by React state in parent
 
   const [activeTab, setActiveTab] = useState<TabType>("image");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -77,11 +74,11 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // Mall settings
   const [mallId, setMallId] = useState<MallId>('suzaka');
-  // Load mall setting from electron
+  // Load mall setting from settings file
   useEffect(() => {
-    if (window.electronAPI) {
-      window.electronAPI.getMallId().then((id) => setMallId(id as MallId));
-    }
+    loadGlobalSettings().then((settings) => {
+      if (settings?.mallId) setMallId(settings.mallId as MallId);
+    });
   }, [visible]);
 
   // Audio settings
@@ -153,84 +150,72 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
 
   // Load initial values when screen opens
+  // In Tauri, visibility is controlled by parent component (no IPC subscription).
+  // When visible changes to true, reload settings from props + mall settings file.
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    if (!visible) return;
 
-    const api = window.electronAPI;
-    if (api?.onOpenSettings) {
-      // Change callback to async to force-fetch latest genre settings
-      unsubscribe = api.onOpenSettings(async () => {
-        
-        // Force fetch the latest genre settings directly from main process
-        let loadedGenreSettings = null;
-        try {
-          if (api.getGenreSettings) {
-            loadedGenreSettings = await api.getGenreSettings();
-          }
-        } catch (e) {
-          console.error("Failed to force fetch genre settings:", e);
+    const loadLatestSettings = async () => {
+      // Force fetch the latest genre settings from mall settings file
+      let loadedGenreSettings = null;
+      try {
+        const mallSettings = await loadMallSettings(mallId);
+        if (mallSettings?.genreSettings) {
+          loadedGenreSettings = mallSettings.genreSettings;
         }
-
-        // Reset other settings from Props (existing behavior)
-        setFloor(initialFloor);
-        setFloorLayout(initialFloorLayout);
-        setLocationIconSettings(initialLocationIconSettings);
-        setImageSettings(initialImageSettings);
-        setShopPositions(initialShopPositions);
-        setCurrentFloorSetting(initialCurrentFloorSetting);
-        setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
-        setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
-
-        // Load display floors
-        if (api?.getDisplayFloors) {
-          api.getDisplayFloors().then(setDisplayFloors);
+        if (mallSettings?.displayFloors) {
+          setDisplayFloors(mallSettings.displayFloors);
         }
+      } catch (e) {
+        console.error("Failed to fetch mall settings:", e);
+      }
 
-        // Use loaded settings if available, otherwise fallback to Props, then defaults
-        const settingsToUse = loadedGenreSettings || initialGenreSettings;
-        
-        // Check if categoryMapping has valid content (not empty object)
-        const hasValidMapping = 
-          settingsToUse?.categoryMapping && 
-          Object.keys(settingsToUse.categoryMapping).length > 0;
+      // Reset other settings from Props (existing behavior)
+      setFloor(initialFloor);
+      setFloorLayout(initialFloorLayout);
+      setLocationIconSettings(initialLocationIconSettings);
+      setImageSettings(initialImageSettings);
+      setShopPositions(initialShopPositions);
+      setCurrentFloorSetting(initialCurrentFloorSetting);
+      setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+      setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
 
-        setGenreSettings(
-          hasValidMapping
-            ? settingsToUse
-            : {
-                ignoredKeywords: settingsToUse?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS,
-                maxItems: settingsToUse?.maxItems || 3,
-                categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
-              }
-        );
+      // Use loaded settings if available, otherwise fallback to Props, then defaults
+      const settingsToUse = loadedGenreSettings || initialGenreSettings;
+      
+      // Check if categoryMapping has valid content (not empty object)
+      const hasValidMapping = 
+        settingsToUse?.categoryMapping && 
+        Object.keys(settingsToUse.categoryMapping).length > 0;
 
-        // Display screen after all state is initialized
-        setActiveTab("image");
-        setVisible(true);
-        setErrors({});
-
-        // Reset transform when opening settings
-        if (transformRef.current && previewContainerRef.current) {
-          requestAnimationFrame(() => {
-            if (transformRef.current && previewContainerRef.current) {
-              const { x, y, scale } = calculateOtherTabCenterPosition();
-              transformRef.current.setTransform(x, y, scale);
+      setGenreSettings(
+        hasValidMapping
+          ? settingsToUse
+          : {
+              ignoredKeywords: settingsToUse?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS,
+              maxItems: settingsToUse?.maxItems || 3,
+              categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
             }
-          });
-        }
-      });
-    }
+      );
 
-    return () => {
-      if (unsubscribe) unsubscribe();
+      setActiveTab("image");
+      setErrors({});
+
+      // Reset transform when opening settings
+      if (transformRef.current && previewContainerRef.current) {
+        requestAnimationFrame(() => {
+          if (transformRef.current && previewContainerRef.current) {
+            const { x, y, scale } = calculateOtherTabCenterPosition();
+            transformRef.current.setTransform(x, y, scale);
+          }
+        });
+      }
     };
+
+    loadLatestSettings();
   }, [
-    initialFloor, 
-    initialFloorLayout, 
-    initialLocationIconSettings, 
-    initialImageSettings, 
-    initialShopPositions, 
-    initialCurrentFloorSetting, 
+    visible,
+    mallId,
     initialLocalMediaTextSettings, 
     initialGenreSettings,
     initialSubFloorSettings,
@@ -261,18 +246,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     }
   }, [visible, initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, initialGenreSettings, audioSettings, cmsSettings]);
 
-  // Force fetch the latest genreSettings when the screen becomes visible
-  useEffect(() => {
-    if (visible && window.electronAPI?.getGenreSettings) {
-      window.electronAPI.getGenreSettings().then((settings) => {
-        if (settings) {
-          setGenreSettings(settings);
-        }
-      }).catch((err) => {
-        console.error('Failed to fetch genre settings on screen open:', err);
-      });
-    }
-  }, [visible]);
+  // Genre settings are already loaded in the visibility effect above.
+  // No separate Electron IPC fetch needed.
 
   const handleClose = () => {
     setVisible(false);
@@ -329,10 +304,22 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         audioSettings: currentAudioSettings,
         cmsSettings: currentCmsSettings,
       };
-      if (window.electronAPI) {
-        await window.electronAPI.saveAllSettings(newSettings);
-        alert('設定を保存しました。');
-      }
+      // Save mall-specific settings to file
+      await saveMallSettingsToFile(mallId, {
+        locationIcons: newSettings.locationIcons,
+        shopPositions: newSettings.shopPositions,
+        imageSettings: newSettings.imageSettings,
+        genreSettings: newSettings.genreSettings,
+        cmsSettings: newSettings.cmsSettings,
+        videoSettings: {},
+        audioSettings: newSettings.audioSettings,
+        displayFloors: newSettings.displayFloors,
+        currentFloorSetting: newSettings.currentFloorSetting,
+        localMediaTextSettings: newSettings.localMediaTextSettings,
+        subFloorSettings: newSettings.subFloorSettings,
+        floorLayout: newSettings.floorLayout,
+      });
+      alert('設定を保存しました。');
     } catch (error) {
       console.error('Failed to save settings:', error);
       alert('設定の保存に失敗しました。');
@@ -340,18 +327,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   };
 
   const handleExportDefaults = async () => {
-    if (!window.electronAPI?.exportCurrentSettingsAsDefault) return;
-    
-    try {
-        const result = await window.electronAPI.exportCurrentSettingsAsDefault();
-        if (result.success) {
-            alert(`設定をデフォルトファイルとして書き出しました。\n${result.path}`);
-        } else {
-            alert(`書き出しに失敗しました: ${result.error}`);
-        }
-    } catch (e: any) {
-        alert(`エラーが発生しました: ${e.message}`);
-    }
+    // Export function removed in Tauri migration
+    // Settings are saved to mall-specific JSON files directly
+    alert('この機能はTauri版では利用できません。\n設定はmallId-settings.jsonに直接保存されます。');
   };
 
 
@@ -457,7 +435,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         {/* Buttons */}
         <div style={{ display: "flex", gap: 12 }}>
           {/* Dev Mode Export Button */}
-          {import.meta.env.MODE === 'development' && window.electronAPI?.exportCurrentSettingsAsDefault && (
+          {import.meta.env.MODE === 'development' && (
              <button
                 onClick={handleExportDefaults}
                 style={{

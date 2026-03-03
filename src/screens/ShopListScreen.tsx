@@ -39,6 +39,7 @@ import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { FloorLayout } from "../types/floorLayout";
 import { filterGenreMemos, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
+import { getShopImageDataUrl } from "../utils/imageUtils";
 import type { SubFloorSettings } from "../types/global";
 
 // Simple in-memory cache for image URLs to prevent flickering
@@ -162,19 +163,13 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
         }
       }
 
-      // Check if we're in Electron environment
-      const electronAPI = window.electronAPI;
+      // Use Tauri IPC to load shop image
       let loadPromise: Promise<string | null>;
 
-      if (electronAPI && electronAPI.getShopImage) {
-        loadPromise = electronAPI.getShopImage(imagePath).catch((error: unknown) => {
-          console.error("Failed to load image via IPC:", error);
-          return null;
-        });
-      } else {
-        // Fallback to file:// URL (works in Electron, not in browser)
-        loadPromise = Promise.resolve(toFileUrl(imagePath));
-      }
+      loadPromise = getShopImageDataUrl(imagePath).catch((error: unknown) => {
+        console.error("Failed to load image via IPC:", error);
+        return toFileUrl(imagePath);
+      });
 
       pendingRequests.set(cacheKey, loadPromise);
 

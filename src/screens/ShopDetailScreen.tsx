@@ -11,6 +11,7 @@ import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import { getLocationIconSettingsForFloor } from "../config";
 import type { FloorId } from "../types/floorLayout";
 import { filterGenreMemos } from "../utils/genreUtils";
+import { getShopImageDataUrl } from "../utils/imageUtils";
 
 // Constants for consistent scaling (must match GidoApp)
 const REFERENCE_MAP_WIDTH = 1920;
@@ -132,14 +133,11 @@ const ShopLogoImage: React.FC<{ photo: string | undefined; shopId: string | unde
     const loadImage = async () => {
       const imagePath = buildImagePath(photo, shopId);
       if (!imagePath) { setIsLoading(false); setHasError(true); return; }
-      const electronAPI = window.electronAPI;
-      if (electronAPI && electronAPI.getShopImage) {
-        try {
-          const normalizedPath = imagePath.replace(/\\/g, "/");
-          const dataUrl = await electronAPI.getShopImage(normalizedPath);
-          if (dataUrl) { setImageUrl(dataUrl); setIsLoading(false); setHasError(false); return; }
-        } catch (error) { console.error(error); setHasError(true); }
-      }
+      try {
+        const normalizedPath = imagePath.replace(/\\/g, "/");
+        const dataUrl = await getShopImageDataUrl(normalizedPath);
+        if (dataUrl) { setImageUrl(dataUrl); setIsLoading(false); setHasError(false); return; }
+      } catch (error) { console.error(error); setHasError(true); }
       const fileUrl = toFileUrl(imagePath);
       setImageUrl(fileUrl);
       setIsLoading(false);
@@ -164,14 +162,11 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
     const loadImage = async () => {
       const imagePath = buildImagePath(photo, shopId);
       if (!imagePath) { setIsLoading(false); return; }
-      const electronAPI = window.electronAPI;
-      if (electronAPI && electronAPI.getShopImage) {
-        try {
-          const normalizedPath = imagePath.replace(/\\/g, "/");
-          const dataUrl = await electronAPI.getShopImage(normalizedPath);
-          if (dataUrl) { setImageUrl(dataUrl); setIsLoading(false); return; }
-        } catch (error) { console.error(error); }
-      }
+      try {
+        const normalizedPath = imagePath.replace(/\\/g, "/");
+        const dataUrl = await getShopImageDataUrl(normalizedPath);
+        if (dataUrl) { setImageUrl(dataUrl); setIsLoading(false); return; }
+      } catch (error) { console.error(error); }
       const fileUrl = toFileUrl(imagePath);
       setImageUrl(fileUrl);
       setIsLoading(false);

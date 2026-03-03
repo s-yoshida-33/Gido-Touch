@@ -1,6 +1,6 @@
 // src/screens/VersionInfoScreen.tsx
 import React, { useEffect, useState } from "react";
-import type { AppInfoAPI } from "../types/global";
+import { getVersion } from "@tauri-apps/api/app";
 
 interface Props {
   onClose?: () => void;
@@ -32,60 +32,27 @@ const VersionInfoScreen: React.FC<Props> = () => {
   });
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-
-    if (window.electronAPI?.onOpenVersionInfo) {
-      unsubscribe = window.electronAPI.onOpenVersionInfo(() => {
-        const width = 500;
-        const height = 400;
-        const left = Math.max(20, (window.innerWidth - width) / 2);
-        const top = Math.max(20, (window.innerHeight - height) / 2);
-        setWindowPos({ left, top });
-        setVisible(true);
-        checkVersion();
-      });
-    }
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    // In Tauri, version info screen is triggered via context menu or settings,
+    // not via Electron IPC. The visibility is managed by the parent component.
+    // If needed, trigger checkVersion on mount when visible.
   }, []);
 
   const checkVersion = async () => {
     setVersionInfo((prev) => ({ ...prev, checking: true, error: null }));
 
     try {
-      // Get current version
-      const currentVersion =
-        (await window.appInfo?.getVersion()) || "不明";
+      // Get current version via Tauri API
+      const currentVersion = await getVersion() || "不明";
 
-      // Get latest version info
-      const appInfo = window.appInfo as AppInfoAPI | undefined;
-      const latestInfo = appInfo?.getLatestVersionInfo
-        ? await appInfo.getLatestVersionInfo()
-        : null;
-
-      if (latestInfo) {
-        const isLatest = currentVersion === latestInfo.version;
-        setVersionInfo({
-          current: currentVersion,
-          latest: latestInfo.version,
-          isLatest,
-          releaseDate: latestInfo.releaseDate,
-          releaseNotes: latestInfo.releaseNotes,
-          checking: false,
-          error: null,
-        });
-      } else {
-        // Could not get latest version info
-        setVersionInfo({
-          current: currentVersion,
-          latest: null,
-          isLatest: false,
-          checking: false,
-          error: "最新バージョンの確認に失敗しました。",
-        });
-      }
+      // TODO: Implement update checking via Tauri updater plugin
+      // For now, just show the current version
+      setVersionInfo({
+        current: currentVersion,
+        latest: null,
+        isLatest: false,
+        checking: false,
+        error: null,
+      });
     } catch (error) {
       setVersionInfo((prev) => ({
         ...prev,

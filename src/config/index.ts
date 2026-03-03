@@ -2,12 +2,15 @@
 import type { LocationIconSettings, LocationIconSettingsPerFloor } from '../types/locationIcon';
 import type { FloorId } from '../types/floorLayout';
 
-// Global app configuration (do not use Japanese in comments to avoid encoding issues)
+// Global app configuration
 export const APP_CONFIG = {
-  // Default base URL for BridgeWebPopper HTTP server
+  // Default base URL for BridgeWebPopper HTTP server (fixed port)
   defaultApiBaseUrl: "http://localhost:8090",
 
-  // Default floor for this screen (this screen is dedicated to one floor)
+  // CMS / Timeline API base URL (fixed port)
+  cmsApiBaseUrl: "http://localhost:48080",
+
+  // Default floor for this screen
   floor: "3F",
 
   // Enable local storage caching
@@ -23,47 +26,41 @@ export const APP_CONFIG = {
   listHeightVh: 40,
 };
 
-// Effective API base URL
-// Priority: window.__BWP_BASE_URL__ (injected by BridgeWebPopper) > Electron API (port range detection) > Vite env > default
-// Note: API_BASE_URL is now a function that returns a Promise to support async port detection
+// Effective API base URL (Bridge API)
 let cachedApiBaseUrl: string | null = null;
 
 export async function getApiBaseUrl(): Promise<string> {
   // Priority 1: window.__BWP_BASE_URL__ (injected by BridgeWebPopper)
-  if ((window as any).__BWP_BASE_URL__) {
-    return (window as any).__BWP_BASE_URL__;
+  if (window.__BWP_BASE_URL__) {
+    return window.__BWP_BASE_URL__;
   }
 
-  // Priority 2: Electron API (port range detection)
-  if (window.electronAPI?.getBridgeBaseUrl) {
-    try {
-      const url = await window.electronAPI.getBridgeBaseUrl();
-      if (url) {
-        // Electron側で30秒間隔のキャッシュ制御を行っているため、
-        // レンダラー側ではキャッシュせず毎回問い合わせるように変更し、
-        // 後からAPIサーバーが起動した場合でも追従できるようにする
-        return url;
-      }
-    } catch (error) {
-      console.warn('Failed to get Bridge base URL from Electron API', error);
-    }
-  }
-
-  // Priority 3: Cached value (if available)
+  // Priority 2: Cached value (if available)
   if (cachedApiBaseUrl) {
     return cachedApiBaseUrl;
   }
 
-  // Priority 4: Vite env
+  // Priority 3: Vite env
   if (import.meta.env.VITE_API_BASE) {
     const viteUrl = import.meta.env.VITE_API_BASE;
     cachedApiBaseUrl = viteUrl;
     return viteUrl;
   }
 
-  // Priority 5: Default
+  // Priority 4: Dev mode - use relative path to leverage Vite proxy (avoids CORS)
+  if (import.meta.env.DEV) {
+    cachedApiBaseUrl = "";
+    return "";
+  }
+
+  // Priority 5: Production default
   cachedApiBaseUrl = APP_CONFIG.defaultApiBaseUrl;
   return APP_CONFIG.defaultApiBaseUrl;
+}
+
+// CMS API base URL (fixed port 48080)
+export function getCmsApiBaseUrl(): string {
+  return APP_CONFIG.cmsApiBaseUrl;
 }
 
 // For backward compatibility, export a synchronous getter that uses cached value or default

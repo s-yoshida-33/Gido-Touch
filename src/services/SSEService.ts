@@ -1,0 +1,215 @@
+import { fetch } from "@tauri-apps/plugin-http";
+import { logInfo, logError, logDebug } from "../logs/logging";
+
+export type SseConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+
+type Listener = (data: any) => void;
+
+/**
+ * SSE client implemented over Tauri HTTP plugin's fetch (streaming).
+ *
+ * The native EventSource API cannot reach http://localhost from the
+ * Tauri WebView because it is a cross-origin request without CORS headers.
+ * Using the Tauri HTTP plugin routes the request through Rust, bypassing CORS.
+ */
+class SSEService {
+  private abortController: AbortController | null = null;
+  private listeners: Map<string, Set<Listener>> = new Map();
+  private isDestroyed = false;
+  private retryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private _status: SseConnectionStatus = 'disconnected';
+  private url: string;
+  private name: string;
+
+  public get status(): SseConnectionStatus {
+    return this._status;
+  }
+
+  private setStatus(status: SseConnectionStatus) {
+    if (this._status !== status) {
+      this._status = status;
+      this.emit('status_change', { status });
+    }
+  }
+
+  constructor(url: string, name: string = 'SSE', autoConnect: boolean = true) {
+    this.url = url;
+    this.name = name;
+    if (autoConnect) {
+      this.connect();
+    }
+  }
+
+  public async connect() {
+    if (this.isDestroyed) return;
+    if (this._status === 'connecting' || this._status === 'connected') return;
+
+    this.setStatus('connecting');
+
+    try {
+      logDebug("sse", `[${this.name}] Connecting to SSE endpoint via Tauri HTTP`, { url: this.url });
+
+      this.abortController = new AbortController();
+
+      const response = await fetch(this.url, {
+        method: "GET",
+        headers: { "Accept": "text/event-stream" },
+        signal: this.abortController.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`SSE connection failed: HTTP ${response.status}`);
+      }
+
+      this.setStatus('connected');
+      logInfo("sse", `[${this.name}] SSE connection opened`);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete SSE events (delimited by double newlines)
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          this.parseAndDispatch(part);
+        }
+      }
+
+      logDebug("sse", `[${this.name}] SSE stream ended`);
+      this.setStatus('disconnected');
+      this.reconnect();
+
+    } catch (error: any) {
+      if (error?.name === "AbortError") {
+        logDebug("sse", `[${this.name}] SSE connection aborted`);
+        return;
+      }
+      logError("sse", `[${this.name}] SSE Error occurred`, { error: error?.message ?? error });
+      this.setStatus('error');
+      this.reconnect();
+    }
+  }
+
+  /**
+   * Parse a single SSE block and dispatch to listeners.
+   */
+  private parseAndDispatch(block: string) {
+    let eventType = "message";
+    const dataLines: string[] = [];
+
+    for (const line of block.split("\n")) {
+      if (line.startsWith("event:")) {
+        eventType = line.slice(6).trim();
+      } else if (line.startsWith("data:")) {
+        dataLines.push(line.slice(5).trim());
+      } else if (line.startsWith(":")) {
+        // SSE comment — ignore (keepalive)
+      }
+    }
+
+    if (dataLines.length === 0) return;
+
+    const rawData = dataLines.join("\n");
+
+    // Heartbeat events — silently ignore
+    if (eventType === "heartbeat") return;
+
+    try {
+      const data = JSON.parse(rawData);
+      logDebug("sse", `[${this.name}] Received ${eventType} event`, data);
+
+      // Dispatch to the specific event type listeners
+      this.emit(eventType, data);
+
+      // Also dispatch to "update" as a catch-all for generic handlers
+      if (eventType !== "connected" && eventType !== "status_change" && eventType !== "update") {
+        this.emit("update", { type: eventType, ...data });
+      }
+    } catch {
+      // Non-JSON data — ignore
+    }
+  }
+
+  private reconnect() {
+    if (this.isDestroyed) return;
+
+    this.disconnect();
+
+    if (this.retryTimeout) return;
+
+    logDebug("sse", `[${this.name}] Scheduling reconnect in 5s...`);
+    this.retryTimeout = setTimeout(() => {
+      this.retryTimeout = null;
+      this.connect();
+    }, 5000);
+  }
+
+  public disconnect() {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+    if (this._status !== 'disconnected') {
+      this.setStatus('disconnected');
+    }
+  }
+
+  public on(event: string, callback: Listener): () => void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event)!.add(callback);
+
+    return () => {
+      this.listeners.get(event)?.delete(callback);
+    };
+  }
+
+  private emit(event: string, data: any) {
+    const callbacks = this.listeners.get(event);
+    if (callbacks) {
+      callbacks.forEach((cb) => {
+        try {
+          cb(data);
+        } catch (e) {
+          logError("sse", `[${this.name}] Error in event listener`, { error: e });
+        }
+      });
+    }
+  }
+
+  public destroy() {
+    this.isDestroyed = true;
+    this.disconnect();
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+    }
+    this.listeners.clear();
+  }
+}
+
+// Bridge API SSE (Shop data) — auto-connect
+export const shopSseService = new SSEService(
+  'http://localhost:8090/api/events',
+  'Shop_SSE',
+  true,
+);
+
+// CMS Timeline API SSE — conditionally connected (controlled by cmsSettings.enabled)
+export const cmsSseService = new SSEService(
+  'http://localhost:48080/api/timeline/stream',
+  'CMS_SSE',
+  false,
+);
+
+export { SSEService };
