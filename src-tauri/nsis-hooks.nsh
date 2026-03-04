@@ -2,7 +2,7 @@
 
 !macro NSIS_HOOK_POSTINSTALL
   ; --- Windows auto-start on logon (30 second delay) ---
-  ExecWait 'schtasks /create /tn "Gido Touch Auto Start" /tr "\"$INSTDIR\Gido Touch.exe\"" /sc onlogon /delay 0000:30 /f'
+  ExecWait 'schtasks /create /tn "Gido Touch Auto Start" /tr "\"$INSTDIR\gido-touch.exe\"" /sc onlogon /delay 0000:30 /f'
 
   ; --- Scheduled task for daily reboot at 03:00 ---
   ExecWait 'schtasks /create /tn "Gido Touch Daily Reboot" /tr "shutdown /r /t 0" /sc daily /st 03:00 /f'
