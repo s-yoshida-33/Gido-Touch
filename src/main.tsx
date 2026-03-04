@@ -1,6 +1,6 @@
 // src/main.tsx
 // Main entry point for the React application
-import React, { StrictMode } from 'react'
+import React, { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/index.css'
 import App from './App.tsx'
@@ -39,19 +39,25 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
-// Decide which screen to render based on URL hash
-const isPatchMode = window.location.hash === '#patch';
+// Root component: PatchScreen → App transition via React state
+function Root() {
+  const [showApp, setShowApp] = useState(false);
+
+  if (showApp) {
+    return (
+      <MallProvider>
+        <App />
+      </MallProvider>
+    );
+  }
+
+  return <PatchScreen onComplete={() => setShowApp(true)} />;
+}
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
     <ErrorBoundary>
-      {isPatchMode ? (
-        <PatchScreen />
-      ) : (
-        <MallProvider>
-          <App />
-        </MallProvider>
-      )}
+      <Root />
     </ErrorBoundary>
   </StrictMode>,
 );
