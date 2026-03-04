@@ -158,6 +158,10 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   // Seek wait time
   const pendingSeekTimeRef = React.useRef<number | null>(null);
   
+  // Video error retry
+  const MAX_RETRY_COUNT = 3;
+  const retryCountRef = React.useRef<number>(0);
+
   // Watchdog refs
   const lastTimeRef = React.useRef<number>(0);
   const freezeCounterRef = React.useRef<number>(0);
@@ -472,6 +476,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           const nextVideoElement = nextPlayer === 'A' ? videoRefA.current : videoRefB.current;
           const nextReadyState = nextVideoElement ? nextVideoElement.readyState : 'null';
 
+          // Reset retry count on successful track change
+          retryCountRef.current = 0;
+
           // Log detailed swap info
           logDebug('MEDIA_SWAP', 'Local media player swapped', {
             activePlayer: nextPlayer,
@@ -525,6 +532,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           
           // If the video source doesn't contain the expected filename, or is empty
           if (!activeVideo.src || !srcDecoded.includes(filename)) {
+              retryCountRef.current = 0; // Reset retry count on track change
               activeVideo.src = fileUrl;
               activeVideo.load();
               
@@ -568,21 +576,42 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       const onEnded = () => handleNext();
       const onStalled = () => logWarn('VIDEO', 'Playback stalled', { file: currentFile });
       
-      // Error handling for active video
+      // Error handling for active video with retry
       const onError = (e: Event) => {
           const target = e.currentTarget as HTMLVideoElement;
+          const fileName = extractFilename(currentFile);
           logError('VIDEO', 'Video playback error', {
-              file: extractFilename(currentFile), // Use extractFilename for better readability
+              file: fileName,
               error: target.error?.message,
               code: target.error?.code,
               readyState: target.readyState,
               networkState: target.networkState,
               currentTime: target.currentTime.toFixed(2),
               duration: target.duration?.toFixed(2),
-              buffered: getBufferedRanges(target)
+              buffered: getBufferedRanges(target),
+              retryCount: retryCountRef.current,
           });
-          // Force skip to next
-          handleNext();
+
+          // Retry before skipping (HW decode errors are often transient)
+          if (retryCountRef.current < MAX_RETRY_COUNT) {
+              retryCountRef.current += 1;
+              logWarn('VIDEO', `Retrying video load (${retryCountRef.current}/${MAX_RETRY_COUNT})`, {
+                  file: fileName,
+              });
+              setTimeout(() => {
+                  if (target && target.src) {
+                      target.load();
+                      target.play().catch(() => {});
+                  }
+              }, 1000);
+          } else {
+              logError('VIDEO', 'Max retry count reached, skipping to next', {
+                  file: fileName,
+                  retryCount: retryCountRef.current,
+              });
+              retryCountRef.current = 0;
+              handleNext();
+          }
       };
 
       if (activeVideo) {
