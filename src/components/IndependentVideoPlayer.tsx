@@ -4,7 +4,7 @@ import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { useIndependentVideo } from '../hooks/useIndependentVideo';
 import { useAudioSettings } from '../hooks/useAudioSettings';
 import { useMall } from '../contexts/MallContext';
-import { logInfo, logError, logWarn } from '../logs/logging';
+import { logInfo, logError, logWarn, logDebug } from '../logs/logging';
 import type { Shop } from '../types/shop';
 import { getDefaultMediaSettings } from '../utils/localMediaUtils';
 import { getShopImageDataUrl } from '../utils/imageUtils';
@@ -261,7 +261,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       });
 
       if (shopFiles.length > 0) {
-        logInfo('MEDIA_SWAP', `Overriding playlist for shop: ${overrideShopId}`, { count: shopFiles.length });
+        logDebug('MEDIA_SWAP', `Overriding playlist for shop: ${overrideShopId}`, { count: shopFiles.length });
         
         // Save current state before overriding, if not already saved
         // IMPORTANT: Only save if we are transitioning from a non-override state
@@ -278,7 +278,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         setCurrentIndex(0);
         setOverrideImage(null); // Clear override image
       } else {
-        logInfo('MEDIA_SWAP', `No local media found for shop override: ${overrideShopId}. Trying shop details image.`);
+        logWarn('MEDIA_SWAP', `No local media found for shop override: ${overrideShopId}. Trying shop details image.`);
         
         // 2. If no local media, try to load shop image
         // Find shop using loose equality
@@ -322,7 +322,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
              setPlaylist([]); // Clear playlist to stop playing previous
           } else {
             // No photo available
-            logInfo('MEDIA_SWAP', `No shop photo found for shop: ${overrideShopId}`);
+            logWarn('MEDIA_SWAP', `No shop photo found for shop: ${overrideShopId}`);
             setOverrideImage(null);
           }
         }
@@ -332,7 +332,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       setOverrideImage(null);
       
       if (savedStateRef.current) {
-         logInfo('MEDIA_SWAP', 'Restoring playlist from override');
+         logDebug('MEDIA_SWAP', 'Restoring playlist from override');
          
          const restoredPlaylist = savedStateRef.current.playlist;
          setPlaylist(restoredPlaylist);
@@ -349,7 +349,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
              // If videoSettings is enabled, empty playlist allows fallback to it.
              // If videoSettings is NOT enabled, we should play mediaFiles.
              if (!videoSettings?.enabled || !videoSettings.source) {
-                 logInfo('MEDIA_SWAP', 'Restored empty playlist but have media files, starting loop');
+                 logDebug('MEDIA_SWAP', 'Restored empty playlist but have media files, starting loop');
                  setPlaylist(shuffleArray(mediaFiles));
                  setCurrentIndex(0);
              }
@@ -473,7 +473,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           const nextReadyState = nextVideoElement ? nextVideoElement.readyState : 'null';
 
           // Log detailed swap info
-          logInfo('MEDIA_SWAP', 'Local media player swapped', {
+          logDebug('MEDIA_SWAP', 'Local media player swapped', {
             activePlayer: nextPlayer,
             fromPlayer: prevPlayer,
             file: nextFilename,
@@ -485,7 +485,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
           if (nextIndex >= playlist.length) {
             // Reached end of playlist
-            logInfo('MEDIA_SWAP', 'Playlist cycle completed');
+            logDebug('MEDIA_SWAP', 'Playlist cycle completed');
             
             if (overrideShopId) {
                // In override mode, just loop back
@@ -705,7 +705,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
           if (nextIndex >= playlist.length) {
-            logInfo('MEDIA_SWAP', 'Playlist cycle completed');
+            logDebug('MEDIA_SWAP', 'Playlist cycle completed');
             if (overrideShopId) {
                setCurrentIndex(0);
             } else {
@@ -718,7 +718,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         }
       }, 15000); // 15 seconds for images
       
-      logInfo('MEDIA_SWAP', 'Showing image from local directory', {
+      logDebug('MEDIA_SWAP', 'Showing image from local directory', {
         file: currentFile,
       });
 

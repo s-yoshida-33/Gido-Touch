@@ -6,6 +6,7 @@ import VerticalVideoSlot from "../components/VerticalVideoSlot";
 
 import { useMall } from "../contexts/MallContext";
 import { useCmsSettings } from "../hooks/useCmsSettings";
+import { logInfo } from "../logs/logging";
 
 // JA assets
 import categoryBackgroundJa from "../assets/category/ja/background.svg";
@@ -1109,6 +1110,13 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
                         onClick={() => {
                           // Only allow mouse clicks if no touch interaction is active
                           if (!activeTouchRef.current) {
+                            logInfo('SCREEN_VIEW', 'Viewing Shop Detail', {
+                              shopId: shop.shopId || shop.number,
+                              shopName: shop.name,
+                              hasLogo: !!shop.shopLogo,
+                              floor: shop.floors?.join(',') || '',
+                              language: selectedLanguage,
+                            });
                             setSelectedShop(shop);
                           }
                         }}
@@ -1142,6 +1150,13 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
                             
                             if (isTap) {
                               e.preventDefault(); // Prevent ghost click
+                              logInfo('SCREEN_VIEW', 'Viewing Shop Detail', {
+                                shopId: shop.shopId || shop.number,
+                                shopName: shop.name,
+                                hasLogo: !!shop.shopLogo,
+                                floor: shop.floors?.join(',') || '',
+                                language: selectedLanguage,
+                              });
                               setSelectedShop(shop);
                             }
                             

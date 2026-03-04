@@ -28,6 +28,7 @@ import {
 import type { MallSettingsFile } from "./utils/settings";
 import { DEFAULT_CATEGORY_MAPPINGS, DEFAULT_IGNORED_GENRE_KEYWORDS } from "./utils/genreUtils";
 import { getVersion } from "@tauri-apps/api/app";
+import { useHeartbeat } from "./hooks/useHeartbeat";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
 
@@ -90,6 +91,9 @@ class ErrorBoundary extends React.Component<
 }
 
 const App: React.FC = () => {
+  // Heartbeat (system info + hourly logging)
+  useHeartbeat();
+
   const [locationSettings, setLocationSettings] = useState<LocationIconSettingsPerFloor>(
     DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR
   );
