@@ -10,20 +10,25 @@ import { ShopPositionSettingsTab } from "../components/ShopPositionSettingsTab";
 import { CurrentFloorSettingsTab } from "../components/CurrentFloorSettingsTab";
 import { LocalMediaSettingsTab } from "../components/LocalMediaSettingsTab";
 import { GenreSettingsTab } from "../components/GenreSettingsTab";
+import { BlackScreenSettingsTab } from "../components/BlackScreenSettingsTab";
 import iconSvg from "../assets/icon.svg";
 import type { ImageSettings } from "../types/imageSettings";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
 import type { LocalMediaTextSettings } from "../types/global";
 import type { GenreSettings } from "../types/genreSettings";
+import type { BlackScreenSettings } from '../types/blackScreenSettings';
+import { DEFAULT_BLACK_SCREEN_SETTINGS } from '../types/blackScreenSettings';
 import { useAudioSettingsContext } from "../contexts/AudioSettingsContext";
 import { useCmsSettings } from "../hooks/useCmsSettings";
-import type { MallId } from "../hooks/useMallAssets";import { useMall } from '../contexts/MallContext';import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
+import type { MallId } from "../hooks/useMallAssets";
+import { useMall } from '../contexts/MallContext';
+import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
 import type { SubFloorSettings } from "../types/global";
 import { loadGlobalSettings, saveGlobalSettings, loadMallSettings, saveMallSettings as saveMallSettingsToFile } from '../utils/settings';
 import type { MallSettingsFile, GlobalSettings } from '../utils/settings';
 
-type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre";
+type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre" | "blackScreen";
 
 interface UnifiedSettingsScreenProps {
   visible: boolean;
@@ -76,6 +81,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
 
+  // Black screen settings
+  const [blackScreenSettings, setBlackScreenSettings] = useState<BlackScreenSettings>(DEFAULT_BLACK_SCREEN_SETTINGS);
+
   // Mall settings
   // Mall settings
   const { mallId: contextMallId, setMallId: setContextMallId } = useMall();
@@ -121,6 +129,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     subFloorSettings: SubFloorSettings;
     currentAudioSettings: any;
     currentCmsSettings: any;
+    blackScreenSettings: BlackScreenSettings;
   };
   const mallEditingCache = useRef<Map<MallId, MallEditingSnapshot>>(new Map());
 
@@ -137,7 +146,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     subFloorSettings,
     currentAudioSettings,
     currentCmsSettings,
-  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings]);
+    blackScreenSettings,
+  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings]);
 
   // Apply a snapshot to all editing state
   const applySnapshot = useCallback((snap: MallEditingSnapshot) => {
@@ -152,6 +162,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setSubFloorSettings(snap.subFloorSettings);
     setCurrentAudioSettings(snap.currentAudioSettings);
     setCurrentCmsSettings(snap.currentCmsSettings);
+    setBlackScreenSettings(snap.blackScreenSettings);
   }, []);
 
   // Apply MallSettingsFile loaded from disk to all editing state
@@ -166,6 +177,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setSubFloorSettings(mallSettings.subFloorSettings || { "1F-1": [], "1F-2": [] });
     setCurrentAudioSettings(mallSettings.audioSettings);
     setCurrentCmsSettings(mallSettings.cmsSettings);
+    setBlackScreenSettings(mallSettings.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
 
     // Genre settings with fallback
     const gs = mallSettings.genreSettings;
@@ -360,6 +372,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentAudioSettings(audioSettings);
     setCurrentCmsSettings(cmsSettings);
     setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
+    setBlackScreenSettings(DEFAULT_BLACK_SCREEN_SETTINGS);
     setErrors({});
 
     // Reset transform
@@ -390,6 +403,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         localMediaTextSettings: snap.localMediaTextSettings,
         subFloorSettings: snap.subFloorSettings,
         floorLayout: snap.floorLayout,
+        blackScreenSettings: snap.blackScreenSettings,
       });
 
       // Save cached malls first (other malls that were edited during this session)
@@ -608,6 +622,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               { id: "floorSettings" as TabType, label: "フロア設定" },
               { id: "localMedia" as TabType, label: "ローカルメディア設定" },
               { id: "genre" as TabType, label: "ジャンルメモ設定" },
+              { id: "blackScreen" as TabType, label: "ブラックスクリーン" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -826,6 +841,12 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               settings={genreSettings}
               onChangeSettings={setGenreSettings}
               shops={shops}
+            />
+          )}
+          {activeTab === "blackScreen" && (
+            <BlackScreenSettingsTab
+              settings={blackScreenSettings}
+              onChangeSettings={setBlackScreenSettings}
             />
           )}
         </div>

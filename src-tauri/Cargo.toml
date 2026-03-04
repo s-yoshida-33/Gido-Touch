@@ -1,6 +1,6 @@
 [package]
 name = "gido-touch"
-version = "0.1.5"
+version = "0.1.6"
 description = "Floor guide display system"
 authors = ["Toei Techno International Inc."]
 license = "UNLICENSED"

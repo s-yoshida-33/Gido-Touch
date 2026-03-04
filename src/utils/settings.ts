@@ -8,6 +8,8 @@ import type { VideoSettings } from '../types/videoSettings';
 import type { AudioSettings } from '../types/audioSettings';
 import type { LocalMediaTextSettings, SubFloorSettings } from '../types/global';
 import type { FloorLayoutPerFloor } from '../types/floorLayout';
+import type { BlackScreenSettings } from '../types/blackScreenSettings';
+import { DEFAULT_BLACK_SCREEN_SETTINGS } from '../types/blackScreenSettings';
 import { DEFAULT_IMAGE_SETTINGS } from '../types/imageSettings';
 import { DEFAULT_AUDIO_SETTINGS } from '../types/audioSettings';
 import { DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR } from '../config';
@@ -46,6 +48,7 @@ export interface MallSettingsFile {
   localMediaTextSettings: LocalMediaTextSettings;
   subFloorSettings: SubFloorSettings;
   floorLayout: Record<string, { columns: number; rowsPerCol: number; perColumnRows?: number[]; perColumnPadding?: { top?: number; right?: number; bottom?: number; left?: number; }[] }>;
+  blackScreenSettings: BlackScreenSettings;
 }
 
 /** Legacy settings structure for migration */
@@ -64,6 +67,7 @@ interface LegacySettings {
   localMediaTextSettings?: LocalMediaTextSettings;
   subFloorSettings?: SubFloorSettings;
   floorLayout?: Record<string, FloorLayoutPerFloor>;
+  blackScreenSettings?: BlackScreenSettings;
 }
 
 const DEFAULT_SHOP_POSITIONS: ShopPositionSettings = { positions: {} };
@@ -128,6 +132,7 @@ export function getDefaultMallSettingsFile(): MallSettingsFile {
       "3F": { columns: 3, rowsPerCol: 20 },
       "4F": { columns: 2, rowsPerCol: 18 },
     },
+    blackScreenSettings: DEFAULT_BLACK_SCREEN_SETTINGS,
   };
 }
 
@@ -192,6 +197,7 @@ export async function loadMallSettings(mallId: string): Promise<MallSettingsFile
       localMediaTextSettings: raw.localMediaTextSettings ?? defaults.localMediaTextSettings,
       subFloorSettings: raw.subFloorSettings ?? defaults.subFloorSettings,
       floorLayout: raw.floorLayout ?? defaults.floorLayout,
+      blackScreenSettings: raw.blackScreenSettings ?? defaults.blackScreenSettings,
     };
   } catch (error) {
     logError('CONFIG', 'Failed to load mall settings', {
@@ -265,6 +271,7 @@ export async function migrateFromLegacyIfNeeded(): Promise<boolean> {
       localMediaTextSettings: raw.localMediaTextSettings ?? defaults.localMediaTextSettings,
       subFloorSettings: raw.subFloorSettings ?? defaults.subFloorSettings,
       floorLayout: raw.floorLayout ?? defaults.floorLayout,
+      blackScreenSettings: raw.blackScreenSettings ?? defaults.blackScreenSettings,
     };
 
     await saveMallSettings(normalizedGlobalMallId, settings);

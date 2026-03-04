@@ -14,6 +14,9 @@ import type { ShopPositionSettings } from "./types/shopPosition";
 import type { Shop } from "./types/shop";
 import { fetchShops, loadShopsFromCache, saveShopsToCache } from "./repositories/shopRepository";
 import { logInfo, logError } from "./logs/logging";
+import BlackScreenOverlay from "./components/BlackScreenOverlay";
+import type { BlackScreenSettings } from "./types/blackScreenSettings";
+import { DEFAULT_BLACK_SCREEN_SETTINGS } from "./types/blackScreenSettings";
 import { shopSseService } from "./services/SSEService";
 import type { SseConnectionStatus } from "./services/SSEService";
 import { convertSseShopDataToShop } from "./utils/shopConverter";
@@ -154,6 +157,9 @@ const App: React.FC = () => {
   // CMS settings state
   const [cmsSettings, setCmsSettings] = useState<CmsSettings>({ enabled: true, categorySearchEnabled: true });
 
+  // Black screen settings state
+  const [blackScreenSettings, setBlackScreenSettings] = useState<BlackScreenSettings>(DEFAULT_BLACK_SCREEN_SETTINGS);
+
   // SSE Status Subscription
   useEffect(() => {
     try {
@@ -280,6 +286,7 @@ const App: React.FC = () => {
     setLocalMediaTextSettings(saved.localMediaTextSettings || {});
     setSubFloorSettings(saved.subFloorSettings || { "1F-1": [], "1F-2": [] });
     setFloorLayout(saved.floorLayout || DEFAULT_FLOOR_LAYOUT);
+    setBlackScreenSettings(saved.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
     addDebug("App: Settings saved and applied");
   };
 
@@ -317,6 +324,7 @@ const App: React.FC = () => {
       setLocalMediaTextSettings(mallData.localMediaTextSettings || {});
       setSubFloorSettings(mallData.subFloorSettings || { "1F-1": [], "1F-2": [] });
       setFloorLayout(mallData.floorLayout || DEFAULT_FLOOR_LAYOUT);
+      setBlackScreenSettings(mallData.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
 
       // 5. Load shop data
       await loadData(true);
@@ -444,6 +452,7 @@ const App: React.FC = () => {
         setLocalMediaTextSettings(mallData.localMediaTextSettings || {});
         setSubFloorSettings(mallData.subFloorSettings || { "1F-1": [], "1F-2": [] });
         setFloorLayout(mallData.floorLayout || DEFAULT_FLOOR_LAYOUT);
+        setBlackScreenSettings(mallData.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
 
         addDebug(`Mall settings loaded for ${currentMallId}`);
         logInfo("app", "Settings loaded", {
@@ -665,6 +674,11 @@ const App: React.FC = () => {
       <VersionInfoScreen
         visible={isVersionInfoOpen}
         onClose={() => setIsVersionInfoOpen(false)}
+      />
+      <BlackScreenOverlay
+        settings={blackScreenSettings}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        isSettingsOpen={isSettingsOpen}
       />
         </>
       )}
