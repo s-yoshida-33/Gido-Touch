@@ -77,25 +77,12 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
 
   // Mall settings
+  // Mall settings
   const { mallId: contextMallId, setMallId: setContextMallId } = useMall();
   const [mallId, setMallIdLocal] = useState<MallId>(contextMallId);
   const [initialMallId, setInitialMallId] = useState<MallId>(contextMallId);
 
-  // Sync mall setting when settings screen opens
-  useEffect(() => {
-    if (visible) {
-      setMallIdLocal(contextMallId);
-      setInitialMallId(contextMallId);
-    }
-  }, [visible, contextMallId]);
-
-  // Update MallContext when dropdown changes (for live preview)
-  const setMallId = (id: MallId) => {
-    setMallIdLocal(id);
-    setContextMallId(id);
-  };
-
-  // Audio settings
+  // Audio settings (hooks must be called before cache utilities that reference their state)
   const { settings: audioSettings, isLoading: isAudioSettingsLoading } = useAudioSettings();
   const [currentAudioSettings, setCurrentAudioSettings] = useState(audioSettings);
 
@@ -103,19 +90,129 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const { settings: cmsSettings, isLoading: isCmsSettingsLoading } = useCmsSettings();
   const [currentCmsSettings, setCurrentCmsSettings] = useState(cmsSettings);
 
-  // Sync with loaded audio settings
+  // Sync with loaded audio settings (only on first load)
+  const audioInitialized = useRef(false);
   useEffect(() => {
-    if (!isAudioSettingsLoading) {
+    if (!isAudioSettingsLoading && !audioInitialized.current) {
+      audioInitialized.current = true;
       setCurrentAudioSettings(audioSettings);
     }
   }, [audioSettings, isAudioSettingsLoading]);
 
-  // Sync with loaded CMS settings
+  // Sync with loaded CMS settings (only on first load)
+  const cmsInitialized = useRef(false);
   useEffect(() => {
-    if (!isCmsSettingsLoading) {
+    if (!isCmsSettingsLoading && !cmsInitialized.current) {
+      cmsInitialized.current = true;
       setCurrentCmsSettings(cmsSettings);
     }
   }, [cmsSettings, isCmsSettingsLoading]);
+
+  // Per-mall editing cache: stores unsaved settings for each mall during a settings session
+  type MallEditingSnapshot = {
+    floorLayout: FloorLayout;
+    locationIconSettings: LocationIconSettingsPerFloor;
+    imageSettings: ImageSettings;
+    shopPositions: ShopPositionSettings;
+    currentFloorSetting: string;
+    displayFloors: string[];
+    localMediaTextSettings: LocalMediaTextSettings;
+    genreSettings: GenreSettings;
+    subFloorSettings: SubFloorSettings;
+    currentAudioSettings: any;
+    currentCmsSettings: any;
+  };
+  const mallEditingCache = useRef<Map<MallId, MallEditingSnapshot>>(new Map());
+
+  // Capture current editing state into a snapshot
+  const captureCurrentSnapshot = useCallback((): MallEditingSnapshot => ({
+    floorLayout,
+    locationIconSettings,
+    imageSettings,
+    shopPositions,
+    currentFloorSetting,
+    displayFloors,
+    localMediaTextSettings,
+    genreSettings,
+    subFloorSettings,
+    currentAudioSettings,
+    currentCmsSettings,
+  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings]);
+
+  // Apply a snapshot to all editing state
+  const applySnapshot = useCallback((snap: MallEditingSnapshot) => {
+    setFloorLayout(snap.floorLayout);
+    setLocationIconSettings(snap.locationIconSettings);
+    setImageSettings(snap.imageSettings);
+    setShopPositions(snap.shopPositions);
+    setCurrentFloorSetting(snap.currentFloorSetting);
+    setDisplayFloors(snap.displayFloors);
+    setLocalMediaTextSettings(snap.localMediaTextSettings);
+    setGenreSettings(snap.genreSettings);
+    setSubFloorSettings(snap.subFloorSettings);
+    setCurrentAudioSettings(snap.currentAudioSettings);
+    setCurrentCmsSettings(snap.currentCmsSettings);
+  }, []);
+
+  // Apply MallSettingsFile loaded from disk to all editing state
+  const applyMallSettingsFile = useCallback((mallSettings: MallSettingsFile) => {
+    setFloorLayout(mallSettings.floorLayout || initialFloorLayout);
+    setLocationIconSettings(mallSettings.locationIcons || initialLocationIconSettings || DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR);
+    setImageSettings(mallSettings.imageSettings || initialImageSettings);
+    setShopPositions(mallSettings.shopPositions || { positions: {} });
+    setCurrentFloorSetting(mallSettings.currentFloorSetting || '1F');
+    setDisplayFloors(mallSettings.displayFloors || ['1F', '2F', '3F', '4F']);
+    setLocalMediaTextSettings(mallSettings.localMediaTextSettings || {});
+    setSubFloorSettings(mallSettings.subFloorSettings || { "1F-1": [], "1F-2": [] });
+    setCurrentAudioSettings(mallSettings.audioSettings);
+    setCurrentCmsSettings(mallSettings.cmsSettings);
+
+    // Genre settings with fallback
+    const gs = mallSettings.genreSettings;
+    const hasValidMapping = gs?.categoryMapping && Object.keys(gs.categoryMapping).length > 0;
+    setGenreSettings(hasValidMapping ? gs : {
+      ignoredKeywords: gs?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS,
+      maxItems: gs?.maxItems || 3,
+      categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
+    });
+  }, [initialFloorLayout, initialLocationIconSettings, initialImageSettings]);
+
+  // Sync mall setting when settings screen opens (only on open transition)
+  const prevVisibleForMallSync = useRef(false);
+  useEffect(() => {
+    if (visible && !prevVisibleForMallSync.current) {
+      // Screen just opened: sync with context and clear cache
+      setMallIdLocal(contextMallId);
+      setInitialMallId(contextMallId);
+      mallEditingCache.current.clear();
+    }
+    prevVisibleForMallSync.current = visible;
+  }, [visible, contextMallId]);
+
+  // Handle mall switch in dropdown: cache current edits, load target mall
+  const handleMallSwitch = useCallback(async (targetMallId: MallId) => {
+    if (targetMallId === mallId) return;
+
+    // 1. Cache current editing state for the current mall
+    mallEditingCache.current.set(mallId, captureCurrentSnapshot());
+
+    // 2. Update mall ID (local + context for preview)
+    setMallIdLocal(targetMallId);
+    setContextMallId(targetMallId);
+
+    // 3. Restore from cache if previously edited, otherwise load from file
+    const cached = mallEditingCache.current.get(targetMallId);
+    if (cached) {
+      applySnapshot(cached);
+    } else {
+      try {
+        const mallSettings = await loadMallSettings(targetMallId);
+        applyMallSettingsFile(mallSettings);
+      } catch (e) {
+        console.error('Failed to load mall settings for switch:', e);
+      }
+    }
+  }, [mallId, captureCurrentSnapshot, applySnapshot, applyMallSettingsFile, setContextMallId]);
 
   // Transform wrapper ref for programmatic control
   const transformRef = useRef<{
@@ -163,57 +260,41 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   }, [calculateOtherTabCenterPosition]);
 
 
-  // Load initial values when screen opens
-  // In Tauri, visibility is controlled by parent component (no IPC subscription).
-  // When visible changes to true, reload settings from props + mall settings file.
+  // Load initial values when screen opens (only on open, not on mall switch)
+  const prevVisibleRef = useRef(false);
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      prevVisibleRef.current = false;
+      // Reset hook initialization flags so they reload next time
+      audioInitialized.current = false;
+      cmsInitialized.current = false;
+      return;
+    }
+    // Only run on transition from closed → open
+    if (prevVisibleRef.current) return;
+    prevVisibleRef.current = true;
 
     const loadLatestSettings = async () => {
-      // Force fetch the latest genre settings from mall settings file
-      let loadedGenreSettings = null;
+      // Load all settings from the current mall's settings file
       try {
         const mallSettings = await loadMallSettings(mallId);
-        if (mallSettings?.genreSettings) {
-          loadedGenreSettings = mallSettings.genreSettings;
-        }
-        if (mallSettings?.displayFloors) {
-          setDisplayFloors(mallSettings.displayFloors);
-        }
+        applyMallSettingsFile(mallSettings);
       } catch (e) {
         console.error("Failed to fetch mall settings:", e);
+        // Fallback to props
+        setFloorLayout(initialFloorLayout);
+        setLocationIconSettings(initialLocationIconSettings);
+        setImageSettings(initialImageSettings);
+        setShopPositions(initialShopPositions);
+        setCurrentFloorSetting(initialCurrentFloorSetting);
+        setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+        setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
       }
 
-      // Reset other settings from Props (existing behavior)
       setFloor(initialFloor);
-      setFloorLayout(initialFloorLayout);
-      setLocationIconSettings(initialLocationIconSettings);
-      setImageSettings(initialImageSettings);
-      setShopPositions(initialShopPositions);
-      setCurrentFloorSetting(initialCurrentFloorSetting);
-      setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
-      setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
-
-      // Use loaded settings if available, otherwise fallback to Props, then defaults
-      const settingsToUse = loadedGenreSettings || initialGenreSettings;
-      
-      // Check if categoryMapping has valid content (not empty object)
-      const hasValidMapping = 
-        settingsToUse?.categoryMapping && 
-        Object.keys(settingsToUse.categoryMapping).length > 0;
-
-      setGenreSettings(
-        hasValidMapping
-          ? settingsToUse
-          : {
-              ignoredKeywords: settingsToUse?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS,
-              maxItems: settingsToUse?.maxItems || 3,
-              categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
-            }
-      );
-
       setActiveTab("image");
       setErrors({});
+      mallEditingCache.current.clear();
 
       // Reset transform when opening settings
       if (transformRef.current && previewContainerRef.current) {
@@ -230,35 +311,18 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   }, [
     visible,
     mallId,
+    initialFloor,
+    initialFloorLayout,
+    initialLocationIconSettings,
+    initialImageSettings,
+    initialShopPositions,
+    initialCurrentFloorSetting,
     initialLocalMediaTextSettings, 
     initialGenreSettings,
     initialSubFloorSettings,
-    calculateOtherTabCenterPosition
+    calculateOtherTabCenterPosition,
+    applyMallSettingsFile,
   ]);
-
-  // Sync with external changes when screen is closed
-  useEffect(() => {
-    if (!visible) {
-      setFloor(initialFloor);
-      setFloorLayout(initialFloorLayout);
-      setLocationIconSettings(initialLocationIconSettings);
-      setImageSettings(initialImageSettings);
-      setShopPositions(initialShopPositions);
-      setCurrentFloorSetting(initialCurrentFloorSetting);
-      setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
-      // genreSettingsの初期化時に必ずcategoryMappingを保持する
-      setGenreSettings(initialGenreSettings && initialGenreSettings.categoryMapping 
-        ? initialGenreSettings 
-        : { 
-            ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS, 
-            maxItems: initialGenreSettings?.maxItems || 3, 
-            categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS 
-          });
-      setCurrentAudioSettings(audioSettings);
-      setCurrentCmsSettings(cmsSettings);
-      setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
-    }
-  }, [visible, initialFloor, initialFloorLayout, initialLocationIconSettings, initialImageSettings, initialShopPositions, initialCurrentFloorSetting, initialLocalMediaTextSettings, initialGenreSettings, audioSettings, cmsSettings]);
 
   // Genre settings are already loaded in the visibility effect above.
   // No separate Electron IPC fetch needed.
@@ -269,32 +333,36 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   };
 
   const handleCancel = () => {
-    // Revert to initial values
+    // Discard all unsaved edits
+    mallEditingCache.current.clear();
+
+    // Revert mall to original if changed
+    if (mallId !== initialMallId) {
+      setMallIdLocal(initialMallId);
+      setContextMallId(initialMallId);
+    }
+
+    // Revert to initial values (from props = saved state of initial mall)
     setFloor(initialFloor);
     setFloorLayout(initialFloorLayout);
     setLocationIconSettings(initialLocationIconSettings);
     setImageSettings(initialImageSettings);
     setShopPositions(initialShopPositions);
     setCurrentFloorSetting(initialCurrentFloorSetting);
-      setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
-      // genreSettingsの初期化時に必ずcategoryMappingを保持する
-      setGenreSettings(initialGenreSettings && initialGenreSettings.categoryMapping 
-        ? initialGenreSettings 
-        : { 
-            ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS, 
-            maxItems: initialGenreSettings?.maxItems || 3, 
-            categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS 
-          });
-      setCurrentAudioSettings(audioSettings);
-      setCurrentCmsSettings(cmsSettings);
-      setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
-      setErrors({});
-      // Revert mall to original if changed
-      if (mallId !== initialMallId) {
-        setMallIdLocal(initialMallId);
-        setContextMallId(initialMallId);
-      }
-      // Reset transform - 現在のactiveTabに応じて適切な中央位置を計算
+    setLocalMediaTextSettings(initialLocalMediaTextSettings || {});
+    setGenreSettings(initialGenreSettings && initialGenreSettings.categoryMapping 
+      ? initialGenreSettings 
+      : { 
+          ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS, 
+          maxItems: initialGenreSettings?.maxItems || 3, 
+          categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS 
+        });
+    setCurrentAudioSettings(audioSettings);
+    setCurrentCmsSettings(cmsSettings);
+    setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
+    setErrors({});
+
+    // Reset transform
     if (transformRef.current && previewContainerRef.current) {
       requestAnimationFrame(() => {
         if (transformRef.current && previewContainerRef.current) {
@@ -308,41 +376,43 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   const handleSave = async () => {
     try {
-      const newSettings = {
-        floor,
-        floorLayout,
-        locationIcons: locationIconSettings,
-        imageSettings,
-        shopPositions,
-        currentFloorSetting,
-        displayFloors,
-        localMediaTextSettings,
-        genreSettings,
-        subFloorSettings,
-        mallId,
-        audioSettings: currentAudioSettings,
-        cmsSettings: currentCmsSettings,
-      };
-      // Save mall-specific settings to file
-      const mallSettings: MallSettingsFile = {
-        locationIcons: newSettings.locationIcons,
-        shopPositions: newSettings.shopPositions,
-        imageSettings: newSettings.imageSettings,
-        genreSettings: newSettings.genreSettings,
-        cmsSettings: newSettings.cmsSettings,
+      // Build MallSettingsFile from current editing state
+      const buildMallSettings = (snap: MallEditingSnapshot): MallSettingsFile => ({
+        locationIcons: snap.locationIconSettings,
+        shopPositions: snap.shopPositions,
+        imageSettings: snap.imageSettings,
+        genreSettings: snap.genreSettings,
+        cmsSettings: snap.currentCmsSettings,
         videoSettings: { enabled: false, source: '', loop: false, autoplay: false },
-        audioSettings: newSettings.audioSettings,
-        displayFloors: newSettings.displayFloors,
-        currentFloorSetting: newSettings.currentFloorSetting,
-        localMediaTextSettings: newSettings.localMediaTextSettings,
-        subFloorSettings: newSettings.subFloorSettings,
-        floorLayout: newSettings.floorLayout,
-      };
-      await saveMallSettingsToFile(mallId, mallSettings);
+        audioSettings: snap.currentAudioSettings,
+        displayFloors: snap.displayFloors,
+        currentFloorSetting: snap.currentFloorSetting,
+        localMediaTextSettings: snap.localMediaTextSettings,
+        subFloorSettings: snap.subFloorSettings,
+        floorLayout: snap.floorLayout,
+      });
+
+      // Save cached malls first (other malls that were edited during this session)
+      for (const [cachedMallId, cachedSnapshot] of mallEditingCache.current.entries()) {
+        if (cachedMallId !== mallId) {
+          const cachedMallSettings = buildMallSettings(cachedSnapshot);
+          await saveMallSettingsToFile(cachedMallId, cachedMallSettings);
+        }
+      }
+
+      // Save the currently active mall's settings
+      const currentSnapshot = captureCurrentSnapshot();
+      const currentMallSettings = buildMallSettings(currentSnapshot);
+      await saveMallSettingsToFile(mallId, currentMallSettings);
+
       // Save mallId to global settings so it persists across restarts
       const global = await loadGlobalSettings();
       await saveGlobalSettings({ ...global, mallId } as GlobalSettings);
-      onSave(mallSettings, mallId);
+
+      // Clear the editing cache
+      mallEditingCache.current.clear();
+
+      onSave(currentMallSettings, mallId);
       onClose();
     } catch (error) {
       console.error('Failed to save settings:', error);
@@ -433,7 +503,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             <span style={{ color: '#aaa', fontSize: 14 }}>モール設定:</span>
             <select
               value={mallId}
-              onChange={(e) => setMallId(e.target.value as MallId)}
+              onChange={(e) => handleMallSwitch(e.target.value as MallId)}
               style={{
                 backgroundColor: '#333',
                 color: '#fff',
