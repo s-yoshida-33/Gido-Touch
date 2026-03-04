@@ -16,7 +16,7 @@ import type { ShopPositionSettings } from "../types/shopPosition";
 import type { Shop } from "../types/shop";
 import type { LocalMediaTextSettings } from "../types/global";
 import type { GenreSettings } from "../types/genreSettings";
-import { useAudioSettings } from "../hooks/useAudioSettings";
+import { useAudioSettingsContext } from "../contexts/AudioSettingsContext";
 import { useCmsSettings } from "../hooks/useCmsSettings";
 import type { MallId } from "../hooks/useMallAssets";import { useMall } from '../contexts/MallContext';import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
 import type { SubFloorSettings } from "../types/global";
@@ -82,8 +82,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [mallId, setMallIdLocal] = useState<MallId>(contextMallId);
   const [initialMallId, setInitialMallId] = useState<MallId>(contextMallId);
 
-  // Audio settings (hooks must be called before cache utilities that reference their state)
-  const { settings: audioSettings, isLoading: isAudioSettingsLoading } = useAudioSettings();
+  // Audio settings via shared context (enables instant propagation to video components)
+  const { audioSettings, setAudioSettings: setContextAudioSettings, isLoading: isAudioSettingsLoading } = useAudioSettingsContext();
   const [currentAudioSettings, setCurrentAudioSettings] = useState(audioSettings);
 
   // CMS settings
@@ -411,6 +411,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
       // Clear the editing cache
       mallEditingCache.current.clear();
+
+      // Immediately propagate audio settings to all consumers via context
+      setContextAudioSettings(currentMallSettings.audioSettings);
 
       onSave(currentMallSettings, mallId);
       onClose();

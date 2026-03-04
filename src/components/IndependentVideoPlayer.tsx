@@ -2,7 +2,7 @@
 import React from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { useIndependentVideo } from '../hooks/useIndependentVideo';
-import { useAudioSettings } from '../hooks/useAudioSettings';
+import { useAudioSettingsContext } from '../contexts/AudioSettingsContext';
 import { useMall } from '../contexts/MallContext';
 import { logInfo, logError, logWarn, logDebug } from '../logs/logging';
 import type { Shop } from '../types/shop';
@@ -125,7 +125,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   overrideShopId = null,
 }) => {
   const { videoSettings, isLoading } = useIndependentVideo();
-  const { settings: audioSettings } = useAudioSettings();
+  const { audioSettings } = useAudioSettingsContext();
   const { mallId } = useMall();
   
   // Double buffering refs

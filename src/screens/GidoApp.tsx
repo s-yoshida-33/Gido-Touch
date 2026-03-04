@@ -17,7 +17,7 @@ import type { FloorId, FloorLayout } from "../types/floorLayout";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import { ShopPin } from "../components/ShopPin";
 
-import { logInfo, logError } from "../logs/logging";
+import { logInfo, logError, logDebug } from "../logs/logging";
 
 const LIST_HEIGHT_VH = APP_CONFIG.listHeightVh;
 const TOP_HEIGHT_VH = 100 - LIST_HEIGHT_VH;
@@ -411,11 +411,11 @@ const ShopPinsOverlay: React.FC<{
           display: "block"
         }}
         onLoad={() => {
-          logInfo("SYS_INIT", "Floor map image loaded", { floor, src: floorMap });
+          logDebug("SYS_INIT", "Floor map image loaded", { floor, src: floorMap?.startsWith('data:') ? `data:...(${floorMap.length} chars)` : floorMap });
           updateMetrics();
         }}
         onError={(event) => {
-          logError("SYS_INIT", "Failed to load floor map image", { floor, src: floorMap });
+          logError("SYS_INIT", "Failed to load floor map image", { floor, src: floorMap?.startsWith('data:') ? `data:...(${floorMap.length} chars)` : floorMap });
           (event.target as HTMLImageElement).style.visibility = "hidden";
         }}
       />

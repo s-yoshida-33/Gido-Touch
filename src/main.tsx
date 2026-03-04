@@ -8,6 +8,7 @@ import './styles/fonts.css'
 import './styles/location-icons.css'
 import { PatchScreen } from './screens/PatchScreen'
 import { MallProvider } from './contexts/MallContext';
+import { AudioSettingsProvider } from './contexts/AudioSettingsContext';
 
 // Simple Error Boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
@@ -46,7 +47,9 @@ function Root() {
   if (showApp) {
     return (
       <MallProvider>
-        <App />
+        <AudioSettingsProvider>
+          <App />
+        </AudioSettingsProvider>
       </MallProvider>
     );
   }
