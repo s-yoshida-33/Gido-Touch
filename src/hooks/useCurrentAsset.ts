@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { cmsSseService } from '../services/SSEService';
 import type { CurrentAsset } from '../types/wsp';
-import { logInfo, logWarn } from '../logs/logging';
-import { toFileUrl } from '../utils/imageUtils';
+import { logInfo, logWarn, logDebug } from '../logs/logging';
 
 interface UseCurrentAssetResult {
   asset: CurrentAsset | null;
@@ -25,10 +25,28 @@ interface CmsTimelineEvent {
   timestamp: string;
 }
 
+/**
+ * Convert a local file path to a Tauri asset protocol URL.
+ * Strips file:// prefix if present, then uses convertFileSrc.
+ */
+function toAssetUrl(filePath: string): string {
+  if (!filePath) return "";
+  if (filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:") || filePath.startsWith("asset:")) {
+    return filePath;
+  }
+  let cleaned = filePath;
+  if (cleaned.startsWith("file:///")) {
+    cleaned = cleaned.slice(8);
+  } else if (cleaned.startsWith("file://")) {
+    cleaned = cleaned.slice(7);
+  }
+  return convertFileSrc(cleaned);
+}
+
 function mapCmsEventToAsset(event: CmsTimelineEvent): CurrentAsset | null {
   if (!event.current_media_id) return null;
 
-  const src = toFileUrl(event.current_media_local_path);
+  const src = toAssetUrl(event.current_media_local_path);
 
   return {
     id: event.current_media_id,
@@ -64,7 +82,7 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
     cmsSseService.connect();
 
     const handleItemChanged = (data: CmsTimelineEvent) => {
-      logInfo('VIDEO', 'CMS item_changed via SSE', {
+      logDebug('VIDEO', 'CMS item_changed via SSE', {
         mediaId: data.current_media_id,
         mediaType: data.current_media_type,
         mediaName: data.current_media_name,

@@ -8,6 +8,8 @@ interface VerticalVideoSlotProps {
   forceReload?: number;
 }
 
+const MAX_RETRY_COUNT = 3;
+
 const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }) => {
   const { asset, isLoading } = useCurrentAsset();
   const { settings: audioSettings } = useAudioSettings();
@@ -15,13 +17,15 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
   const prevAssetIdRef = React.useRef<string | null>(null);
+  const retryCountRef = React.useRef<number>(0);
   const [objectFit, setObjectFit] = React.useState<'cover' | 'contain'>('cover');
 
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
-  // Reset error when asset changes
+  // Reset error and retry count when asset changes
   React.useEffect(() => {
     setErrorMsg(null);
+    retryCountRef.current = 0;
   }, [asset?.id, asset?.src]);
 
   // Handle force reload
@@ -158,8 +162,8 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   }
 
   // Determine if asset is an image
-  // Check mediaType first, then fall back to file extension
-  const isImage = asset.mediaType === 'VIDEO' || 
+  // Check mediaType first (lowercase from CMS), then fall back to file extension
+  const isImage = asset.mediaType === 'image' || 
     (asset.src && /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(asset.src));
 
   // Use both id and src in key to ensure remount when either changes
@@ -339,13 +343,23 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
             });
             setErrorMsg(`Video Error: ${msg} (Code: ${video.error?.code})`);
             
-            // Try to reload on error
-            if (videoRef.current) {
+            // Try to reload on error (with retry limit to prevent infinite loop)
+            if (videoRef.current && retryCountRef.current < MAX_RETRY_COUNT) {
+              retryCountRef.current += 1;
+              logWarn('VIDEO', `Retrying video load (${retryCountRef.current}/${MAX_RETRY_COUNT})`, {
+                assetId: asset.id,
+              });
               setTimeout(() => {
                 if (videoRef.current && asset.src) {
                   videoRef.current.load();
                 }
               }, 1000);
+            } else if (retryCountRef.current >= MAX_RETRY_COUNT) {
+              logError('VIDEO', 'Max retry count reached, stopping reload attempts', {
+                assetId: asset.id,
+                src: asset.src,
+                retryCount: retryCountRef.current,
+              });
             }
           }}
         />
