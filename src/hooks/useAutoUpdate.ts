@@ -42,8 +42,11 @@ export const useAutoUpdate = () => {
         setUpdateStatus({ status: 'checking', progress: 0, message: 'アップデートを確認中...' });
         logInfo('UPDATER', 'Checking for app updates');
 
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Update check timeout')), 30000)
+        const timeoutPromise = new Promise<null>((resolve) =>
+          setTimeout(() => {
+            logInfo('UPDATER', 'Update check timed out – assuming up to date');
+            resolve(null);
+          }, 15000)
         );
 
         const update = await Promise.race([check(), timeoutPromise]);
@@ -59,7 +62,9 @@ export const useAutoUpdate = () => {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logError('UPDATER', 'Failed to check for updates', { error: errorMessage });
-        setUpdateStatus({ status: 'error', progress: 0, message: 'アップデート確認に失敗しました' });
+        // Treat update check failures as non-blocking – app can still launch
+        logInfo('UPDATER', 'Proceeding as up-to-date despite update check failure');
+        setUpdateStatus({ status: 'uptodate', progress: 0, message: '最新バージョンです' });
       }
     };
     checkForUpdates();

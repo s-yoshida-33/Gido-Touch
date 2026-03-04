@@ -41,8 +41,16 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 // Root component: PatchScreen → App transition via React state
+// On page reload (e.g. context menu "Reload"), skip PatchScreen if already completed once
 function Root() {
-  const [showApp, setShowApp] = useState(false);
+  const [showApp, setShowApp] = useState(() => {
+    return sessionStorage.getItem('patchCompleted') === 'true';
+  });
+
+  const handlePatchComplete = () => {
+    sessionStorage.setItem('patchCompleted', 'true');
+    setShowApp(true);
+  };
 
   if (showApp) {
     return (
@@ -54,7 +62,7 @@ function Root() {
     );
   }
 
-  return <PatchScreen onComplete={() => setShowApp(true)} />;
+  return <PatchScreen onComplete={handlePatchComplete} />;
 }
 
 createRoot(document.getElementById('root') as HTMLElement).render(
