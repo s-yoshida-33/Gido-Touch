@@ -11,6 +11,7 @@ use std::sync::{Mutex, OnceLock};
 use chrono::Local;
 use sysinfo::System;
 use std::io::Read as _;
+use tauri::Emitter;
 
 // ---------------------------------------------------------------------------
 // State management structure
@@ -731,6 +732,15 @@ struct MediaDownloadResult {
     skipped: bool,
 }
 
+#[derive(Clone, Serialize)]
+struct MediaProgressPayload {
+    phase: String,
+    percent: f64,
+    downloaded_bytes: u64,
+    total_bytes: u64,
+    message: String,
+}
+
 /// Check if media needs to be downloaded.
 /// Compares the local `.media-meta.json` against the GitHub Release asset's
 /// `updated_at` timestamp. A re-upload of the ZIP (even at the same app
@@ -813,7 +823,7 @@ fn check_media_status(mall_id: String, app_version: String) -> Result<MediaDownl
 
 /// Download media ZIP from GitHub Releases, extract, and store metadata.
 #[tauri::command]
-fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadResult, String> {
+fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -> Result<MediaDownloadResult, String> {
     let media_root = get_media_dir()?;
     let mall_dir = media_root.join(&mall_id);
     let zip_path = media_root.join(format!("media-{}.zip", &mall_id));
@@ -833,7 +843,7 @@ fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadR
         .build()
         .map_err(|e| format!("Client build error: {}", e))?;
 
-    let response = client
+    let mut response = client
         .get(&download_url)
         .send()
         .map_err(|e| format!("Download error: {}", e))?;
@@ -879,12 +889,65 @@ fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadR
         });
     }
 
-    let bytes = response
-        .bytes()
-        .map_err(|e| format!("Failed to read response body: {}", e))?;
+    // Stream download in chunks with progress reporting
+    let total_size = response.content_length().unwrap_or(0);
+    let mut downloaded: u64 = 0;
+    let mut file = fs::File::create(&zip_path)
+        .map_err(|e| format!("Failed to create zip file: {}", e))?;
+    let mut buffer = [0u8; 65536]; // 64KB chunks
+    let mut last_emit = std::time::Instant::now();
 
-    fs::write(&zip_path, &bytes)
-        .map_err(|e| format!("Failed to write zip file: {}", e))?;
+    // Emit initial progress
+    let _ = app.emit("media-download-progress", MediaProgressPayload {
+        phase: "download".to_string(),
+        percent: 0.0,
+        downloaded_bytes: 0,
+        total_bytes: total_size,
+        message: format!("ダウンロード開始 ({})", mall_id),
+    });
+
+    loop {
+        let bytes_read = response.read(&mut buffer)
+            .map_err(|e| format!("Failed to read response data: {}", e))?;
+        if bytes_read == 0 {
+            break;
+        }
+        file.write_all(&buffer[..bytes_read])
+            .map_err(|e| format!("Failed to write zip data: {}", e))?;
+        downloaded += bytes_read as u64;
+
+        // Throttle event emission to ~4 times per second
+        let now = std::time::Instant::now();
+        if now.duration_since(last_emit).as_millis() >= 250 {
+            let percent = if total_size > 0 {
+                (downloaded as f64 / total_size as f64) * 100.0
+            } else {
+                0.0
+            };
+            let _ = app.emit("media-download-progress", MediaProgressPayload {
+                phase: "download".to_string(),
+                percent,
+                downloaded_bytes: downloaded,
+                total_bytes: total_size,
+                message: format!(
+                    "ダウンロード中… {:.1}MB / {:.1}MB",
+                    downloaded as f64 / 1_048_576.0,
+                    total_size as f64 / 1_048_576.0
+                ),
+            });
+            last_emit = now;
+        }
+    }
+    drop(file);
+
+    // Emit download complete
+    let _ = app.emit("media-download-progress", MediaProgressPayload {
+        phase: "download".to_string(),
+        percent: 100.0,
+        downloaded_bytes: downloaded,
+        total_bytes: total_size,
+        message: "ダウンロード完了。展開中…".to_string(),
+    });
 
     // Extract ZIP
     fs::create_dir_all(&mall_dir)
@@ -895,7 +958,8 @@ fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadR
     let mut archive = zip::ZipArchive::new(zip_file)
         .map_err(|e| format!("Failed to read zip archive: {}", e))?;
 
-    for i in 0..archive.len() {
+    let total_entries = archive.len();
+    for i in 0..total_entries {
         let mut file = archive.by_index(i)
             .map_err(|e| format!("Failed to read zip entry: {}", e))?;
 
@@ -919,6 +983,18 @@ fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadR
                 .map_err(|e| format!("Failed to read zip entry data: {}", e))?;
             outfile.write_all(&buf)
                 .map_err(|e| format!("Failed to write extracted file: {}", e))?;
+        }
+
+        // Report extraction progress every 10 entries
+        if total_entries > 0 && (i % 10 == 0 || i == total_entries - 1) {
+            let extract_percent = ((i + 1) as f64 / total_entries as f64) * 100.0;
+            let _ = app.emit("media-download-progress", MediaProgressPayload {
+                phase: "extract".to_string(),
+                percent: extract_percent,
+                downloaded_bytes: downloaded,
+                total_bytes: total_size,
+                message: format!("展開中… {}/{} ファイル", i + 1, total_entries),
+            });
         }
     }
 

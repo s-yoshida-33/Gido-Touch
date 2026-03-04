@@ -4,9 +4,18 @@
 // enabling re-download even when app version hasn't changed.
 import { useEffect, useState, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getVersion } from '@tauri-apps/api/app';
 import { logInfo, logWarn, logError } from '../logs/logging';
 import { loadGlobalSettings } from '../utils/settings';
+
+interface MediaProgressPayload {
+  phase: string;   // 'download' | 'extract'
+  percent: number;
+  downloaded_bytes: number;
+  total_bytes: number;
+  message: string;
+}
 
 export interface MediaDownloadStatus {
   status: 'idle' | 'checking' | 'downloading' | 'done' | 'error';
@@ -72,29 +81,48 @@ export const useMediaDownload = () => {
           return;
         }
 
-        // Step 2: Download media
+        // Step 2: Download media with progress events
         logInfo('MEDIA_DOWNLOAD', 'Starting media download', { mallId, appVersion });
-        setMediaStatus({ status: 'downloading', progress: 10, message: `メディアデータをダウンロード中... (${mallId})` });
+        setMediaStatus({ status: 'downloading', progress: 0, message: `メディアデータをダウンロード中... (${mallId})` });
 
-        const downloadResult = await invoke<MediaDownloadResult>('download_media', {
-          mallId,
-          appVersion,
-        });
+        // Listen for progress events from Rust
+        let unlisten: UnlistenFn | null = null;
+        try {
+          unlisten = await listen<MediaProgressPayload>('media-download-progress', (event) => {
+            const { phase, percent, message } = event.payload;
+            // Map: download phase → 0–85%, extract phase → 85–100%
+            const mappedProgress = phase === 'download'
+              ? percent * 0.85
+              : 85 + (percent * 0.15);
+            setMediaStatus({
+              status: 'downloading',
+              progress: Math.min(99, Math.round(mappedProgress)),
+              message,
+            });
+          });
 
-        if (downloadResult.success) {
-          logInfo('MEDIA_DOWNLOAD', 'Media download completed', {
+          const downloadResult = await invoke<MediaDownloadResult>('download_media', {
             mallId,
-            message: downloadResult.message,
-            skipped: downloadResult.skipped,
+            appVersion,
           });
-          setMediaStatus({
-            status: 'done',
-            progress: 100,
-            message: downloadResult.skipped ? 'メディアは最新です' : 'メディアデータの更新が完了しました',
-          });
-        } else {
-          logError('MEDIA_DOWNLOAD', 'Media download failed', { message: downloadResult.message });
-          setMediaStatus({ status: 'error', progress: 0, message: `メディアダウンロード失敗: ${downloadResult.message}` });
+
+          if (downloadResult.success) {
+            logInfo('MEDIA_DOWNLOAD', 'Media download completed', {
+              mallId,
+              message: downloadResult.message,
+              skipped: downloadResult.skipped,
+            });
+            setMediaStatus({
+              status: 'done',
+              progress: 100,
+              message: downloadResult.skipped ? 'メディアは最新です' : 'メディアデータの更新が完了しました',
+            });
+          } else {
+            logError('MEDIA_DOWNLOAD', 'Media download failed', { message: downloadResult.message });
+            setMediaStatus({ status: 'error', progress: 0, message: `メディアダウンロード失敗: ${downloadResult.message}` });
+          }
+        } finally {
+          if (unlisten) unlisten();
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
