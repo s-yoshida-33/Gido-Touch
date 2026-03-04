@@ -22,15 +22,17 @@ import type { GenreSettings } from "./types/genreSettings";
 import type { CmsSettings } from "./types/cmsSettings";
 import {
   loadGlobalSettings,
+  saveGlobalSettings,
   loadMallSettings,
   ensureMallSettingsFile,
   migrateFromLegacyIfNeeded,
 } from "./utils/settings";
-import type { MallSettingsFile } from "./utils/settings";
+import type { MallSettingsFile, GlobalSettings } from "./utils/settings";
 import { DEFAULT_CATEGORY_MAPPINGS, DEFAULT_IGNORED_GENRE_KEYWORDS } from "./utils/genreUtils";
 import { getVersion } from "@tauri-apps/api/app";
 import { useHeartbeat } from "./hooks/useHeartbeat";
 import { useMall } from "./contexts/MallContext";
+import MallSelectScreen from "./screens/MallSelectScreen";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
 
@@ -121,6 +123,10 @@ const App: React.FC = () => {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDebugVisible, setIsDebugVisible] = useState(false);
   const [appVersion, setAppVersion] = useState<string>("");
+
+  // Mall selection / initial setup state
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [setupCompleted, setSetupCompleted] = useState(false);
 
   // Context menu screen visibility
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -277,6 +283,54 @@ const App: React.FC = () => {
     addDebug("App: Settings saved and applied");
   };
 
+  // Handler for initial mall selection
+  const handleMallSelect = async (selectedMallId: string) => {
+    try {
+      addDebug(`Mall selected: ${selectedMallId}`);
+
+      // 1. Save global settings with setupCompleted = true
+      const globalSettings: GlobalSettings = {
+        mallId: selectedMallId as any,
+        floor: '1F',
+        setupCompleted: true,
+      };
+      await saveGlobalSettings(globalSettings);
+
+      // 2. Create default mall-specific settings file
+      await ensureMallSettingsFile(selectedMallId);
+
+      // 3. Update local state
+      setMallId(selectedMallId);
+      setContextMallId(selectedMallId as any);
+      setFloor('1F' as FloorId);
+      setSetupCompleted(true);
+
+      // 4. Load mall settings
+      const mallData = await loadMallSettings(selectedMallId);
+      setLocationSettings(mallData.locationIcons);
+      setImageSettings(mallData.imageSettings);
+      setShopPositions(mallData.shopPositions);
+      setLocalGenreSettings(mallData.genreSettings);
+      setCmsSettings(mallData.cmsSettings ?? { enabled: true, categorySearchEnabled: true });
+      setCurrentFloorSetting(mallData.currentFloorSetting || '1F');
+      setDisplayFloors(mallData.displayFloors || ['1F', '2F', '3F', '4F']);
+      setLocalMediaTextSettings(mallData.localMediaTextSettings || {});
+      setSubFloorSettings(mallData.subFloorSettings || { "1F-1": [], "1F-2": [] });
+      setFloorLayout(mallData.floorLayout || DEFAULT_FLOOR_LAYOUT);
+
+      // 5. Load shop data
+      await loadData(true);
+
+      addDebug(`Mall setup completed: ${selectedMallId}`);
+      logInfo('SYS_INIT', 'Initial mall selection completed', { mallId: selectedMallId });
+    } catch (e) {
+      addDebug(`Failed to set up mall: ${e}`);
+      logError('SYS_INIT', 'Failed during initial mall selection', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  };
+
   // Initial load and SSE subscription
   useEffect(() => {
     loadData(true);
@@ -361,10 +415,20 @@ const App: React.FC = () => {
       // 3. Load global settings (mallId, floor, setupCompleted)
       try {
         const global = await loadGlobalSettings();
+        addDebug(`Global: mallId=${global.mallId}, floor=${global.floor}, setupCompleted=${global.setupCompleted}`);
+
+        // setupCompleted が false の場合、モール選択画面を表示
+        if (!global.setupCompleted) {
+          setSetupCompleted(false);
+          setIsInitializing(false);
+          addDebug("Setup not completed — showing mall select screen");
+          return;
+        }
+
+        setSetupCompleted(true);
         const currentMallId = global.mallId ?? "suzaka";
         setMallId(currentMallId);
         setFloor(global.floor as FloorId);
-        addDebug(`Global: mallId=${currentMallId}, floor=${global.floor}`);
 
         // 4. Ensure per-mall settings file, then load
         await ensureMallSettingsFile(currentMallId);
@@ -391,6 +455,8 @@ const App: React.FC = () => {
         addDebug(`Failed to load settings: ${e}`);
         logError("app", "Failed to load settings from Tauri", { error: e });
       }
+
+      setIsInitializing(false);
     };
 
     init();
@@ -426,7 +492,22 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      {isDebugVisible && (
+      {/* 初回起動時: 初期化中のローディング */}
+      {isInitializing && (
+        <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '18px' }}>Loading...</div>
+        </div>
+      )}
+
+      {/* 初回起動時: モール選択画面 */}
+      {!isInitializing && !setupCompleted && (
+        <MallSelectScreen onSelect={handleMallSelect} />
+      )}
+
+      {/* 通常画面 */}
+      {!isInitializing && setupCompleted && (
+        <>
+          {isDebugVisible && (
       <div style={{
         position: 'fixed',
         top: debugPos.y,
@@ -585,6 +666,8 @@ const App: React.FC = () => {
         visible={isVersionInfoOpen}
         onClose={() => setIsVersionInfoOpen(false)}
       />
+        </>
+      )}
     </ErrorBoundary>
   );
 };
