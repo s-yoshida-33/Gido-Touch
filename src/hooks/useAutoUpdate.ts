@@ -42,14 +42,16 @@ export const useAutoUpdate = () => {
         setUpdateStatus({ status: 'checking', progress: 0, message: 'アップデートを確認中...' });
         logInfo('UPDATER', 'Checking for app updates');
 
-        const timeoutPromise = new Promise<null>((resolve) =>
-          setTimeout(() => {
+        let timeoutId: ReturnType<typeof setTimeout>;
+        const timeoutPromise = new Promise<null>((resolve) => {
+          timeoutId = setTimeout(() => {
             logInfo('UPDATER', 'Update check timed out – assuming up to date');
             resolve(null);
-          }, 15000)
-        );
+          }, 15000);
+        });
 
         const update = await Promise.race([check(), timeoutPromise]);
+        clearTimeout(timeoutId!);
 
         if (update) {
           logInfo('UPDATER', 'Update available', { version: update.version });
