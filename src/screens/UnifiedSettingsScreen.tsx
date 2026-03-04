@@ -22,12 +22,14 @@ import type { MallId } from "../hooks/useMallAssets";
 import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
 import type { SubFloorSettings } from "../types/global";
 import { loadGlobalSettings, loadMallSettings, saveMallSettings as saveMallSettingsToFile } from "../utils/settings";
+import type { MallSettingsFile } from "../utils/settings";
 
 type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre";
 
 interface UnifiedSettingsScreenProps {
   visible: boolean;
   onClose: () => void;
+  onSave: (settings: MallSettingsFile) => void;
   floor: FloorId;
   floorLayout: FloorLayout;
   locationIconSettings: LocationIconSettingsPerFloor;
@@ -43,6 +45,7 @@ interface UnifiedSettingsScreenProps {
 const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   visible,
   onClose,
+  onSave,
   floor: initialFloor,
   floorLayout: initialFloorLayout,
   locationIconSettings: initialLocationIconSettings,
@@ -307,7 +310,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         cmsSettings: currentCmsSettings,
       };
       // Save mall-specific settings to file
-      await saveMallSettingsToFile(mallId, {
+      const mallSettings: MallSettingsFile = {
         locationIcons: newSettings.locationIcons,
         shopPositions: newSettings.shopPositions,
         imageSettings: newSettings.imageSettings,
@@ -320,11 +323,13 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         localMediaTextSettings: newSettings.localMediaTextSettings,
         subFloorSettings: newSettings.subFloorSettings,
         floorLayout: newSettings.floorLayout,
-      });
-      alert('設定を保存しました。');
+      };
+      await saveMallSettingsToFile(mallId, mallSettings);
+      onSave(mallSettings);
+      onClose();
     } catch (error) {
       console.error('Failed to save settings:', error);
-      alert('設定の保存に失敗しました。');
+      setErrors({ save: '設定の保存に失敗しました。' });
     }
   };
 
@@ -455,20 +460,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
              </button>
           )}
 
-          <button
-            onClick={handleClose}
-            style={{
-              padding: "8px 24px",
-              backgroundColor: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              borderRadius: 6,
-              color: "#ffffff",
-              fontSize: 14,
-              cursor: "pointer",
-            }}
-          >
-            閉じる
-          </button>
           <button
             onClick={handleCancel}
             style={{

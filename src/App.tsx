@@ -25,6 +25,7 @@ import {
   ensureMallSettingsFile,
   migrateFromLegacyIfNeeded,
 } from "./utils/settings";
+import type { MallSettingsFile } from "./utils/settings";
 import { DEFAULT_CATEGORY_MAPPINGS, DEFAULT_IGNORED_GENRE_KEYWORDS } from "./utils/genreUtils";
 import { getVersion } from "@tauri-apps/api/app";
 
@@ -244,6 +245,21 @@ const App: React.FC = () => {
         addDebug(`App: Loaded ${processed.length} shops from cache (fallback after error)`);
       }
     }
+  };
+
+  // Handler for settings save — update App state with persisted settings
+  const handleSettingsSave = (saved: MallSettingsFile) => {
+    setLocationSettings(saved.locationIcons);
+    setImageSettings(saved.imageSettings);
+    setShopPositions(saved.shopPositions);
+    setLocalGenreSettings(saved.genreSettings);
+    setCmsEnabled(saved.cmsSettings?.enabled ?? true);
+    setCurrentFloorSetting(saved.currentFloorSetting || "1F");
+    setDisplayFloors(saved.displayFloors || ['1F', '2F', '3F', '4F']);
+    setLocalMediaTextSettings(saved.localMediaTextSettings || {});
+    setSubFloorSettings(saved.subFloorSettings || { "1F-1": [], "1F-2": [] });
+    setFloorLayout(saved.floorLayout || DEFAULT_FLOOR_LAYOUT);
+    addDebug("App: Settings saved and applied");
   };
 
   // Initial load and SSE subscription
@@ -537,6 +553,7 @@ const App: React.FC = () => {
       <UnifiedSettingsScreen
         visible={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        onSave={handleSettingsSave}
         floor={floor}
         floorLayout={floorLayout}
         locationIconSettings={locationSettings}

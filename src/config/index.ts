@@ -47,13 +47,7 @@ export async function getApiBaseUrl(): Promise<string> {
     return viteUrl;
   }
 
-  // Priority 4: Dev mode - use relative path to leverage Vite proxy (avoids CORS)
-  if (import.meta.env.DEV) {
-    cachedApiBaseUrl = "";
-    return "";
-  }
-
-  // Priority 5: Production default
+  // Priority 4: Production default (also used in dev — Tauri HTTP plugin needs absolute URLs)
   cachedApiBaseUrl = APP_CONFIG.defaultApiBaseUrl;
   return APP_CONFIG.defaultApiBaseUrl;
 }
