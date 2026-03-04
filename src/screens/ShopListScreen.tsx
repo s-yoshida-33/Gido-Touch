@@ -159,15 +159,13 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
             setIsLoading(false);
           }
           return;
-        } catch (e) {
+        } catch {
           // If pending request failed, try again below
         }
       }
 
       // Use Tauri IPC to load shop image
-      let loadPromise: Promise<string | null>;
-
-      loadPromise = getShopImageDataUrl(imagePath).catch((error: unknown) => {
+      const loadPromise: Promise<string | null> = getShopImageDataUrl(imagePath).catch((error: unknown) => {
         console.error("Failed to load image via IPC:", error);
         return toFileUrl(imagePath);
       });
@@ -187,7 +185,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
     };
 
     loadImage();
-  }, [photo, shopId, cacheKey]); // Depend on photo and shopId. If they change, reload.
+  }, [photo, shopId, cacheKey, imageUrl]);
 
   if (!photo || (!imageUrl && !isLoading)) {
     return (
@@ -431,7 +429,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
   const [canScrollNext, setCanScrollNext] = useState(false);
 
   // Force reload trigger state
-  const [refreshTrigger, _setRefreshTrigger] = useState(0);
+  const [refreshTrigger] = useState(0);
 
   // Idle timeout state (30 seconds for testing)
   const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds
@@ -530,7 +528,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
   useEffect(() => {
     // Always set to Japanese on mount to ensure default is Japanese
     setSelectedLanguage("ja");
-  }, []); // Run only on mount
+  }, [setSelectedLanguage]); // Run only on mount - setSelectedLanguage is stable
 
   // Idle timeout: Refresh to default shop list after 30 seconds of inactivity
   // Always active - any touch/activity resets the timer
@@ -637,7 +635,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
       }
       clearInterval(checkInterval);
     };
-  }, []); // Always active, no dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Always active - uses refs for state access to avoid re-registration
 
   // Filter shops by selected floor and display floors
   const filteredShops = React.useMemo(() => {
@@ -710,7 +709,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
     }
     
     return result;
-  }, [shops, selectedFloor, selectedCategory, displayFloors, floorLayout, currentFloorSetting, subFloorSettings]);
+  }, [shops, selectedFloor, selectedCategory, displayFloors, floorLayout, currentFloorSetting, subFloorSettings, genreSettings?.categoryMapping]);
 
   // Layout calculation
   const currentLayoutKey = selectedFloor ? normalizeFloor(selectedFloor) : "ALL";

@@ -72,7 +72,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       }
       prevAssetIdRef.current = asset.id;
     }
-  }, [asset?.id, asset?.src]);
+  }, [asset]);
 
   // Ensure video playback when asset is available
   React.useEffect(() => {
@@ -115,7 +115,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         video.removeEventListener('canplay', onCanPlay);
       };
     }
-  }, [asset?.id, asset?.src]);
+  }, [asset]);
 
   // Handle audio settings updates dynamically
   React.useEffect(() => {

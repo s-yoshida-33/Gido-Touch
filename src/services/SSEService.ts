@@ -3,6 +3,7 @@ import { logInfo, logError, logDebug } from "../logs/logging";
 
 export type SseConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Listener = (data: any) => void;
 
 /**
@@ -88,12 +89,12 @@ class SSEService {
       this.setStatus('disconnected');
       this.reconnect();
 
-    } catch (error: any) {
-      if (error?.name === "AbortError") {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === "AbortError") {
         logDebug("sse", `[${this.name}] SSE connection aborted`);
         return;
       }
-      logError("sse", `[${this.name}] SSE Error occurred`, { error: error?.message ?? error });
+      logError("sse", `[${this.name}] SSE Error occurred`, { error: error instanceof Error ? error.message : String(error) });
       this.setStatus('error');
       this.reconnect();
     }
@@ -174,7 +175,7 @@ class SSEService {
     };
   }
 
-  private emit(event: string, data: any) {
+  private emit(event: string, data: unknown) {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
       callbacks.forEach((cb) => {

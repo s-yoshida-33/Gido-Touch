@@ -188,10 +188,6 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   pixelY,
   delay = 0
 }) => {
-  if (position.enabled === false) {
-    return null;
-  }
-
   const size = position.size ?? 80;
   const rotation = position.rotation ?? 0;
   const shadow = position.shadow;
@@ -202,6 +198,8 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   const [logoLoading, setLogoLoading] = useState(true);
   
   useEffect(() => {
+    if (position.enabled === false) return;
+
     const logoPath = shopLogo || (shopId ? `files/shop/${shopId}/shop_logo.png` : undefined);
     
     if (!logoPath) {
@@ -234,9 +232,14 @@ export const ShopPin: React.FC<ShopPinProps> = ({
     };
 
     loadLogo();
-  }, [shopLogo, shopId]);
+  }, [shopLogo, shopId, position.enabled]);
 
   const inverseScale = 1 / Math.max(transformScale, 0.1);
+
+  // Early return after all hooks
+  if (position.enabled === false) {
+    return null;
+  }
 
   // Determine coordinates: prioritize pixel props if enabled
   const left = usePixelPosition && pixelX !== undefined ? `${pixelX}px` : `${position.x}%`;

@@ -370,7 +370,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         }
       }
     }
-  }, [overrideShopId, mediaFiles]); // Removed 'shops' from deps to avoid loop
+  }, [overrideShopId, mediaFiles]); // 'shops' intentionally omitted to avoid loop
 
   // Load media files from local directory
   React.useEffect(() => {
@@ -755,6 +755,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         clearTimeout(timer);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlist, currentIndex, isLoadingMedia, mediaFiles, audioSettings.localMediaMuted, overrideShopId, overrideImage, activePlayerId]);
 
   // Handle video settings changes (legacy support)
@@ -888,7 +889,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 backgroundColor: '#000000',
                 display: 'block'
               }}
-              onError={(_e) => {
+              onError={() => {
                 logError('VIDEO', 'Image load error', { file: currentFile });
                 // Skip to next
                 const nextIndex = currentIndex + 1;
