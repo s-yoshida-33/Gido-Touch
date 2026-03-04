@@ -18,18 +18,17 @@ import type { LocalMediaTextSettings } from "../types/global";
 import type { GenreSettings } from "../types/genreSettings";
 import { useAudioSettings } from "../hooks/useAudioSettings";
 import { useCmsSettings } from "../hooks/useCmsSettings";
-import type { MallId } from "../hooks/useMallAssets";
-import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
+import type { MallId } from "../hooks/useMallAssets";import { useMall } from '../contexts/MallContext';import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
 import type { SubFloorSettings } from "../types/global";
-import { loadGlobalSettings, loadMallSettings, saveMallSettings as saveMallSettingsToFile } from "../utils/settings";
-import type { MallSettingsFile } from "../utils/settings";
+import { loadGlobalSettings, saveGlobalSettings, loadMallSettings, saveMallSettings as saveMallSettingsToFile } from '../utils/settings';
+import type { MallSettingsFile, GlobalSettings } from '../utils/settings';
 
 type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre";
 
 interface UnifiedSettingsScreenProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (settings: MallSettingsFile) => void;
+  onSave: (settings: MallSettingsFile, mallId: MallId) => void;
   floor: FloorId;
   floorLayout: FloorLayout;
   locationIconSettings: LocationIconSettingsPerFloor;
@@ -78,13 +77,23 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
 
   // Mall settings
-  const [mallId, setMallId] = useState<MallId>('suzaka');
-  // Load mall setting from settings file
+  const { mallId: contextMallId, setMallId: setContextMallId } = useMall();
+  const [mallId, setMallIdLocal] = useState<MallId>(contextMallId);
+  const [initialMallId, setInitialMallId] = useState<MallId>(contextMallId);
+
+  // Sync mall setting when settings screen opens
   useEffect(() => {
-    loadGlobalSettings().then((settings) => {
-      if (settings?.mallId) setMallId(settings.mallId as MallId);
-    });
-  }, [visible]);
+    if (visible) {
+      setMallIdLocal(contextMallId);
+      setInitialMallId(contextMallId);
+    }
+  }, [visible, contextMallId]);
+
+  // Update MallContext when dropdown changes (for live preview)
+  const setMallId = (id: MallId) => {
+    setMallIdLocal(id);
+    setContextMallId(id);
+  };
 
   // Audio settings
   const { settings: audioSettings, isLoading: isAudioSettingsLoading } = useAudioSettings();
@@ -280,6 +289,11 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setCurrentCmsSettings(cmsSettings);
       setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
       setErrors({});
+      // Revert mall to original if changed
+      if (mallId !== initialMallId) {
+        setMallIdLocal(initialMallId);
+        setContextMallId(initialMallId);
+      }
       // Reset transform - 現在のactiveTabに応じて適切な中央位置を計算
     if (transformRef.current && previewContainerRef.current) {
       requestAnimationFrame(() => {
@@ -325,7 +339,10 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         floorLayout: newSettings.floorLayout,
       };
       await saveMallSettingsToFile(mallId, mallSettings);
-      onSave(mallSettings);
+      // Save mallId to global settings so it persists across restarts
+      const global = await loadGlobalSettings();
+      await saveGlobalSettings({ ...global, mallId } as GlobalSettings);
+      onSave(mallSettings, mallId);
       onClose();
     } catch (error) {
       console.error('Failed to save settings:', error);

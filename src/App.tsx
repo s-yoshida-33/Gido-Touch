@@ -19,6 +19,7 @@ import type { SseConnectionStatus } from "./services/SSEService";
 import { convertSseShopDataToShop } from "./utils/shopConverter";
 import type { LocalMediaTextSettings, SubFloorSettings } from "./types/global";
 import type { GenreSettings } from "./types/genreSettings";
+import type { CmsSettings } from "./types/cmsSettings";
 import {
   loadGlobalSettings,
   loadMallSettings,
@@ -29,6 +30,7 @@ import type { MallSettingsFile } from "./utils/settings";
 import { DEFAULT_CATEGORY_MAPPINGS, DEFAULT_IGNORED_GENRE_KEYWORDS } from "./utils/genreUtils";
 import { getVersion } from "@tauri-apps/api/app";
 import { useHeartbeat } from "./hooks/useHeartbeat";
+import { useMall } from "./contexts/MallContext";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
 
@@ -94,6 +96,9 @@ const App: React.FC = () => {
   // Heartbeat (system info + hourly logging)
   useHeartbeat();
 
+  // MallContext for propagating mall changes to the entire app
+  const { setMallId: setContextMallId } = useMall();
+
   const [locationSettings, setLocationSettings] = useState<LocationIconSettingsPerFloor>(
     DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR
   );
@@ -141,7 +146,7 @@ const App: React.FC = () => {
   const [displayFloors, setDisplayFloors] = useState<string[]>(['1F', '2F', '3F', '4F']);
 
   // CMS settings state
-  const [cmsEnabled, setCmsEnabled] = useState<boolean>(true);
+  const [cmsSettings, setCmsSettings] = useState<CmsSettings>({ enabled: true, categorySearchEnabled: true });
 
   // SSE Status Subscription
   useEffect(() => {
@@ -252,12 +257,18 @@ const App: React.FC = () => {
   };
 
   // Handler for settings save — update App state with persisted settings
-  const handleSettingsSave = (saved: MallSettingsFile) => {
+  const handleSettingsSave = (saved: MallSettingsFile, savedMallId?: string) => {
+    // Update mall ID if changed
+    if (savedMallId && savedMallId !== mallId) {
+      setMallId(savedMallId);
+      setContextMallId(savedMallId as any);
+      addDebug(`App: Mall changed to ${savedMallId}`);
+    }
     setLocationSettings(saved.locationIcons);
     setImageSettings(saved.imageSettings);
     setShopPositions(saved.shopPositions);
     setLocalGenreSettings(saved.genreSettings);
-    setCmsEnabled(saved.cmsSettings?.enabled ?? true);
+    setCmsSettings(saved.cmsSettings ?? { enabled: true, categorySearchEnabled: true });
     setCurrentFloorSetting(saved.currentFloorSetting || "1F");
     setDisplayFloors(saved.displayFloors || ['1F', '2F', '3F', '4F']);
     setLocalMediaTextSettings(saved.localMediaTextSettings || {});
@@ -363,7 +374,7 @@ const App: React.FC = () => {
         setImageSettings(mallData.imageSettings);
         setShopPositions(mallData.shopPositions);
         setLocalGenreSettings(mallData.genreSettings);
-        setCmsEnabled(mallData.cmsSettings?.enabled ?? true);
+        setCmsSettings(mallData.cmsSettings ?? { enabled: true, categorySearchEnabled: true });
         setCurrentFloorSetting(mallData.currentFloorSetting || "1F");
         setDisplayFloors(mallData.displayFloors || ['1F', '2F', '3F', '4F']);
         setLocalMediaTextSettings(mallData.localMediaTextSettings || {});
@@ -485,7 +496,7 @@ const App: React.FC = () => {
             <div style={{marginTop: '4px', paddingLeft: '10px'}}>
               <div>SSE Status: <span style={{color: sseStatus === 'connected' ? 'lime' : 'red'}}>{sseStatus}</span></div>
               <div>Bridge: http://localhost:8090</div>
-              <div>CMS: http://localhost:48080 (enabled: {cmsEnabled ? 'YES' : 'NO'})</div>
+              <div>CMS: http://localhost:48080 (enabled: {cmsSettings.enabled ? 'YES' : 'NO'})</div>
             </div>
           </details>
 
@@ -552,6 +563,7 @@ const App: React.FC = () => {
           displayFloors={displayFloors}
           floorLayout={floorLayout}
           subFloorSettings={subFloorSettings}
+          cmsSettings={cmsSettings}
         />
       </ContextMenu>
       <UnifiedSettingsScreen

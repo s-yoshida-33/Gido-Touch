@@ -5,7 +5,7 @@ import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 
 import { useMall } from "../contexts/MallContext";
-import { useCmsSettings } from "../hooks/useCmsSettings";
+import type { CmsSettings } from "../types/cmsSettings";
 import { logInfo } from "../logs/logging";
 
 // JA assets
@@ -355,6 +355,7 @@ interface ShopListScreenProps {
   displayFloors?: string[];
   floorLayout?: FloorLayout;
   subFloorSettings?: SubFloorSettings;
+  cmsSettings?: CmsSettings;
 }
 
 /**
@@ -373,10 +374,10 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
   shopPositions, 
   displayFloors = ['1F', '2F', '3F', '4F'], 
   floorLayout,
-  subFloorSettings = { "1F-1": [], "1F-2": [] }
+  subFloorSettings = { "1F-1": [], "1F-2": [] },
+  cmsSettings = { enabled: true, categorySearchEnabled: true }
  }) => {
   const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage, genreSettings, mallId } = useMall();
-  const { settings: cmsSettings } = useCmsSettings();
 
   const isSendai = mallId === 'sendaikamisugi';
 
