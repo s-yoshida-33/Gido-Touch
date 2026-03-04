@@ -98,16 +98,13 @@ import selectLanguageSelectedEn from "../assets/lang/selected-en.svg";
 
 /**
  * Load mall-specific external assets via Tauri IPC.
- * Uses read_mall_config to get the file listing for the mall's media directory.
- * Falls back gracefully if the Rust backend is not available (dev mode).
+ * Uses list_mall_assets to scan the mall's media/assets directory
+ * and return a map of relative_path → data-URL.
  */
 async function loadExternalMallAssets(mallId: string): Promise<Record<string, string>> {
   try {
-    // Use the Tauri command to get a map of relative paths -> file:// URLs
-    // for the mall's media/assets directory
-    const result = await invoke<Record<string, string> | null>('read_mall_config', {
+    const result = await invoke<Record<string, string> | null>('list_mall_assets', {
       mallId,
-      configType: 'assets',
     });
     return result ?? {};
   } catch (error) {

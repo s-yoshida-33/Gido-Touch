@@ -472,6 +472,53 @@ fn read_mall_asset(relative_path: String) -> Result<Option<String>, String> {
     Ok(None)
 }
 
+/// List all mall-specific asset files (buttons, maps, open-time, etc.)
+/// and return them as a map of relative_path → data-URL.
+/// Looks in: <media_base>/<mall_id>/assets/
+#[tauri::command]
+fn list_mall_assets(mall_id: String) -> Result<HashMap<String, String>, String> {
+    let media_base = get_media_base_dir()?;
+    let assets_dir = media_base.join(&mall_id).join("assets");
+
+    if !assets_dir.exists() {
+        return Ok(HashMap::new());
+    }
+
+    let mut result = HashMap::new();
+    scan_assets_to_data_urls(&assets_dir, &assets_dir, &mut result)?;
+    Ok(result)
+}
+
+fn scan_assets_to_data_urls(
+    base: &std::path::Path,
+    dir: &std::path::Path,
+    result: &mut HashMap<String, String>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(dir)
+        .map_err(|e| format!("Failed to read directory {}: {}", dir.display(), e))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            scan_assets_to_data_urls(base, &path, result)?;
+        } else {
+            // Skip hidden files
+            if let Some(fname) = path.file_name().and_then(|f| f.to_str()) {
+                if fname.starts_with('.') {
+                    continue;
+                }
+            }
+            if let Ok(rel) = path.strip_prefix(base) {
+                let rel_str = rel.to_string_lossy().replace('\\', "/");
+                if let Some(data_url) = file_to_data_url(&path) {
+                    result.insert(rel_str, data_url);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Shop image command (reads arbitrary image path as data-URL)
 // ---------------------------------------------------------------------------
@@ -594,6 +641,22 @@ fn get_media_dir() -> Result<PathBuf, String> {
     fs::create_dir_all(&dir)
         .map_err(|e| format!("Failed to create media directory: {}", e))?;
     Ok(dir)
+}
+
+/// Resolve the base media directory.
+/// In dev mode: <cwd>/media  (project-local media directory)
+/// In production: %LOCALAPPDATA%/com.tti.gido-touch/media
+fn get_media_base_dir() -> Result<PathBuf, String> {
+    // Development: check for media/ relative to CWD
+    let dev_path = std::env::current_dir()
+        .unwrap_or_default()
+        .join("media");
+    if dev_path.exists() {
+        return Ok(dev_path);
+    }
+
+    // Production: use AppData media directory
+    get_media_dir()
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -881,7 +944,7 @@ fn download_media(mall_id: String, app_version: String) -> Result<MediaDownloadR
 /// Get media file path for a given mall and relative path.
 #[tauri::command]
 fn get_media_file_path(mall_id: String, relative_path: String) -> Result<String, String> {
-    let media_root = get_media_dir()?;
+    let media_root = get_media_base_dir()?;
     let file_path = media_root.join(&mall_id).join(&relative_path);
 
     if file_path.exists() {
@@ -896,35 +959,48 @@ fn get_media_file_path(mall_id: String, relative_path: String) -> Result<String,
 }
 
 /// List all media files for a given mall.
+/// Returns absolute paths (suitable for convertFileSrc in the frontend).
 #[tauri::command]
 fn list_media_files(mall_id: String) -> Result<Vec<String>, String> {
-    let media_root = get_media_dir()?;
+    let media_root = get_media_base_dir()?;
     let mall_dir = media_root.join(&mall_id);
 
     if !mall_dir.exists() {
         return Ok(Vec::new());
     }
 
+    // Only list video files from videos/ subdirectory
+    let videos_dir = mall_dir.join("videos");
+    if !videos_dir.exists() {
+        return Ok(Vec::new());
+    }
+
     let mut files = Vec::new();
-    collect_files_recursive(&mall_dir, &mall_dir, &mut files)?;
+    collect_video_files_absolute(&videos_dir, &mut files)?;
     Ok(files)
 }
 
-fn collect_files_recursive(base: &PathBuf, dir: &PathBuf, files: &mut Vec<String>) -> Result<(), String> {
+fn collect_video_files_absolute(dir: &std::path::Path, files: &mut Vec<String>) -> Result<(), String> {
     let entries = fs::read_dir(dir)
         .map_err(|e| format!("Failed to read directory: {}", e))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
-            collect_files_recursive(base, &path, files)?;
+            collect_video_files_absolute(&path, files)?;
         } else {
-            // Return relative path from base
-            if let Ok(rel) = path.strip_prefix(base) {
-                let rel_str = rel.to_string_lossy().to_string();
-                // Skip hidden files like .version
-                if !rel_str.starts_with('.') {
-                    files.push(rel_str);
+            // Skip hidden files
+            if let Some(fname) = path.file_name().and_then(|f| f.to_str()) {
+                if fname.starts_with('.') {
+                    continue;
+                }
+            }
+            // Only include video files
+            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                let ext_lower = ext.to_lowercase();
+                if matches!(ext_lower.as_str(), "mp4" | "webm" | "mkv" | "avi" | "mov") {
+                    let abs = path.canonicalize().unwrap_or(path);
+                    files.push(abs.to_string_lossy().to_string());
                 }
             }
         }
@@ -967,6 +1043,7 @@ fn main() {
             read_image_file,
             read_mall_config,
             read_mall_asset,
+            list_mall_assets,
             get_shop_image,
             get_system_info,
             check_media_status,

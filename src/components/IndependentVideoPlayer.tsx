@@ -1,8 +1,9 @@
 // src/components/IndependentVideoPlayer.tsx
 import React from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { useIndependentVideo } from '../hooks/useIndependentVideo';
 import { useAudioSettings } from '../hooks/useAudioSettings';
+import { useMall } from '../contexts/MallContext';
 import { logInfo, logError, logWarn } from '../logs/logging';
 import type { Shop } from '../types/shop';
 import { getDefaultMediaSettings } from '../utils/localMediaUtils';
@@ -90,21 +91,22 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
 }
 
 /**
- * Convert a local file path to a file:// URL for Electron
+ * Convert a local file path to an asset protocol URL for Tauri WebView.
+ * Uses Tauri's convertFileSrc to generate an asset:// URL.
  */
-function toFileUrl(filePath: string): string {
+function toAssetUrl(filePath: string): string {
   if (!filePath) return "";
-  if (filePath.startsWith("file://") || filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:")) {
+  if (filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:") || filePath.startsWith("asset:")) {
     return filePath;
   }
-  const normalized = filePath.replace(/\\/g, "/");
-  if (normalized.match(/^[A-Za-z]:\//)) {
-    return `file:///${normalized}`;
+  // Strip file:// prefix if present
+  let cleaned = filePath;
+  if (cleaned.startsWith("file:///")) {
+    cleaned = cleaned.slice(8);
+  } else if (cleaned.startsWith("file://")) {
+    cleaned = cleaned.slice(7);
   }
-  if (normalized.startsWith("/")) {
-    return `file://${normalized}`;
-  }
-  return `file:///${normalized}`;
+  return convertFileSrc(cleaned);
 }
 
 interface IndependentVideoPlayerProps {
@@ -124,6 +126,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 }) => {
   const { videoSettings, isLoading } = useIndependentVideo();
   const { settings: audioSettings } = useAudioSettings();
+  const { mallId } = useMall();
   
   // Double buffering refs
   const videoRefA = React.useRef<HTMLVideoElement>(null);
@@ -296,11 +299,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                       if (dataUrl) {
                          setOverrideImage(dataUrl);
                       } else {
-                         setOverrideImage(toFileUrl(imagePath));
+                         setOverrideImage(toAssetUrl(imagePath));
                       }
                    } catch (e) {
                       console.error("Failed to load shop image", e);
-                      setOverrideImage(toFileUrl(imagePath));
+                      setOverrideImage(toAssetUrl(imagePath));
                    }
                 }
                 setIsOverrideImageLoading(false);
@@ -371,18 +374,19 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
     const loadMediaFiles = async () => {
       try {
-        const files = await invoke<string[]>('list_media_files');
+        const files = await invoke<string[]>('list_media_files', { mallId });
         
         if (!isMounted) return;
 
         if (files.length === 0) {
-          logWarn('SYS_INIT', 'No media files found in local directory');
+          logWarn('SYS_INIT', 'No media files found in local directory', { mallId });
           setIsLoadingMedia(false);
           return;
         }
 
         logInfo('SYS_INIT', 'Loaded media files from local directory', {
           count: files.length,
+          mallId,
           forceReload,
           localReload
         });
@@ -411,7 +415,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [forceReload, localReload]);
+  }, [forceReload, localReload, mallId]);
 
   // Double buffering and playback management
   React.useEffect(() => {
@@ -510,11 +514,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       // Playback Logic
       if (activeVideo) {
           // If source changed or not set
-          const fileUrl = toFileUrl(currentFile);
+          const fileUrl = toAssetUrl(currentFile);
           
           // Check if src needs update. 
           // Note: src might be fully qualified or relative, so simple check might fail. 
-          // But if we use toFileUrl consistently it should be fine.
+          // But if we use toAssetUrl consistently it should be fine.
           // We check if the current src ends with the filename to be safe against base URL diffs
           const filename = extractFilename(currentFile);
           const srcDecoded = decodeURIComponent(activeVideo.src);
@@ -548,7 +552,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
           // Preload Next Video on the Inactive Player
           if (inactiveVideo && nextFile && playlist.length > 1 && isVideoFile(nextFile)) {
-              const nextFileUrl = toFileUrl(nextFile);
+              const nextFileUrl = toAssetUrl(nextFile);
               const nextFilename = extractFilename(nextFile);
               const nextSrcDecoded = decodeURIComponent(inactiveVideo.src);
 
