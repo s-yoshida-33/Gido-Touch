@@ -58,7 +58,8 @@
     "copyright": "\u00a9 2026 Toei Techno International Inc.",
     "windows": {
       "nsis": {
-        "installerHooks": "./nsis-hooks.nsh"
+        "installerHooks": "./nsis-hooks.nsh",
+        "installMode": "perMachine"
       }
     }
   },
