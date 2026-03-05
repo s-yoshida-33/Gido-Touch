@@ -55,6 +55,37 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
+ * Filter media files to only include those whose shopId matches an active shop.
+ * Prevents playback of videos from shops that have left (退店).
+ * Files whose filename (without extension) does not match any shop's shopId are excluded.
+ */
+function filterByActiveShops(files: string[], shops: Shop[]): string[] {
+  if (shops.length === 0) return files; // If shops not yet loaded, don't filter
+  const filtered = files.filter(file => {
+    const filename = extractFilename(file);
+    const shopId = filename.replace(/\.[^/.]+$/, "");
+    const matched = shops.some(s => String(s.shopId) === String(shopId));
+    if (!matched) {
+      logWarn('VIDEO', `Skipped local media: shopId not found`, {
+        shopId,
+        filename,
+        file,
+      });
+    }
+    return matched;
+  });
+  if (filtered.length < files.length) {
+    const skippedCount = files.length - filtered.length;
+    logInfo('MEDIA_FILTER', `Filtered out ${skippedCount} media file(s) with no matching shop`, {
+      total: files.length,
+      active: filtered.length,
+      skipped: skippedCount,
+    });
+  }
+  return filtered;
+}
+
+/**
  * Build image path using shop_id if photo is relative or filename only
  * Copied from ShopListScreen.tsx for consistency
  */
@@ -354,7 +385,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
              // If videoSettings is NOT enabled, we should play mediaFiles.
              if (!videoSettings?.enabled || !videoSettings.source) {
                  logDebug('MEDIA_SWAP', 'Restored empty playlist but have media files, starting loop');
-                 setPlaylist(shuffleArray(mediaFiles));
+                 setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
                  setCurrentIndex(0);
              }
          }
@@ -364,7 +395,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         if (playlist.length === 0 && mediaFiles.length > 0) {
             // Check legacy video settings
             if (!videoSettings?.enabled || !videoSettings.source) {
-               setPlaylist(shuffleArray(mediaFiles));
+               setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
                setCurrentIndex(0);
             }
         }
@@ -398,7 +429,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         setMediaFiles(files);
         // Only shuffle and set playlist if NOT in override mode
         if (!overrideShopId) {
-            setPlaylist(shuffleArray(files));
+            setPlaylist(shuffleArray(filterByActiveShops(files, shops)));
             setCurrentIndex(0);
         }
         
@@ -499,7 +530,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                setCurrentIndex(0);
             } else {
                // Normal mode: reshuffle and restart
-               setPlaylist(shuffleArray(mediaFiles));
+               setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
                setCurrentIndex(0);
             }
           } else {
@@ -738,7 +769,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             if (overrideShopId) {
                setCurrentIndex(0);
             } else {
-               setPlaylist(shuffleArray(mediaFiles));
+               setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
                setCurrentIndex(0);
             }
           } else {
@@ -895,7 +926,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 const nextIndex = currentIndex + 1;
                 if (nextIndex >= playlist.length) {
                    if (overrideShopId) setCurrentIndex(0);
-                   else { setPlaylist(shuffleArray(mediaFiles)); setCurrentIndex(0); }
+                   else { setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops))); setCurrentIndex(0); }
                 } else {
                    setCurrentIndex(nextIndex);
                 }
