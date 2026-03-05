@@ -284,13 +284,13 @@ export function PatchScreen({ onComplete }: PatchScreenProps) {
               style={{
                 height: '100%',
                 width: `${displayPercent}%`,
-                backgroundColor: isWaiting ? '#ff0000' : '#00ff4c',
+                backgroundColor: isWaiting ? '#ff0000' : '#ff0000',
                 borderRight: displayPercent < 100
-                  ? `2px solid ${isWaiting ? '#cc0000' : '#00cc3d'}`
+                  ? (isWaiting ? '2px solid #cc0000' : '2px solid #cc0000')
                   : 'none',
                 transition: 'width 0.2s linear',
                 boxShadow: displayPercent > 0
-                  ? `inset 0 0 8px ${isWaiting ? 'rgba(255,0,0,0.3)' : 'rgba(0,255,76,0.3)'}`
+                  ? (isWaiting ? 'inset 0 0 8px rgba(255,0,0,0.3)' : 'inset 0 0 8px rgba(255,0,0,0.3)')
                   : 'none',
               }}
             />

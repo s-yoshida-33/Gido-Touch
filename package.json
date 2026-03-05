@@ -1,7 +1,7 @@
 {
   "name": "gido-touch",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "Floor guide display system",
   "author": "Toei Techno International Inc.",
@@ -24,7 +24,6 @@
     "tauri:build:signed": "node ./build/runner.js sign-and-build.ps1",
     "tauri:release": "npm run tauri:build:signed && node ./build/runner.js manage-release.ps1",
     "zip:media": "node build/zip-media.cjs",
-    "export:shop-positions": "node electron/export-shop-positions.cjs",
     "icon:gen": "magick -background none -density 1024 src/assets/icon.svg -define icon:auto-resize=256,128,64,48,32,16 -write src/assets/icon.ico build/icon.ico",
     "bump:version": "powershell -ExecutionPolicy Bypass -File ./build/bump-version.ps1"
   },
