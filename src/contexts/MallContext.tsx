@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useMallAssets, MALL_IDS } from '../hooks/useMallAssets';
 import type { MallId, Language } from '../hooks/useMallAssets';
 import type { GenreSettings } from '../types/genreSettings';
@@ -79,7 +79,7 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { assets, isLoading } = useMallAssets(mallId, language);
 
   // setMallIdのラッパー (Tauri設定にも保存する)
-  const handleSetMallId = async (id: MallId) => {
+  const handleSetMallId = useCallback(async (id: MallId) => {
     setMallId(id);
     try {
       const global = await loadGlobalSettings();
@@ -93,15 +93,15 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error("Failed to save mall ID", err);
     }
-  };
+  }, []);
 
   // setLanguageのラッパー (LocalStorageにも保存する)
-  const handleSetLanguage = (lang: Language) => {
+  const handleSetLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
     if (typeof window !== "undefined" && window.localStorage) {
       localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
     }
-  };
+  }, []);
 
   return (
     <MallContext.Provider value={{ mallId, setMallId: handleSetMallId, language, setLanguage: handleSetLanguage, assets, isLoading, genreSettings }}>

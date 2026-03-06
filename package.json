@@ -1,7 +1,7 @@
 {
   "name": "gido-touch",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "description": "Floor guide display system",
   "author": "Toei Techno International Inc.",
