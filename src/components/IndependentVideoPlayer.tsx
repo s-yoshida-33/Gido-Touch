@@ -199,6 +199,19 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const lastHeartbeatTimeRef = React.useRef<number>(Date.now());
   const lastGoodStateTimeRef = React.useRef<number>(Date.now());
 
+  // Cleanup video elements on unmount to prevent memory leaks from long-running playback
+  React.useEffect(() => {
+    return () => {
+      [videoRefA.current, videoRefB.current].forEach(video => {
+        if (video) {
+          video.pause();
+          video.removeAttribute('src');
+          video.load(); // Forces release of media resources
+        }
+      });
+    };
+  }, []);
+
   // Helper to get active/inactive video refs
   const getActiveVideo = () => activePlayerId === 'A' ? videoRefA.current : videoRefB.current;
   const getInactiveVideo = () => activePlayerId === 'A' ? videoRefB.current : videoRefA.current;
