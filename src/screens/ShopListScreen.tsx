@@ -43,9 +43,47 @@ import { filterGenreMemos, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils
 import { getShopImageDataUrl } from "../utils/imageUtils";
 import type { SubFloorSettings } from "../types/global";
 
-// Simple in-memory cache for image URLs to prevent flickering
+// LRU cache for image URLs to prevent flickering while bounding memory usage.
+// Each data URL can be 100KB–several MB; cap at 50 entries (~250MB worst case).
+const IMAGE_CACHE_MAX_SIZE = 50;
 const imageCache = new Map<string, string>();
 const pendingRequests = new Map<string, Promise<string | null>>();
+
+/**
+ * Set a value in the imageCache with LRU eviction.
+ * Map iteration order in JS is insertion order, so we delete-and-reinsert
+ * on access to keep "recently used" items at the end.
+ */
+function imageCacheSet(key: string, value: string): void {
+  // If key already exists, delete first so re-insert moves it to the end (most recent)
+  if (imageCache.has(key)) {
+    imageCache.delete(key);
+  }
+  imageCache.set(key, value);
+
+  // Evict oldest entries (first in iteration order) when over limit
+  while (imageCache.size > IMAGE_CACHE_MAX_SIZE) {
+    const oldest = imageCache.keys().next().value;
+    if (oldest !== undefined) {
+      imageCache.delete(oldest);
+    } else {
+      break;
+    }
+  }
+}
+
+/**
+ * Get a value from the imageCache, promoting it to most-recently-used.
+ */
+function imageCacheGet(key: string): string | undefined {
+  const value = imageCache.get(key);
+  if (value !== undefined) {
+    // Promote to most recently used
+    imageCache.delete(key);
+    imageCache.set(key, value);
+  }
+  return value;
+}
 
 /**
  * Build image path using shop_id if photo is relative or filename only
@@ -122,7 +160,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
   const cacheKey = `${shopId}:${photo}`;
   
   // Initialize with cached value if available
-  const [imageUrl, setImageUrl] = useState<string>(() => imageCache.get(cacheKey) || "");
+  const [imageUrl, setImageUrl] = useState<string>(() => imageCacheGet(cacheKey) || "");
   const [isLoading, setIsLoading] = useState(() => !imageCache.has(cacheKey));
 
   useEffect(() => {
@@ -132,8 +170,8 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
     }
 
     // If already cached, ensure state matches (handle fast updates)
-    if (imageCache.has(cacheKey)) {
-      const cachedUrl = imageCache.get(cacheKey)!;
+    const cachedUrl = imageCacheGet(cacheKey);
+    if (cachedUrl !== undefined) {
       if (imageUrl !== cachedUrl) {
         setImageUrl(cachedUrl);
         setIsLoading(false);
@@ -175,7 +213,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
       try {
         const dataUrl = await loadPromise;
         if (dataUrl) {
-          imageCache.set(cacheKey, dataUrl);
+          imageCacheSet(cacheKey, dataUrl);
           setImageUrl(dataUrl);
         }
       } finally {
