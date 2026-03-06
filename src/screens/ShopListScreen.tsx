@@ -991,6 +991,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
               height: "100%",
               overflowX: "auto",
               overflowY: "hidden",
+              overscrollBehavior: "contain",
               scrollbarWidth: "none", // Firefox
               msOverflowStyle: "none", // IE/Edge
               cursor: "grab",

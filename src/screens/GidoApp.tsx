@@ -150,6 +150,9 @@ const GidoApp: React.FC<GidoAppProps> = ({
         overflow: "visible",
         fontFamily: "'Rounded Mplus 1c', sans-serif",
         fontWeight: 700,
+        overscrollBehavior: "none",
+        touchAction: "none",
+        position: "fixed",
       }}
     >
       <div

@@ -510,6 +510,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
             flexShrink: 1,
             flexBasis: "auto",
             overflowY: "auto", 
+            overscrollBehavior: "contain",
             minHeight: 0,
             width: "640px", 
             marginLeft: "30px", 
