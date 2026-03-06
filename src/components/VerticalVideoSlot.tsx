@@ -49,7 +49,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   }, [asset?.id, asset?.src]);
 
   // Recovery logic
-  const attemptRecovery = React.useCallback((video: HTMLVideoElement) => {
+  const attemptRecovery = React.useCallback(() => {
     if (retryCountRef.current < MAX_RETRY_COUNT) {
       retryCountRef.current += 1;
       const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCountRef.current - 1);
@@ -107,7 +107,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
           networkState: video.networkState,
           currentTime: video.currentTime,
         });
-        attemptRecovery(video);
+        attemptRecovery();
       }
     }, 10000);
 
@@ -135,7 +135,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
             readyState: video.readyState,
             elapsed,
           });
-          attemptRecovery(video);
+          attemptRecovery();
         }
       }
     }, HEALTH_CHECK_INTERVAL_MS);
@@ -465,7 +465,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
             });
             setErrorMsg(`Video Error: ${msg} (Code: ${video.error?.code})`);
 
-            attemptRecovery(video);
+            attemptRecovery();
           }}
         />
     </div>
