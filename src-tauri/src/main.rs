@@ -11,7 +11,7 @@ use std::sync::{Mutex, OnceLock};
 use chrono::Local;
 use sysinfo::System;
 use std::io::Read as _;
-use tauri::Emitter;
+use tauri::{Emitter, RunEvent};
 
 // ---------------------------------------------------------------------------
 // State management structure
@@ -1094,10 +1094,47 @@ fn quit_app(app: tauri::AppHandle) {
 }
 
 // ---------------------------------------------------------------------------
+// Native-side log helper (writes directly to log file without Tauri IPC)
+// Used by panic hook and exit handler where IPC is unavailable.
+// ---------------------------------------------------------------------------
+
+fn native_log(level: &str, tag: &str, message: &str) {
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
+    let entry = format!("[{}] [{}] [{}] {}\n", timestamp, level, tag, message);
+
+    if let Ok(log_file_path) = get_log_file_path() {
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_file_path) {
+            let _ = file.write_all(entry.as_bytes());
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // App entry point
 // ---------------------------------------------------------------------------
 
 fn main() {
+    // Panic hook: log the panic info before the process aborts
+    std::panic::set_hook(Box::new(|info| {
+        let payload = if let Some(s) = info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Unknown panic payload".to_string()
+        };
+
+        let location = info.location().map_or("unknown".to_string(), |loc| {
+            format!("{}:{}:{}", loc.file(), loc.line(), loc.column())
+        });
+
+        native_log(
+            "FATAL",
+            "PANIC",
+            &format!("Rust panic at {}: {}", location, payload),
+        );
+    }));
+
     let builder = tauri::Builder::default()
         .manage(AppState::default())
         .plugin(tauri_plugin_fs::init())
@@ -1133,5 +1170,17 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(|_app_handle, _event| {});
+    native_log("INFO", "LIFECYCLE", "Application started");
+
+    app.run(|_app_handle, event| {
+        match &event {
+            RunEvent::ExitRequested { .. } => {
+                native_log("WARN", "LIFECYCLE", "ExitRequested event received");
+            }
+            RunEvent::Exit => {
+                native_log("INFO", "LIFECYCLE", "Exit event — process shutting down");
+            }
+            _ => {}
+        }
+    });
 }
