@@ -2,6 +2,7 @@
 // Main entry point for the React application
 import React, { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { invoke } from '@tauri-apps/api/core'
 import './styles/index.css'
 import App from './App.tsx'
 import './styles/fonts.css'
@@ -9,6 +10,11 @@ import './styles/location-icons.css'
 import { PatchScreen } from './screens/PatchScreen'
 import { MallProvider } from './contexts/MallContext';
 import { AudioSettingsProvider } from './contexts/AudioSettingsContext';
+
+// Send initial watchdog ping immediately — before React renders.
+// This ensures the Rust watchdog knows the WebView JS engine is alive
+// even if React component mounting fails.
+invoke('webview_ping').catch(() => {});
 
 // Simple Error Boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
