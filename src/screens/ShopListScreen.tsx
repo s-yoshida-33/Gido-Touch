@@ -43,9 +43,22 @@ import { filterGenreMemos, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils
 import { getShopImageDataUrl } from "../utils/imageUtils";
 import type { SubFloorSettings } from "../types/global";
 
-// Simple in-memory cache for image URLs to prevent flickering
+// LRU image cache to prevent flickering while avoiding unbounded memory growth.
+// Each data URL can be 100KB–5MB; cap at 50 entries to keep memory under ~250MB.
+const IMAGE_CACHE_MAX = 50;
 const imageCache = new Map<string, string>();
 const pendingRequests = new Map<string, Promise<string | null>>();
+
+function imageCacheSet(key: string, value: string) {
+  // Delete first so re-insertion moves to end (Map preserves insertion order)
+  imageCache.delete(key);
+  imageCache.set(key, value);
+  // Evict oldest entries when over limit
+  if (imageCache.size > IMAGE_CACHE_MAX) {
+    const firstKey = imageCache.keys().next().value;
+    if (firstKey !== undefined) imageCache.delete(firstKey);
+  }
+}
 
 /**
  * Build image path using shop_id if photo is relative or filename only
@@ -175,7 +188,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
       try {
         const dataUrl = await loadPromise;
         if (dataUrl) {
-          imageCache.set(cacheKey, dataUrl);
+          imageCacheSet(cacheKey, dataUrl);
           setImageUrl(dataUrl);
         }
       } finally {
