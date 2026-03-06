@@ -34,6 +34,7 @@ import type { MallSettingsFile, GlobalSettings } from "./utils/settings";
 import { DEFAULT_CATEGORY_MAPPINGS, DEFAULT_IGNORED_GENRE_KEYWORDS } from "./utils/genreUtils";
 import { getVersion } from "@tauri-apps/api/app";
 import { useHeartbeat } from "./hooks/useHeartbeat";
+import { useWebViewPing } from "./hooks/useWebViewPing";
 import { useMall } from "./contexts/MallContext";
 import MallSelectScreen from "./screens/MallSelectScreen";
 
@@ -101,6 +102,9 @@ class ErrorBoundary extends React.Component<
 const App: React.FC = () => {
   // Heartbeat (system info + hourly logging)
   useHeartbeat();
+
+  // WebView watchdog ping
+  useWebViewPing();
 
   // MallContext for propagating mall changes to the entire app
   const { setMallId: setContextMallId } = useMall();
