@@ -24,6 +24,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     const handleContextMenu = (event: MouseEvent) => {
       event.preventDefault();
 
+      // Only open menu on real mouse right-click, ignore touch-triggered contextmenu
+      if (event.button !== 2) return;
+
       // Clamp position so menu doesn't overflow the viewport
       const menuWidth = 220;
       const menuHeight = 200; // approximate
