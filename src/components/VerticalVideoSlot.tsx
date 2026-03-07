@@ -36,6 +36,31 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   const [videoKey, setVideoKey] = React.useState<number>(0);
   const recreateCountRef = React.useRef<number>(0);
 
+  // Cleanup video resources and timers on unmount to prevent memory leaks.
+  // When CMS asset becomes null, React unmounts the video element but Chromium
+  // may retain decoded frame buffers unless explicitly released.
+  React.useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.removeAttribute('src');
+        videoRef.current.load();
+      }
+      if (retryTimerRef.current !== undefined) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = undefined;
+      }
+      if (freezeTimerRef.current !== undefined) {
+        window.clearInterval(freezeTimerRef.current);
+        freezeTimerRef.current = undefined;
+      }
+      if (healthCheckTimerRef.current !== undefined) {
+        window.clearInterval(healthCheckTimerRef.current);
+        healthCheckTimerRef.current = undefined;
+      }
+    };
+  }, []);
+
   // Reset error and retry count when asset changes
   React.useEffect(() => {
     setErrorMsg(null);
