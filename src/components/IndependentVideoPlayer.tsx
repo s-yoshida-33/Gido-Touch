@@ -587,6 +587,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           // If the video source doesn't contain the expected filename, or is empty
           if (!activeVideo.src || !srcDecoded.includes(filename)) {
               retryCountRef.current = 0; // Reset retry count on track change
+              // Release decoded frames before loading new source (e.g., at playlist reshuffle
+              // boundary where preloaded content no longer matches the new playlist order).
+              if (activeVideo.src) {
+                  activeVideo.pause();
+                  activeVideo.removeAttribute('src');
+                  activeVideo.load();
+              }
               activeVideo.src = fileUrl;
               activeVideo.load();
               
@@ -619,9 +626,17 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
               const nextSrcDecoded = decodeURIComponent(inactiveVideo.src);
 
               if (!inactiveVideo.src || !nextSrcDecoded.includes(nextFilename)) {
+                  // Release decoded frames from previous preload before loading new content.
+                  // Without this, Chromium accumulates decoded frame buffers when switching
+                  // preloaded videos, causing memory growth in long-running sessions.
+                  if (inactiveVideo.src) {
+                      inactiveVideo.pause();
+                      inactiveVideo.removeAttribute('src');
+                      inactiveVideo.load();
+                  }
                   inactiveVideo.src = nextFileUrl;
-                  inactiveVideo.load(); // Load metadata/data in background
-                  inactiveVideo.muted = audioSettings.localMediaMuted; // Prepare mute state
+                  inactiveVideo.load();
+                  inactiveVideo.muted = audioSettings.localMediaMuted;
               }
           }
       }
