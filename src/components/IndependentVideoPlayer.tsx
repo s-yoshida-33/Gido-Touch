@@ -164,6 +164,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const videoRefB = React.useRef<HTMLVideoElement>(null);
   const [activePlayerId, setActivePlayerId] = React.useState<'A' | 'B'>('A');
 
+  // Keys to force DOM element recreation on track change.
+  // Incrementing a video's key destroys the old <video> DOM element and creates a fresh one,
+  // which forces Chromium to fully tear down the hardware decoder pipeline and release GPU
+  // textures that persist across src changes on the same element.
+  const [videoKeyA, setVideoKeyA] = React.useState<number>(0);
+  const [videoKeyB, setVideoKeyB] = React.useState<number>(0);
+
   const imgRef = React.useRef<HTMLImageElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   
@@ -513,6 +520,16 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           outgoingVideo.pause();
           outgoingVideo.removeAttribute('src');
           outgoingVideo.load();
+        }
+
+        // Force React to destroy and recreate the outgoing video's DOM element.
+        // This is necessary because Chromium's hardware decoder retains GPU textures
+        // and internal pipeline state even after src removal on the same element.
+        // Destroying the DOM element forces a full teardown of the decoder pipeline.
+        if (activePlayerId === 'A') {
+          setVideoKeyA(prev => prev + 1);
+        } else {
+          setVideoKeyB(prev => prev + 1);
         }
 
         if (playlist.length > 1) {
@@ -906,9 +923,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       <>
         {/* Video Player A */}
         <video
+            key={`video-a-${videoKeyA}`}
             ref={videoRefA}
             muted={audioSettings.localMediaMuted}
             playsInline
+            preload="none"
             style={{
                 width: '100%',
                 height: '100%',
@@ -925,9 +944,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         />
         {/* Video Player B */}
         <video
+            key={`video-b-${videoKeyB}`}
             ref={videoRefB}
             muted={audioSettings.localMediaMuted}
             playsInline
+            preload="none"
             style={{
                 width: '100%',
                 height: '100%',
