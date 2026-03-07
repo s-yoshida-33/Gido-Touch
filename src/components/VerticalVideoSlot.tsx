@@ -180,7 +180,11 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   React.useEffect(() => {
     if (asset && asset.id !== prevAssetIdRef.current) {
       setObjectFit('cover');
+      // Release decoded video frames before loading new asset to prevent memory leak.
+      // Without this, Chromium accumulates decoded frame buffers across asset changes.
       if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.removeAttribute('src');
         videoRef.current.load();
       }
       if (imgRef.current) {

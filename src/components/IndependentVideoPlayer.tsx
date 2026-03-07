@@ -505,6 +505,16 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         lastHeartbeatTimeRef.current = Date.now();
         lastGoodStateTimeRef.current = Date.now();
 
+        // Release decoded video frames from the outgoing player to prevent memory leak.
+        // Without this, Chromium accumulates decoded frame buffers across track changes,
+        // causing ~1.9 GB/hour memory growth in long-running kiosk sessions.
+        const outgoingVideo = getActiveVideo();
+        if (outgoingVideo) {
+          outgoingVideo.pause();
+          outgoingVideo.removeAttribute('src');
+          outgoingVideo.load();
+        }
+
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
           const prevPlayer = activePlayerId;
