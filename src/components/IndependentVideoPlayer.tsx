@@ -164,13 +164,6 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const videoRefB = React.useRef<HTMLVideoElement>(null);
   const [activePlayerId, setActivePlayerId] = React.useState<'A' | 'B'>('A');
 
-  // Keys to force DOM element recreation on track change.
-  // Incrementing a video's key destroys the old <video> DOM element and creates a fresh one,
-  // which forces Chromium to fully tear down the hardware decoder pipeline and release GPU
-  // textures that persist across src changes on the same element.
-  const [videoKeyA, setVideoKeyA] = React.useState<number>(0);
-  const [videoKeyB, setVideoKeyB] = React.useState<number>(0);
-
   const imgRef = React.useRef<HTMLImageElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   
@@ -474,13 +467,18 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
   // Double buffering and playback management
   React.useEffect(() => {
-    // If we have an override image, do not play video/playlist
+    // If we have an override image, fully release video resources (GPU/decoder).
+    // Just pausing leaves decoded frames in memory. Clearing src forces the
+    // decoder pipeline to release buffers. Playback position is already saved
+    // in pendingSeekTimeRef for seamless resume after override ends.
     if (overrideImage) {
-        // Pause both videos
-        const vA = videoRefA.current;
-        const vB = videoRefB.current;
-        if (vA) vA.pause();
-        if (vB) vB.pause();
+        [videoRefA.current, videoRefB.current].forEach(v => {
+            if (v && v.src) {
+                v.pause();
+                v.removeAttribute('src');
+                v.load();
+            }
+        });
         return;
     }
 
@@ -513,23 +511,15 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         lastGoodStateTimeRef.current = Date.now();
 
         // Release decoded video frames from the outgoing player to prevent memory leak.
-        // Without this, Chromium accumulates decoded frame buffers across track changes,
-        // causing ~1.9 GB/hour memory growth in long-running kiosk sessions.
+        // pause + removeAttribute('src') + load() on the SAME element is sufficient to
+        // release decoder buffers. Do NOT recreate the DOM element via React key changes,
+        // as destroyed elements become "Detached DOM" that Chromium's media pipeline
+        // keeps referenced, causing memory to accumulate instead of being freed.
         const outgoingVideo = getActiveVideo();
         if (outgoingVideo) {
           outgoingVideo.pause();
           outgoingVideo.removeAttribute('src');
           outgoingVideo.load();
-        }
-
-        // Force React to destroy and recreate the outgoing video's DOM element.
-        // This is necessary because Chromium's hardware decoder retains GPU textures
-        // and internal pipeline state even after src removal on the same element.
-        // Destroying the DOM element forces a full teardown of the decoder pipeline.
-        if (activePlayerId === 'A') {
-          setVideoKeyA(prev => prev + 1);
-        } else {
-          setVideoKeyB(prev => prev + 1);
         }
 
         if (playlist.length > 1) {
@@ -923,11 +913,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       <>
         {/* Video Player A */}
         <video
-            key={`video-a-${videoKeyA}`}
             ref={videoRefA}
             muted={audioSettings.localMediaMuted}
             playsInline
-            preload="none"
             style={{
                 width: '100%',
                 height: '100%',
@@ -944,11 +932,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         />
         {/* Video Player B */}
         <video
-            key={`video-b-${videoKeyB}`}
             ref={videoRefB}
             muted={audioSettings.localMediaMuted}
             playsInline
-            preload="none"
             style={{
                 width: '100%',
                 height: '100%',

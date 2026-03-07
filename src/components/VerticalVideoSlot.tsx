@@ -386,7 +386,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         {renderOverlay()}
         <video
           ref={videoRef}
-          key={`${mediaKey}-${videoKey}`}
+          key={`video-slot-${videoKey}`}
           src={asset.src}
           autoPlay
           muted={audioSettings.cmsMuted}
