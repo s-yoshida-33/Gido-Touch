@@ -182,9 +182,13 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       setObjectFit('cover');
       // Release decoded video frames before loading new asset to prevent memory leak.
       // Without this, Chromium accumulates decoded frame buffers across asset changes.
+      // After clearing, re-set the new src because useEffect runs after React's DOM update,
+      // so removeAttribute('src') would otherwise erase the new src that React already applied.
       if (videoRef.current) {
         videoRef.current.pause();
         videoRef.current.removeAttribute('src');
+        videoRef.current.load();
+        videoRef.current.src = asset.src;
         videoRef.current.load();
       }
       if (imgRef.current) {
