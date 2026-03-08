@@ -1,10 +1,13 @@
 // src/components/IndependentVideoPlayer.tsx
 import React from 'react';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { useIndependentVideo } from '../hooks/useIndependentVideo';
-import { useAudioSettings } from '../hooks/useAudioSettings';
-import { logInfo, logError, logWarn } from '../logs/logging';
+import { useAudioSettingsContext } from '../contexts/AudioSettingsContext';
+import { useMall } from '../contexts/MallContext';
+import { logInfo, logError, logWarn, logDebug } from '../logs/logging';
 import type { Shop } from '../types/shop';
 import { getDefaultMediaSettings } from '../utils/localMediaUtils';
+import { getShopImageDataUrl } from '../utils/imageUtils';
 
 /**
  * Check if a URL is a video file
@@ -52,6 +55,37 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
+ * Filter media files to only include those whose shopId matches an active shop.
+ * Prevents playback of videos from shops that have left (退店).
+ * Files whose filename (without extension) does not match any shop's shopId are excluded.
+ */
+function filterByActiveShops(files: string[], shops: Shop[]): string[] {
+  if (shops.length === 0) return files; // If shops not yet loaded, don't filter
+  const filtered = files.filter(file => {
+    const filename = extractFilename(file);
+    const shopId = filename.replace(/\.[^/.]+$/, "");
+    const matched = shops.some(s => String(s.shopId) === String(shopId));
+    if (!matched) {
+      logWarn('VIDEO', `Skipped local media: shopId not found`, {
+        shopId,
+        filename,
+        file,
+      });
+    }
+    return matched;
+  });
+  if (filtered.length < files.length) {
+    const skippedCount = files.length - filtered.length;
+    logInfo('MEDIA_FILTER', `Filtered out ${skippedCount} media file(s) with no matching shop`, {
+      total: files.length,
+      active: filtered.length,
+      skipped: skippedCount,
+    });
+  }
+  return filtered;
+}
+
+/**
  * Build image path using shop_id if photo is relative or filename only
  * Copied from ShopListScreen.tsx for consistency
  */
@@ -88,21 +122,22 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
 }
 
 /**
- * Convert a local file path to a file:// URL for Electron
+ * Convert a local file path to an asset protocol URL for Tauri WebView.
+ * Uses Tauri's convertFileSrc to generate an asset:// URL.
  */
-function toFileUrl(filePath: string): string {
+function toAssetUrl(filePath: string): string {
   if (!filePath) return "";
-  if (filePath.startsWith("file://") || filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:")) {
+  if (filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:") || filePath.startsWith("asset:")) {
     return filePath;
   }
-  const normalized = filePath.replace(/\\/g, "/");
-  if (normalized.match(/^[A-Za-z]:\//)) {
-    return `file:///${normalized}`;
+  // Strip file:// prefix if present
+  let cleaned = filePath;
+  if (cleaned.startsWith("file:///")) {
+    cleaned = cleaned.slice(8);
+  } else if (cleaned.startsWith("file://")) {
+    cleaned = cleaned.slice(7);
   }
-  if (normalized.startsWith("/")) {
-    return `file://${normalized}`;
-  }
-  return `file:///${normalized}`;
+  return convertFileSrc(cleaned);
 }
 
 interface IndependentVideoPlayerProps {
@@ -121,7 +156,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   overrideShopId = null,
 }) => {
   const { videoSettings, isLoading } = useIndependentVideo();
-  const { settings: audioSettings } = useAudioSettings();
+  const { audioSettings } = useAudioSettingsContext();
+  const { mallId } = useMall();
   
   // Double buffering refs
   const videoRefA = React.useRef<HTMLVideoElement>(null);
@@ -145,7 +181,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const currentSrcRef = React.useRef<string | null>(null);
   
   // Local reload trigger for when mall ID changes
-  const [localReload, setLocalReload] = React.useState(0);
+  const [localReload] = React.useState(0);
   
   // Save previous state for override
   const savedStateRef = React.useRef<{ playlist: string[], index: number, currentTime: number } | null>(null);
@@ -153,11 +189,28 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   // Seek wait time
   const pendingSeekTimeRef = React.useRef<number | null>(null);
   
+  // Video error retry
+  const MAX_RETRY_COUNT = 3;
+  const retryCountRef = React.useRef<number>(0);
+
   // Watchdog refs
   const lastTimeRef = React.useRef<number>(0);
   const freezeCounterRef = React.useRef<number>(0);
   const lastHeartbeatTimeRef = React.useRef<number>(Date.now());
   const lastGoodStateTimeRef = React.useRef<number>(Date.now());
+
+  // Cleanup video elements on unmount to prevent memory leaks from long-running playback
+  React.useEffect(() => {
+    return () => {
+      [videoRefA.current, videoRefB.current].forEach(video => {
+        if (video) {
+          video.pause();
+          video.removeAttribute('src');
+          video.load(); // Forces release of media resources
+        }
+      });
+    };
+  }, []);
 
   // Helper to get active/inactive video refs
   const getActiveVideo = () => activePlayerId === 'A' ? videoRefA.current : videoRefB.current;
@@ -235,16 +288,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     </div>
   );
 
-  // Listen for Mall ID updates
-  React.useEffect(() => {
-    const unsubscribe = window.electronAPI?.onMallIdUpdated?.(() => {
-      logInfo('SYS_INIT', 'Mall ID updated, reloading media files');
-      setLocalReload(prev => prev + 1);
-    });
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
+  // Mall ID changes are now handled via props/context, no IPC subscription needed
+  // The component will re-render when mallId changes in context
 
   // Update playlist when overrideShopId changes
   React.useEffect(() => {
@@ -264,7 +309,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       });
 
       if (shopFiles.length > 0) {
-        logInfo('MEDIA_SWAP', `Overriding playlist for shop: ${overrideShopId}`, { count: shopFiles.length });
+        logDebug('MEDIA_SWAP', `Overriding playlist for shop: ${overrideShopId}`, { count: shopFiles.length });
         
         // Save current state before overriding, if not already saved
         // IMPORTANT: Only save if we are transitioning from a non-override state
@@ -281,7 +326,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         setCurrentIndex(0);
         setOverrideImage(null); // Clear override image
       } else {
-        logInfo('MEDIA_SWAP', `No local media found for shop override: ${overrideShopId}. Trying shop details image.`);
+        logWarn('MEDIA_SWAP', `No local media found for shop override: ${overrideShopId}. Trying shop details image.`);
         
         // 2. If no local media, try to load shop image
         // Find shop using loose equality
@@ -297,21 +342,16 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 const imagePath = buildImagePath(photoToUse, overrideShopId);
                 
                 if (imagePath) {
-                   const electronAPI = window.electronAPI;
-                   if (electronAPI && electronAPI.getShopImage) {
-                      try {
-                         const dataUrl = await electronAPI.getShopImage(imagePath);
-                         if (dataUrl) {
-                            setOverrideImage(dataUrl);
-                         } else {
-                            setOverrideImage(toFileUrl(imagePath));
-                         }
-                      } catch (e) {
-                         console.error("Failed to load shop image", e);
-                         setOverrideImage(toFileUrl(imagePath));
+                   try {
+                      const dataUrl = await getShopImageDataUrl(imagePath);
+                      if (dataUrl) {
+                         setOverrideImage(dataUrl);
+                      } else {
+                         setOverrideImage(toAssetUrl(imagePath));
                       }
-                   } else {
-                      setOverrideImage(toFileUrl(imagePath));
+                   } catch (e) {
+                      console.error("Failed to load shop image", e);
+                      setOverrideImage(toAssetUrl(imagePath));
                    }
                 }
                 setIsOverrideImageLoading(false);
@@ -330,7 +370,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
              setPlaylist([]); // Clear playlist to stop playing previous
           } else {
             // No photo available
-            logInfo('MEDIA_SWAP', `No shop photo found for shop: ${overrideShopId}`);
+            logWarn('MEDIA_SWAP', `No shop photo found for shop: ${overrideShopId}`);
             setOverrideImage(null);
           }
         }
@@ -340,7 +380,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       setOverrideImage(null);
       
       if (savedStateRef.current) {
-         logInfo('MEDIA_SWAP', 'Restoring playlist from override');
+         logDebug('MEDIA_SWAP', 'Restoring playlist from override');
          
          const restoredPlaylist = savedStateRef.current.playlist;
          setPlaylist(restoredPlaylist);
@@ -357,8 +397,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
              // If videoSettings is enabled, empty playlist allows fallback to it.
              // If videoSettings is NOT enabled, we should play mediaFiles.
              if (!videoSettings?.enabled || !videoSettings.source) {
-                 logInfo('MEDIA_SWAP', 'Restored empty playlist but have media files, starting loop');
-                 setPlaylist(shuffleArray(mediaFiles));
+                 logDebug('MEDIA_SWAP', 'Restored empty playlist but have media files, starting loop');
+                 setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
                  setCurrentIndex(0);
              }
          }
@@ -368,13 +408,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         if (playlist.length === 0 && mediaFiles.length > 0) {
             // Check legacy video settings
             if (!videoSettings?.enabled || !videoSettings.source) {
-               setPlaylist(shuffleArray(mediaFiles));
+               setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
                setCurrentIndex(0);
             }
         }
       }
     }
-  }, [overrideShopId, mediaFiles]); // Removed 'shops' from deps to avoid loop
+  }, [overrideShopId, mediaFiles]); // 'shops' intentionally omitted to avoid loop
 
   // Load media files from local directory
   React.useEffect(() => {
@@ -382,26 +422,19 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
     const loadMediaFiles = async () => {
       try {
-        if (!window.electronAPI?.getLocalMediaFiles) {
-          logWarn('SYS_INIT', 'electronAPI.getLocalMediaFiles is not available');
-          if (isMounted) {
-            setIsLoadingMedia(false);
-          }
-          return;
-        }
-
-        const files = await window.electronAPI.getLocalMediaFiles();
+        const files = await invoke<string[]>('list_media_files', { mallId });
         
         if (!isMounted) return;
 
         if (files.length === 0) {
-          logWarn('SYS_INIT', 'No media files found in local directory');
+          logWarn('SYS_INIT', 'No media files found in local directory', { mallId });
           setIsLoadingMedia(false);
           return;
         }
 
         logInfo('SYS_INIT', 'Loaded media files from local directory', {
           count: files.length,
+          mallId,
           forceReload,
           localReload
         });
@@ -409,7 +442,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         setMediaFiles(files);
         // Only shuffle and set playlist if NOT in override mode
         if (!overrideShopId) {
-            setPlaylist(shuffleArray(files));
+            setPlaylist(shuffleArray(filterByActiveShops(files, shops)));
             setCurrentIndex(0);
         }
         
@@ -430,17 +463,22 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [forceReload, localReload]);
+  }, [forceReload, localReload, mallId]);
 
   // Double buffering and playback management
   React.useEffect(() => {
-    // If we have an override image, do not play video/playlist
+    // If we have an override image, fully release video resources (GPU/decoder).
+    // Just pausing leaves decoded frames in memory. Clearing src forces the
+    // decoder pipeline to release buffers. Playback position is already saved
+    // in pendingSeekTimeRef for seamless resume after override ends.
     if (overrideImage) {
-        // Pause both videos
-        const vA = videoRefA.current;
-        const vB = videoRefB.current;
-        if (vA) vA.pause();
-        if (vB) vB.pause();
+        [videoRefA.current, videoRefB.current].forEach(v => {
+            if (v && v.src) {
+                v.pause();
+                v.removeAttribute('src');
+                v.load();
+            }
+        });
         return;
     }
 
@@ -472,6 +510,18 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         lastHeartbeatTimeRef.current = Date.now();
         lastGoodStateTimeRef.current = Date.now();
 
+        // Release decoded video frames from the outgoing player to prevent memory leak.
+        // pause + removeAttribute('src') + load() on the SAME element is sufficient to
+        // release decoder buffers. Do NOT recreate the DOM element via React key changes,
+        // as destroyed elements become "Detached DOM" that Chromium's media pipeline
+        // keeps referenced, causing memory to accumulate instead of being freed.
+        const outgoingVideo = getActiveVideo();
+        if (outgoingVideo) {
+          outgoingVideo.pause();
+          outgoingVideo.removeAttribute('src');
+          outgoingVideo.load();
+        }
+
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
           const prevPlayer = activePlayerId;
@@ -487,8 +537,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           const nextVideoElement = nextPlayer === 'A' ? videoRefA.current : videoRefB.current;
           const nextReadyState = nextVideoElement ? nextVideoElement.readyState : 'null';
 
+          // Reset retry count on successful track change
+          retryCountRef.current = 0;
+
           // Log detailed swap info
-          logInfo('MEDIA_SWAP', 'Local media player swapped', {
+          logDebug('MEDIA_SWAP', 'Local media player swapped', {
             activePlayer: nextPlayer,
             fromPlayer: prevPlayer,
             file: nextFilename,
@@ -500,14 +553,14 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
           if (nextIndex >= playlist.length) {
             // Reached end of playlist
-            logInfo('MEDIA_SWAP', 'Playlist cycle completed');
+            logDebug('MEDIA_SWAP', 'Playlist cycle completed');
             
             if (overrideShopId) {
                // In override mode, just loop back
                setCurrentIndex(0);
             } else {
                // Normal mode: reshuffle and restart
-               setPlaylist(shuffleArray(mediaFiles));
+               setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
                setCurrentIndex(0);
             }
           } else {
@@ -529,17 +582,25 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       // Playback Logic
       if (activeVideo) {
           // If source changed or not set
-          const fileUrl = toFileUrl(currentFile);
+          const fileUrl = toAssetUrl(currentFile);
           
           // Check if src needs update. 
           // Note: src might be fully qualified or relative, so simple check might fail. 
-          // But if we use toFileUrl consistently it should be fine.
+          // But if we use toAssetUrl consistently it should be fine.
           // We check if the current src ends with the filename to be safe against base URL diffs
           const filename = extractFilename(currentFile);
           const srcDecoded = decodeURIComponent(activeVideo.src);
           
           // If the video source doesn't contain the expected filename, or is empty
           if (!activeVideo.src || !srcDecoded.includes(filename)) {
+              retryCountRef.current = 0; // Reset retry count on track change
+              // Release decoded frames before loading new source (e.g., at playlist reshuffle
+              // boundary where preloaded content no longer matches the new playlist order).
+              if (activeVideo.src) {
+                  activeVideo.pause();
+                  activeVideo.removeAttribute('src');
+                  activeVideo.load();
+              }
               activeVideo.src = fileUrl;
               activeVideo.load();
               
@@ -567,14 +628,22 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
           // Preload Next Video on the Inactive Player
           if (inactiveVideo && nextFile && playlist.length > 1 && isVideoFile(nextFile)) {
-              const nextFileUrl = toFileUrl(nextFile);
+              const nextFileUrl = toAssetUrl(nextFile);
               const nextFilename = extractFilename(nextFile);
               const nextSrcDecoded = decodeURIComponent(inactiveVideo.src);
 
               if (!inactiveVideo.src || !nextSrcDecoded.includes(nextFilename)) {
+                  // Release decoded frames from previous preload before loading new content.
+                  // Without this, Chromium accumulates decoded frame buffers when switching
+                  // preloaded videos, causing memory growth in long-running sessions.
+                  if (inactiveVideo.src) {
+                      inactiveVideo.pause();
+                      inactiveVideo.removeAttribute('src');
+                      inactiveVideo.load();
+                  }
                   inactiveVideo.src = nextFileUrl;
-                  inactiveVideo.load(); // Load metadata/data in background
-                  inactiveVideo.muted = audioSettings.localMediaMuted; // Prepare mute state
+                  inactiveVideo.load();
+                  inactiveVideo.muted = audioSettings.localMediaMuted;
               }
           }
       }
@@ -583,21 +652,42 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       const onEnded = () => handleNext();
       const onStalled = () => logWarn('VIDEO', 'Playback stalled', { file: currentFile });
       
-      // Error handling for active video
+      // Error handling for active video with retry
       const onError = (e: Event) => {
           const target = e.currentTarget as HTMLVideoElement;
+          const fileName = extractFilename(currentFile);
           logError('VIDEO', 'Video playback error', {
-              file: extractFilename(currentFile), // Use extractFilename for better readability
+              file: fileName,
               error: target.error?.message,
               code: target.error?.code,
               readyState: target.readyState,
               networkState: target.networkState,
               currentTime: target.currentTime.toFixed(2),
               duration: target.duration?.toFixed(2),
-              buffered: getBufferedRanges(target)
+              buffered: getBufferedRanges(target),
+              retryCount: retryCountRef.current,
           });
-          // Force skip to next
-          handleNext();
+
+          // Retry before skipping (HW decode errors are often transient)
+          if (retryCountRef.current < MAX_RETRY_COUNT) {
+              retryCountRef.current += 1;
+              logWarn('VIDEO', `Retrying video load (${retryCountRef.current}/${MAX_RETRY_COUNT})`, {
+                  file: fileName,
+              });
+              setTimeout(() => {
+                  if (target && target.src) {
+                      target.load();
+                      target.play().catch(() => {});
+                  }
+              }, 1000);
+          } else {
+              logError('VIDEO', 'Max retry count reached, skipping to next', {
+                  file: fileName,
+                  retryCount: retryCountRef.current,
+              });
+              retryCountRef.current = 0;
+              handleNext();
+          }
       };
 
       if (activeVideo) {
@@ -720,11 +810,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         if (playlist.length > 1) {
           const nextIndex = currentIndex + 1;
           if (nextIndex >= playlist.length) {
-            logInfo('MEDIA_SWAP', 'Playlist cycle completed');
+            logDebug('MEDIA_SWAP', 'Playlist cycle completed');
             if (overrideShopId) {
                setCurrentIndex(0);
             } else {
-               setPlaylist(shuffleArray(mediaFiles));
+               setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
                setCurrentIndex(0);
             }
           } else {
@@ -733,7 +823,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         }
       }, 15000); // 15 seconds for images
       
-      logInfo('MEDIA_SWAP', 'Showing image from local directory', {
+      logDebug('MEDIA_SWAP', 'Showing image from local directory', {
         file: currentFile,
       });
 
@@ -741,6 +831,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         clearTimeout(timer);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlist, currentIndex, isLoadingMedia, mediaFiles, audioSettings.localMediaMuted, overrideShopId, overrideImage, activePlayerId]);
 
   // Handle video settings changes (legacy support)
@@ -874,13 +965,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 backgroundColor: '#000000',
                 display: 'block'
               }}
-              onError={(_e) => {
+              onError={() => {
                 logError('VIDEO', 'Image load error', { file: currentFile });
                 // Skip to next
                 const nextIndex = currentIndex + 1;
                 if (nextIndex >= playlist.length) {
                    if (overrideShopId) setCurrentIndex(0);
-                   else { setPlaylist(shuffleArray(mediaFiles)); setCurrentIndex(0); }
+                   else { setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops))); setCurrentIndex(0); }
                 } else {
                    setCurrentIndex(nextIndex);
                 }

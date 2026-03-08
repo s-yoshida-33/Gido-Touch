@@ -1,13 +1,20 @@
 // src/main.tsx
 // Main entry point for the React application
-import React, { StrictMode } from 'react'
+import React, { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { invoke } from '@tauri-apps/api/core'
 import './styles/index.css'
 import App from './App.tsx'
 import './styles/fonts.css'
 import './styles/location-icons.css'
 import { PatchScreen } from './screens/PatchScreen'
 import { MallProvider } from './contexts/MallContext';
+import { AudioSettingsProvider } from './contexts/AudioSettingsContext';
+
+// Send initial watchdog ping immediately — before React renders.
+// This ensures the Rust watchdog knows the WebView JS engine is alive
+// even if React component mounting fails.
+invoke('webview_ping').catch(() => {});
 
 // Simple Error Boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
@@ -39,19 +46,35 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
-// Decide which screen to render based on URL hash
-const isPatchMode = window.location.hash === '#patch';
+// Root component: PatchScreen → App transition via React state
+// On page reload (e.g. context menu "Reload"), skip PatchScreen if already completed once
+function Root() {
+  const [showApp, setShowApp] = useState(() => {
+    return sessionStorage.getItem('patchCompleted') === 'true';
+  });
+
+  const handlePatchComplete = () => {
+    sessionStorage.setItem('patchCompleted', 'true');
+    setShowApp(true);
+  };
+
+  if (showApp) {
+    return (
+      <MallProvider>
+        <AudioSettingsProvider>
+          <App />
+        </AudioSettingsProvider>
+      </MallProvider>
+    );
+  }
+
+  return <PatchScreen onComplete={handlePatchComplete} />;
+}
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
     <ErrorBoundary>
-      {isPatchMode ? (
-        <PatchScreen />
-      ) : (
-        <MallProvider>
-          <App />
-        </MallProvider>
-      )}
+      <Root />
     </ErrorBoundary>
   </StrictMode>,
 );

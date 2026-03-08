@@ -17,7 +17,7 @@ import type { FloorId, FloorLayout } from "../types/floorLayout";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import { ShopPin } from "../components/ShopPin";
 
-import { logInfo, logError } from "../logs/logging";
+import { logInfo, logError, logDebug } from "../logs/logging";
 
 const LIST_HEIGHT_VH = APP_CONFIG.listHeightVh;
 const TOP_HEIGHT_VH = 100 - LIST_HEIGHT_VH;
@@ -70,67 +70,11 @@ const GidoApp: React.FC<GidoAppProps> = ({
     previewFloorLayout ?? DEFAULT_FLOOR_LAYOUT
   );
 
-  useEffect(() => {
-    if (previewFloor || !window.electronAPI?.getFloor) {
-      return;
-    }
+  // Floor is now managed via props from App.tsx settings.
+  // No need for Electron IPC subscriptions.
 
-    let cancelled = false;
-
-    const init = async () => {
-      try {
-        const current = await window.electronAPI!.getFloor();
-        if (!cancelled && current) {
-          setFloor(current);
-        }
-      } catch (e) {
-        console.error("Failed to get floor from Electron", e);
-      }
-    };
-
-    init();
-
-    window.electronAPI.onFloorChanged((nextFloor) => {
-      if (!cancelled) {
-        setFloor(nextFloor);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [previewFloor]);
-
-  useEffect(() => {
-    const api = window.electronAPI;
-    if (previewFloorLayout || !api) return;
-
-    let cancelled = false;
-
-    const init = async () => {
-      try {
-        const layout = await api.getFloorLayout();
-        if (!cancelled && layout) {
-          setFloorLayout(layout);
-        }
-      } catch (e) {
-        console.error("Failed to get floor layout from Electron", e);
-      }
-    };
-
-    init();
-
-    const unsubscribe = api.onFloorLayoutChanged((layout) => {
-      if (!cancelled) {
-        setFloorLayout(layout);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe && unsubscribe();
-    };
-  }, [previewFloorLayout]);
+  // Floor layout is now managed via props from App.tsx settings.
+  // No need for Electron IPC subscriptions.
 
   useEffect(() => {
     if (previewFloor !== undefined) {
@@ -206,6 +150,9 @@ const GidoApp: React.FC<GidoAppProps> = ({
         overflow: "visible",
         fontFamily: "'Rounded Mplus 1c', sans-serif",
         fontWeight: 700,
+        overscrollBehavior: "none",
+        touchAction: "none",
+        position: "fixed",
       }}
     >
       <div
@@ -467,11 +414,11 @@ const ShopPinsOverlay: React.FC<{
           display: "block"
         }}
         onLoad={() => {
-          logInfo("SYS_INIT", "Floor map image loaded", { floor, src: floorMap });
+          logDebug("SYS_INIT", "Floor map image loaded", { floor, src: floorMap?.startsWith('data:') ? `data:...(${floorMap.length} chars)` : floorMap });
           updateMetrics();
         }}
         onError={(event) => {
-          logError("SYS_INIT", "Failed to load floor map image", { floor, src: floorMap });
+          logError("SYS_INIT", "Failed to load floor map image", { floor, src: floorMap?.startsWith('data:') ? `data:...(${floorMap.length} chars)` : floorMap });
           (event.target as HTMLImageElement).style.visibility = "hidden";
         }}
       />

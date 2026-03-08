@@ -4,6 +4,7 @@ import { motion, type Variants } from "framer-motion";
 import type { ShopPosition } from "../types/shop";
 import type { AnimationConfig } from "../types/locationIcon";
 import speechBubbleIcon from "../assets/location/shop.svg";
+import { getShopImageDataUrl } from "../utils/imageUtils";
 
 const dropInVariants: Variants = {
   hidden: { 
@@ -187,10 +188,6 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   pixelY,
   delay = 0
 }) => {
-  if (position.enabled === false) {
-    return null;
-  }
-
   const size = position.size ?? 80;
   const rotation = position.rotation ?? 0;
   const shadow = position.shadow;
@@ -201,6 +198,8 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   const [logoLoading, setLogoLoading] = useState(true);
   
   useEffect(() => {
+    if (position.enabled === false) return;
+
     const logoPath = shopLogo || (shopId ? `files/shop/${shopId}/shop_logo.png` : undefined);
     
     if (!logoPath) {
@@ -215,19 +214,16 @@ export const ShopPin: React.FC<ShopPinProps> = ({
         return;
       }
 
-      const electronAPI = window.electronAPI;
-      if (electronAPI && electronAPI.getShopImage) {
-        try {
-          const normalizedPath = imagePath.replace(/\\/g, "/");
-          const dataUrl = await electronAPI.getShopImage(normalizedPath);
-          if (dataUrl) {
-            setLogoUrl(dataUrl);
-            setLogoLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.error("Failed to load logo via IPC:", error);
+      try {
+        const normalizedPath = imagePath.replace(/\\/g, "/");
+        const dataUrl = await getShopImageDataUrl(normalizedPath);
+        if (dataUrl) {
+          setLogoUrl(dataUrl);
+          setLogoLoading(false);
+          return;
         }
+      } catch (error) {
+        console.error("Failed to load logo via IPC:", error);
       }
 
       const fileUrl = toFileUrl(imagePath);
@@ -236,9 +232,14 @@ export const ShopPin: React.FC<ShopPinProps> = ({
     };
 
     loadLogo();
-  }, [shopLogo, shopId]);
+  }, [shopLogo, shopId, position.enabled]);
 
   const inverseScale = 1 / Math.max(transformScale, 0.1);
+
+  // Early return after all hooks
+  if (position.enabled === false) {
+    return null;
+  }
 
   // Determine coordinates: prioritize pixel props if enabled
   const left = usePixelPosition && pixelX !== undefined ? `${pixelX}px` : `${position.x}%`;

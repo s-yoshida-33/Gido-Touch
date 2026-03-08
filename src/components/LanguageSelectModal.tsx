@@ -200,6 +200,8 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
           bottom: 0,
           zIndex: 999,
           pointerEvents: "auto",
+          touchAction: "none",
+          overscrollBehavior: "none",
         }}
         onClick={onClose}
       />

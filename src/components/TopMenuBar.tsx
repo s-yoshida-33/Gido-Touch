@@ -1,5 +1,6 @@
 // src/components/TopMenuBar.tsx
 import React from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import type { CSSWithDrag } from '../types/CSSWithDrag';
 
 interface TopMenuBarProps {
@@ -112,13 +113,19 @@ export const TopMenuBar: React.FC<TopMenuBarProps> = ({
       <div style={{ flex: 1 }} />
 
       {/* Right-side action */}
-      <MenuButton onClick={() => window.electronAPI?.manualUpdateCheck()}>
+      <MenuButton onClick={() => {
+        // TODO: Implement Tauri updater check
+        console.log('Manual update check not yet implemented for Tauri');
+      }}>
         Check for updates
       </MenuButton>
-      <MenuButton onClick={() => window.electronAPI?.oneClickUpdate()}>
+      <MenuButton onClick={() => {
+        // TODO: Implement Tauri one-click update
+        console.log('One-click update not yet implemented for Tauri');
+      }}>
         Update now
       </MenuButton>
-      <MenuButton onClick={() => window.electronAPI?.quitApp()}>Quit</MenuButton>
+      <MenuButton onClick={() => invoke('quit_app')}>Quit</MenuButton>
     </div>
   );
 };
