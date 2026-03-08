@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { CmsSettings } from '../types/cmsSettings';
 import { logInfo, logError } from '../logs/logging';
+import { loadMallSettings, saveMallSettings } from '../utils/settings';
+import type { MallId } from '../utils/settings';
 
 interface UseCmsSettingsResult {
   settings: CmsSettings;
@@ -13,7 +15,7 @@ const DEFAULT_SETTINGS: CmsSettings = {
   categorySearchEnabled: true,
 };
 
-export function useCmsSettings(): UseCmsSettingsResult {
+export function useCmsSettings(mallId: MallId = 'suzaka'): UseCmsSettingsResult {
   const [settings, setSettings] = useState<CmsSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -22,17 +24,11 @@ export function useCmsSettings(): UseCmsSettingsResult {
 
     const loadSettings = async () => {
       try {
-        if (!window.electronAPI?.getCmsSettings) {
-          logInfo('CMS_SETTINGS', 'electronAPI.getCmsSettings is not available');
-          if (isMounted) setIsLoading(false);
-          return;
-        }
-
-        const loadedSettings = await window.electronAPI.getCmsSettings();
+        const mallSettings = await loadMallSettings(mallId);
         if (isMounted) {
-          setSettings(loadedSettings);
+          setSettings(mallSettings.cmsSettings);
           setIsLoading(false);
-          logInfo('CMS_SETTINGS', 'Loaded CMS settings', { enabled: loadedSettings.enabled });
+          logInfo('CMS_SETTINGS', 'Loaded CMS settings', { enabled: mallSettings.cmsSettings.enabled });
         }
       } catch (error: any) {
         logError('CMS_SETTINGS', 'Failed to load CMS settings', { error: error?.message });
@@ -42,25 +38,18 @@ export function useCmsSettings(): UseCmsSettingsResult {
 
     loadSettings();
 
-    const unsubscribe = window.electronAPI?.onCmsSettingsUpdated?.((updated) => {
-      if (isMounted) {
-        logInfo('CMS_SETTINGS', 'CMS settings updated', { enabled: updated.enabled });
-        setSettings(updated);
-      }
-    });
-
     return () => {
       isMounted = false;
-      if (unsubscribe) unsubscribe();
     };
-  }, []);
+  }, [mallId]);
 
   const updateSettings = async (newSettings: CmsSettings) => {
     try {
-      if (window.electronAPI?.saveCmsSettings) {
-        await window.electronAPI.saveCmsSettings(newSettings);
-        setSettings(newSettings);
-      }
+      const mallSettings = await loadMallSettings(mallId);
+      mallSettings.cmsSettings = newSettings;
+      await saveMallSettings(mallId, mallSettings);
+      setSettings(newSettings);
+      logInfo('CMS_SETTINGS', 'CMS settings saved', { enabled: newSettings.enabled });
     } catch (error: any) {
       logError('CMS_SETTINGS', 'Failed to save CMS settings', { error: error?.message });
       throw error;

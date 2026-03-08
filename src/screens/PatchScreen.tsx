@@ -1,167 +1,132 @@
+// src/screens/PatchScreen.tsx
+// Startup screen: app update check → media download → main app launch
 import { useEffect, useState } from 'react';
 import appIcon from '../../build/icon.ico';
-import type { StatusState } from '../types/global';
+import { useAutoUpdate } from '../hooks/useAutoUpdate';
+import { useMediaDownload } from '../hooks/useMediaDownload';
+import { getVersion } from '@tauri-apps/api/app';
 
-export function PatchScreen() {
-  const [statusState, setStatusState] = useState<StatusState>('checking');
-  const [statusMessage, setStatusMessage] = useState<string>('起動しています…');
-  // const [percent, setPercent] = useState<number | null>(null); // Replaced logic
-  const [percent, setPercent] = useState<number | null>(null);
-  const [transferred, setTransferred] = useState<number | null>(null);
-  const [total, setTotal] = useState<number | null>(null);
-  const [speed, setSpeed] = useState<number | null>(null);
+interface PatchScreenProps {
+  onComplete: () => void;
+}
+
+export function PatchScreen({ onComplete }: PatchScreenProps) {
+  const { updateStatus, installUpdate } = useAutoUpdate();
+  const { mediaStatus } = useMediaDownload();
   const [appVersion, setAppVersion] = useState<string>('');
-  
-  // Wait state
-  const [waitProgress, setWaitProgress] = useState(0);
-  const [isWaiting, setIsWaiting] = useState(false);
-  const [countdown, setCountdown] = useState(90);
 
+  // Load app version from Tauri
   useEffect(() => {
-    // Mock data for browser preview
-    const isBrowser = !window.electronAPI;
-    
-    if (isBrowser) {
-      // ... (keep existing browser mock if needed, or update it)
-      return;
-    }
-
-    if (!window.updater) return;
-
-    window.updater.onStatus((data) => {
-      setStatusState(data.state);
-
-      if (data.state === 'none' || data.state === 'error') {
-        setIsWaiting(true);
-        // setStatusMessage... is handled below in render
-        
-        // Clear download stats
-        setPercent(null);
-        setTransferred(null);
-        setTotal(null);
-        setSpeed(null);
-      } else {
-        setStatusMessage(data.message);
-      }
-    });
-
-    window.updater.onProgress((data) => {
-      setPercent(data.percent);
-      setTransferred(data.transferred);
-      setTotal(data.total);
-      setSpeed(data.speed);
-    });
-
-    // Notify main process that we are ready for updates
-    if (window.updater.checkForUpdatesReady) {
-      window.updater.checkForUpdatesReady();
-    }
+    getVersion()
+      .then((v) => setAppVersion(v))
+      .catch(() => setAppVersion(''));
   }, []);
 
+  // When update is ready, auto-relaunch after 5 seconds
   useEffect(() => {
-    if (!isWaiting) return;
-
-    const startTime = Date.now();
-    const duration = 90 * 1000;
-
-    const timer = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(100, (elapsed / duration) * 100);
-      setWaitProgress(progress);
-      
-      const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
-      setCountdown(remaining);
-
-      if (elapsed >= duration) {
-        clearInterval(timer);
-        finishWait();
-      }
-    }, 100);
-
-    return () => clearInterval(timer);
-  }, [isWaiting]);
-
-  const finishWait = () => {
-    if (window.updater?.startupWaitCompleted) {
-      window.updater.startupWaitCompleted();
+    if (updateStatus.status === 'ready') {
+      const timer = setTimeout(() => {
+        installUpdate();
+      }, 5000);
+      return () => clearTimeout(timer);
     }
-  };
+  }, [updateStatus.status, installUpdate]);
 
-  const handleSkip = () => {
-    finishWait();
-  };
-
+  // When app update and media download are both done, proceed immediately
   useEffect(() => {
-    // Mock data for browser preview
-    const isBrowser = !window.electronAPI;
-    
-    if (isBrowser) {
-      // Already set in the previous useEffect
-      return;
+    const appDone = updateStatus.status === 'uptodate' || updateStatus.status === 'error';
+    const mediaDone = mediaStatus.status === 'done' || mediaStatus.status === 'error';
+
+    if (appDone && mediaDone) {
+      onComplete();
     }
+  }, [updateStatus.status, mediaStatus.status, onComplete]);
 
-    if (!window.appInfo) return;
-    window.appInfo
-      .getVersion()
-      .then((v) => {
-        setAppVersion(v);
-      })
-      .catch(() => {
-        setAppVersion('');
-      });
-  }, []);
+  // Current phase for display
+  type Phase = 'app_update' | 'media_download';
+  const currentPhase: Phase = (() => {
+    const appDone = updateStatus.status === 'uptodate' || updateStatus.status === 'error';
+    if (!appDone) return 'app_update';
+    return 'media_download';
+  })();
 
+  // Title label
   const titleLabel = (() => {
-    switch (statusState) {
-      case 'checking':
-        return 'アップデートを確認中…';
-      case 'available':
-        return 'アップデートをダウンロードしています';
-      case 'downloaded':
-        return 'アップデートが完了しました';
-      case 'none':
-        return '最新バージョンです';
-      case 'error':
-        return 'アップデートエラー';
-      case 'media_downloading':
-        return 'メディアデータをダウンロード中…';
+    if (updateStatus.status === 'ready') {
+      return 'アップデートが完了しました';
+    }
+    switch (currentPhase) {
+      case 'app_update':
+        switch (updateStatus.status) {
+          case 'idle':
+          case 'checking':
+            return 'アップデートを確認中…';
+          case 'available':
+          case 'downloading':
+            return 'アップデートをダウンロードしています';
+          case 'error':
+            return 'アップデートエラー';
+          default:
+            return 'アップデート状態';
+        }
+      case 'media_download':
+        switch (mediaStatus.status) {
+          case 'idle':
+          case 'checking':
+            return 'メディアデータを確認中…';
+          case 'downloading':
+            return 'メディアデータをダウンロード中…';
+          case 'error':
+            return 'メディアダウンロードエラー';
+          default:
+            return 'メディアデータの確認';
+        }
       default:
         return 'アップデート状態';
     }
   })();
 
-  const formatMB = (bytes: number | null) => {
-    if (bytes == null || bytes <= 0) return '-';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
+  // Status message
+  const statusMessage = (() => {
+    if (updateStatus.status === 'ready') {
+      return updateStatus.message;
+    }
+    if (currentPhase === 'app_update') {
+      return updateStatus.message || '起動しています…';
+    }
+    return mediaStatus.message || 'メディアデータを確認中…';
+  })();
 
-  const formatSpeed = (bytesPerSec: number | null) => {
-    if (bytesPerSec == null || bytesPerSec <= 0) return '-';
-    return (bytesPerSec / (1024 * 1024)).toFixed(1) + ' MB/s';
-  };
+  // Display progress
+  const displayPercent = (() => {
+    if (updateStatus.status === 'ready') return 100;
+    if (currentPhase === 'app_update') return updateStatus.progress;
+    return mediaStatus.progress;
+  })();
 
-  // UI描画用変数
-  // 待機中は待機進捗、ダウンロード中はダウンロード進捗を表示
-  const displayPercent = isWaiting ? waitProgress : (percent ?? 0);
+  // Display state label
+  const displayState = (() => {
+    if (currentPhase === 'app_update') return updateStatus.status.toUpperCase();
+    return mediaStatus.status.toUpperCase();
+  })();
 
   return (
     <div
       style={{
         display: 'flex',
-        width: '100%',
-        height: '100%',
+        width: '100vw',
+        height: '100vh',
         fontFamily: "system-ui, sans-serif",
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'transparent',
+        backgroundColor: '#000000',
         color: '#fff',
       }}
     >
       {/* Center Card */}
       <div
         style={{
-          minWidth: 800,
-          maxWidth: 860,
+          width: 860,
           minHeight: 600,
           maxHeight: 660,
           padding: 32,
@@ -233,9 +198,7 @@ export function PatchScreen() {
               whiteSpace: 'pre-line',
             }}
           >
-            {isWaiting 
-              ? `${statusMessage}\nあと ${countdown} 秒で起動します。`
-              : statusMessage}
+            {statusMessage}
           </p>
         </div>
 
@@ -252,7 +215,7 @@ export function PatchScreen() {
           }}
         >
           <div style={{ fontSize: 12, color: '#888888', marginBottom: 6 }}>
-            {isWaiting ? 'Startup Wait' : 'Download status'}
+            {currentPhase === 'app_update' ? 'App Update' : 'Media Download'}
           </div>
 
           {/* Progress Bar */}
@@ -271,52 +234,46 @@ export function PatchScreen() {
               style={{
                 height: '100%',
                 width: `${displayPercent}%`,
-                backgroundColor: isWaiting ? '#ff0000' : '#ff0000',
-                borderRight: displayPercent < 100 ? (isWaiting ? '2px solid #cc0000' : '2px solid #cc0000') : 'none',
+                backgroundColor: '#ff0000',
+                borderRight: displayPercent < 100 ? '2px solid #cc0000' : 'none',
                 transition: 'width 0.2s linear',
-                boxShadow: displayPercent > 0 ? (isWaiting ? 'inset 0 0 8px rgba(255,0,0,0.3)' : 'inset 0 0 8px rgba(255,0,0,0.3)') : 'none',
+                boxShadow: displayPercent > 0 ? 'inset 0 0 8px rgba(255,0,0,0.3)' : 'none',
               }}
             />
           </div>
 
           <div style={{ fontSize: 12, textAlign: 'right', color: '#ffffff', fontWeight: 600 }}>
-            {isWaiting ? `${countdown}s` : (percent != null ? `${percent.toFixed(1)}%` : '待機中…')}
+            {displayPercent > 0 ? `${displayPercent.toFixed(1)}%` : '待機中…'}
           </div>
 
-          {/* Numeric Info (Only show when downloading) */}
-          {!isWaiting && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                rowGap: 8,
-                columnGap: 16,
-                fontSize: 11,
-                paddingTop: 8,
-                borderTop: '1px solid #1a1a1a',
-              }}
-            >
-              <div style={{ color: '#888888' }}>Transferred</div>
-              <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600 }}>{formatMB(transferred)}</div>
-
-              <div style={{ color: '#888888' }}>Total</div>
-              <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600 }}>{formatMB(total)}</div>
-
-              <div style={{ color: '#888888' }}>Speed</div>
-              <div style={{ textAlign: 'right', color: '#ff0000', fontWeight: 600 }}>{formatSpeed(speed)}</div>
-
-              <div style={{ color: '#888888' }}>State</div>
-              <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600, textTransform: 'uppercase' }}>{statusState}</div>
+          {/* State Info */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              rowGap: 8,
+              columnGap: 16,
+              fontSize: 11,
+              paddingTop: 8,
+              borderTop: '1px solid #1a1a1a',
+            }}
+          >
+            <div style={{ color: '#888888' }}>Phase</div>
+            <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600, textTransform: 'uppercase' }}>
+              {currentPhase === 'app_update' ? 'APP UPDATE' : 'MEDIA'}
             </div>
-          )}
+
+            <div style={{ color: '#888888' }}>State</div>
+            <div style={{ textAlign: 'right', color: '#ffffff', fontWeight: 600, textTransform: 'uppercase' }}>{displayState}</div>
+          </div>
         </div>
-        
-        {/* Footer with Skip Button */}
+
+        {/* Footer */}
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center', // Align items vertically
+            alignItems: 'center',
             fontSize: 11,
             color: '#666666',
             marginTop: 'auto',
@@ -326,36 +283,8 @@ export function PatchScreen() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div>Do not turn off your device while updating.</div>
-            <div>© 2025 Toei Techno International Inc.</div>
+            <div>&copy; 2026 Toei Techno International Inc.</div>
           </div>
-
-          {/* Skip Button (only visible when waiting) */}
-          {isWaiting && (
-            <button
-              onClick={handleSkip}
-              style={{
-                backgroundColor: '#333',
-                color: '#fff',
-                border: '1px solid #555',
-                borderRadius: 4,
-                padding: '6px 16px',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 600,
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#444';
-                e.currentTarget.style.borderColor = '#666';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#333';
-                e.currentTarget.style.borderColor = '#555';
-              }}
-            >
-              スキップして起動
-            </button>
-          )}
         </div>
       </div>
     </div>

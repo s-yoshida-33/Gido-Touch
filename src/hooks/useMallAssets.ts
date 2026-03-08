@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 
 import mallsConfig from '../config/malls.json';
 
@@ -95,6 +96,23 @@ import selectLanguageEnHighlight from "../assets/lang/en-highlight.svg";
 import selectLanguageSelectedJp from "../assets/lang/selected-ja.svg";
 import selectLanguageSelectedEn from "../assets/lang/selected-en.svg";
 
+/**
+ * Load mall-specific external assets via Tauri IPC.
+ * Uses list_mall_assets to scan the mall's media/assets directory
+ * and return a map of relative_path → data-URL.
+ */
+async function loadExternalMallAssets(mallId: string): Promise<Record<string, string>> {
+  try {
+    const result = await invoke<Record<string, string> | null>('list_mall_assets', {
+      mallId,
+    });
+    return result ?? {};
+  } catch (error) {
+    console.warn(`Failed to load external assets for mall: ${mallId}`, error);
+    return {};
+  }
+}
+
 export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
   const [assets, setAssets] = useState<MallAssets | null>(null);
   const [rawAssets, setRawAssets] = useState<Record<string, string> | null>(null);
@@ -104,17 +122,11 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
-    setRawAssets(null); // リセット
+    setRawAssets(null);
 
     const loadRawAssets = async () => {
       try {
-        if (!window.electronAPI) {
-          console.warn("Electron API not found");
-          return;
-        }
-
-        // Electronから外部アセットのパス一覧を取得
-        const externalAssets = await window.electronAPI.getMallAssets(mallId);
+        const externalAssets = await loadExternalMallAssets(mallId);
         
         if (isMounted) {
           setRawAssets(externalAssets);
@@ -136,20 +148,11 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
   useEffect(() => {
     if (!rawAssets) return;
 
-    // パスを分類
     const buttons: MallAssets['buttons'] = {};
     const maps: MallAssets['maps'] = {};
     let openTimeDefault = "";
     let openTimeJa = "";
     let openTimeEn = "";
-
-    // パターン定義
-    // button/{floor}.svg
-    // button/{floor}-highlight.svg
-    // maps/{floor}.svg
-    // open-time/open-time.svg
-    // open-time/ja/open-time.svg
-    // open-time/en/open-time.svg
 
     Object.entries(rawAssets).forEach(([relativePath, fileUrl]) => {
       if (relativePath.startsWith('button/')) {
@@ -188,15 +191,8 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
       }
     });
 
-    // 言語に応じたアセットの選択
-    // 英語アセットがない場合は日本語アセットを使用する (フォールバックは各インポートで処理済み、ここでは論理切り替えのみ)
-    // ※実際にはファイルが存在しないとビルドエラーになるため、ファイルが存在する前提
     const isEn = language === 'en';
     
-    // 営業時間の言語対応
-    // 優先順位:
-    // EN: en/xxx -> ja/xxx -> default -> ""
-    // JA: ja/xxx -> default -> en/xxx -> ""
     let openTime = "";
     if (isEn) {
       openTime = openTimeEn || openTimeJa || openTimeDefault;
@@ -212,7 +208,6 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
       buttonNext,
       buttonNextHighlight,
       
-      // ja/en のディレクトリ切り替えに対応
       zoomIn: isEn ? zoomInEn : zoomInJa,
       zoomInHighlight: isEn ? zoomInHighlightEn : zoomInHighlightJa,
       zoomOut: isEn ? zoomOutEn : zoomOutJa,
@@ -221,7 +216,6 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
       resetHighlight: isEn ? resetHighlightEn : resetHighlightJa,
       iconCurrentFloor: isEn ? iconCurrentFloorEn : iconCurrentFloorJa,
 
-      // ディレクトリ分けされていないものはそのまま (切り替えなし)
       iconLocation,
       iconTime,
       iconTel,

@@ -3,28 +3,30 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  base: './', 
   plugins: [react(), tailwindcss()],
+  clearScreen: false,
   server: {
+    port: 1420,
+    strictPort: true,
     proxy: {
-      "/api":  { target: "http://localhost:8080", changeOrigin: true },
-      "/file": { target: "http://localhost:8080", changeOrigin: true },
+      "/api": { target: "http://localhost:8090", changeOrigin: true },
+      "/file": { target: "http://localhost:8090", changeOrigin: true },
     },
   },
+  envPrefix: ["VITE_", "TAURI_"],
   build: {
+    target: process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari13",
+    minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
+    sourcemap: !!process.env.TAURI_DEBUG,
     rollupOptions: {
       output: {
         manualChunks: {
-          // React関連を別チャンクに
           'react-vendor': ['react', 'react-dom'],
-          // アニメーションライブラリを別チャンクに
           'framer-motion': ['framer-motion'],
-          // ズーム・パンライブラリを別チャンクに
           'zoom-pan-pinch': ['react-zoom-pan-pinch'],
         },
       },
     },
-    // チャンクサイズの警告制限を調整（オプション）
     chunkSizeWarningLimit: 1000,
   },
 });

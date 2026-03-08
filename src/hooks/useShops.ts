@@ -4,7 +4,7 @@ import {
   loadShopsFromCache, 
   saveShopsToCache 
 } from "../repositories/shopRepository";
-import { shopSseClient, type ShopsEvent } from "../api/sseClient";
+import { shopSseService } from "../services/SSEService";
 import { convertSseShopDataToShop } from "../utils/shopConverter";
 import { logInfo, logError } from "../logs/logging";
 import type { Shop } from "../types/shop";
@@ -105,7 +105,7 @@ export const useShops = (useCacheFirst: boolean = true) => {
     loadData();
 
     // Subscribe to SSE events for real-time updates
-    const unsubscribeShops = shopSseClient.on<ShopsEvent | any[]>('shops', (payload) => {
+    const unsubscribeShops = shopSseService.on('shops', (payload: any) => {
       console.log('[useShops] SSE shops received', payload);
       
       let shopList: any[] = [];
@@ -139,12 +139,12 @@ export const useShops = (useCacheFirst: boolean = true) => {
     });
 
     // Fallback: If 'update' event is received (legacy behavior), reload shops via API
-    const unsubscribeUpdate = shopSseClient.on('update', () => {
+    const unsubscribeUpdate = shopSseService.on('update', () => {
       console.log('[useShops] SSE update received, reloading shops...');
       loadData(true);
     });
 
-    const unsubscribeConnected = shopSseClient.on('connected', () => {
+    const unsubscribeConnected = shopSseService.on('connected', () => {
       console.log('[useShops] SSE connected, reloading shops...');
       loadData(true);
     });

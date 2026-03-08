@@ -5,7 +5,8 @@ import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 
 import { useMall } from "../contexts/MallContext";
-import { useCmsSettings } from "../hooks/useCmsSettings";
+import type { CmsSettings } from "../types/cmsSettings";
+import { logInfo } from "../logs/logging";
 
 // JA assets
 import categoryBackgroundJa from "../assets/category/ja/background.svg";
@@ -39,11 +40,50 @@ import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import type { FloorLayout } from "../types/floorLayout";
 import { filterGenreMemos, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
+import { getShopImageDataUrl } from "../utils/imageUtils";
 import type { SubFloorSettings } from "../types/global";
 
-// Simple in-memory cache for image URLs to prevent flickering
+// LRU cache for image URLs to prevent flickering while bounding memory usage.
+// Each data URL can be 100KB–several MB; cap at 50 entries (~250MB worst case).
+const IMAGE_CACHE_MAX_SIZE = 50;
 const imageCache = new Map<string, string>();
 const pendingRequests = new Map<string, Promise<string | null>>();
+
+/**
+ * Set a value in the imageCache with LRU eviction.
+ * Map iteration order in JS is insertion order, so we delete-and-reinsert
+ * on access to keep "recently used" items at the end.
+ */
+function imageCacheSet(key: string, value: string): void {
+  // If key already exists, delete first so re-insert moves it to the end (most recent)
+  if (imageCache.has(key)) {
+    imageCache.delete(key);
+  }
+  imageCache.set(key, value);
+
+  // Evict oldest entries (first in iteration order) when over limit
+  while (imageCache.size > IMAGE_CACHE_MAX_SIZE) {
+    const oldest = imageCache.keys().next().value;
+    if (oldest !== undefined) {
+      imageCache.delete(oldest);
+    } else {
+      break;
+    }
+  }
+}
+
+/**
+ * Get a value from the imageCache, promoting it to most-recently-used.
+ */
+function imageCacheGet(key: string): string | undefined {
+  const value = imageCache.get(key);
+  if (value !== undefined) {
+    // Promote to most recently used
+    imageCache.delete(key);
+    imageCache.set(key, value);
+  }
+  return value;
+}
 
 /**
  * Build image path using shop_id if photo is relative or filename only
@@ -120,7 +160,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
   const cacheKey = `${shopId}:${photo}`;
   
   // Initialize with cached value if available
-  const [imageUrl, setImageUrl] = useState<string>(() => imageCache.get(cacheKey) || "");
+  const [imageUrl, setImageUrl] = useState<string>(() => imageCacheGet(cacheKey) || "");
   const [isLoading, setIsLoading] = useState(() => !imageCache.has(cacheKey));
 
   useEffect(() => {
@@ -130,8 +170,8 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
     }
 
     // If already cached, ensure state matches (handle fast updates)
-    if (imageCache.has(cacheKey)) {
-      const cachedUrl = imageCache.get(cacheKey)!;
+    const cachedUrl = imageCacheGet(cacheKey);
+    if (cachedUrl !== undefined) {
       if (imageUrl !== cachedUrl) {
         setImageUrl(cachedUrl);
         setIsLoading(false);
@@ -157,31 +197,23 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
             setIsLoading(false);
           }
           return;
-        } catch (e) {
+        } catch {
           // If pending request failed, try again below
         }
       }
 
-      // Check if we're in Electron environment
-      const electronAPI = window.electronAPI;
-      let loadPromise: Promise<string | null>;
-
-      if (electronAPI && electronAPI.getShopImage) {
-        loadPromise = electronAPI.getShopImage(imagePath).catch((error: unknown) => {
-          console.error("Failed to load image via IPC:", error);
-          return null;
-        });
-      } else {
-        // Fallback to file:// URL (works in Electron, not in browser)
-        loadPromise = Promise.resolve(toFileUrl(imagePath));
-      }
+      // Use Tauri IPC to load shop image
+      const loadPromise: Promise<string | null> = getShopImageDataUrl(imagePath).catch((error: unknown) => {
+        console.error("Failed to load image via IPC:", error);
+        return toFileUrl(imagePath);
+      });
 
       pendingRequests.set(cacheKey, loadPromise);
 
       try {
         const dataUrl = await loadPromise;
         if (dataUrl) {
-          imageCache.set(cacheKey, dataUrl);
+          imageCacheSet(cacheKey, dataUrl);
           setImageUrl(dataUrl);
         }
       } finally {
@@ -191,7 +223,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
     };
 
     loadImage();
-  }, [photo, shopId, cacheKey]); // Depend on photo and shopId. If they change, reload.
+  }, [photo, shopId, cacheKey, imageUrl]);
 
   if (!photo || (!imageUrl && !isLoading)) {
     return (
@@ -359,6 +391,7 @@ interface ShopListScreenProps {
   displayFloors?: string[];
   floorLayout?: FloorLayout;
   subFloorSettings?: SubFloorSettings;
+  cmsSettings?: CmsSettings;
 }
 
 /**
@@ -377,10 +410,10 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
   shopPositions, 
   displayFloors = ['1F', '2F', '3F', '4F'], 
   floorLayout,
-  subFloorSettings = { "1F-1": [], "1F-2": [] }
+  subFloorSettings = { "1F-1": [], "1F-2": [] },
+  cmsSettings = { enabled: true, categorySearchEnabled: true }
  }) => {
   const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage, genreSettings, mallId } = useMall();
-  const { settings: cmsSettings } = useCmsSettings();
 
   const isSendai = mallId === 'sendaikamisugi';
 
@@ -434,7 +467,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
   const [canScrollNext, setCanScrollNext] = useState(false);
 
   // Force reload trigger state
-  const [refreshTrigger, _setRefreshTrigger] = useState(0);
+  const [refreshTrigger] = useState(0);
 
   // Idle timeout state (30 seconds for testing)
   const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds
@@ -533,7 +566,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
   useEffect(() => {
     // Always set to Japanese on mount to ensure default is Japanese
     setSelectedLanguage("ja");
-  }, []); // Run only on mount
+  }, [setSelectedLanguage]); // Run only on mount - setSelectedLanguage is stable
 
   // Idle timeout: Refresh to default shop list after 30 seconds of inactivity
   // Always active - any touch/activity resets the timer
@@ -640,7 +673,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
       }
       clearInterval(checkInterval);
     };
-  }, []); // Always active, no dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Always active - uses refs for state access to avoid re-registration
 
   // Filter shops by selected floor and display floors
   const filteredShops = React.useMemo(() => {
@@ -713,7 +747,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
     }
     
     return result;
-  }, [shops, selectedFloor, selectedCategory, displayFloors, floorLayout, currentFloorSetting, subFloorSettings]);
+  }, [shops, selectedFloor, selectedCategory, displayFloors, floorLayout, currentFloorSetting, subFloorSettings, genreSettings?.categoryMapping]);
 
   // Layout calculation
   const currentLayoutKey = selectedFloor ? normalizeFloor(selectedFloor) : "ALL";
@@ -995,6 +1029,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
               height: "100%",
               overflowX: "auto",
               overflowY: "hidden",
+              overscrollBehavior: "contain",
               scrollbarWidth: "none", // Firefox
               msOverflowStyle: "none", // IE/Edge
               cursor: "grab",
@@ -1114,6 +1149,13 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
                         onClick={() => {
                           // Only allow mouse clicks if no touch interaction is active
                           if (!activeTouchRef.current) {
+                            logInfo('SCREEN_VIEW', 'Viewing Shop Detail', {
+                              shopId: shop.shopId || shop.number,
+                              shopName: shop.name,
+                              hasLogo: !!shop.shopLogo,
+                              floor: shop.floors?.join(',') || '',
+                              language: selectedLanguage,
+                            });
                             setSelectedShop(shop);
                           }
                         }}
@@ -1147,6 +1189,13 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
                             
                             if (isTap) {
                               e.preventDefault(); // Prevent ghost click
+                              logInfo('SCREEN_VIEW', 'Viewing Shop Detail', {
+                                shopId: shop.shopId || shop.number,
+                                shopName: shop.name,
+                                hasLogo: !!shop.shopLogo,
+                                floor: shop.floors?.join(',') || '',
+                                language: selectedLanguage,
+                              });
                               setSelectedShop(shop);
                             }
                             

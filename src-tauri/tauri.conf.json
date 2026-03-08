@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "com.tti.gido-touch",
+  "productName": "Gido Touch",
+  "version": "1.1.7",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Gido Touch",
+        "width": 1920,
+        "height": 1080,
+        "resizable": false,
+        "fullscreen": true,
+        "decorations": false,
+        "transparent": false,
+        "alwaysOnTop": true,
+        "visible": true
+      }
+    ],
+    "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      },
+      "csp": "default-src 'self' http://localhost:8090 http://localhost:48080; img-src 'self' asset: https://asset.localhost http://asset.localhost http://localhost:8090 http://localhost:48080 https: http: data: blob:; media-src 'self' asset: https://asset.localhost http://asset.localhost https: http: data: blob:; connect-src 'self' http://localhost:8090 http://localhost:48080 http: https: ws:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; font-src 'self' https: data:;",
+      "capabilities": [
+        "default",
+        {
+          "identifier": "app-fs-scope",
+          "windows": ["main"],
+          "permissions": [
+            {
+              "identifier": "fs:scope",
+              "allow": ["$APPDATA/com.tti.gido-touch/**", "$HOME/**"]
+            }
+          ]
+        },
+        {
+          "identifier": "updater-all",
+          "windows": ["main"],
+          "permissions": [
+            "updater:default"
+          ]
+        }
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": ["icons/icon.ico"],
+    "publisher": "Toei Techno International Inc.",
+    "copyright": "\u00a9 2026 Toei Techno International Inc.",
+    "windows": {
+      "nsis": {
+        "installerHooks": "./nsis-hooks.nsh"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": ["https://github.com/s-yoshida-33/Gido-Touch/releases/latest/download/latest.json"],
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU4NkM2NkNBOTE2RjFBNjcKUldSbkdtK1J5bVpzV0Ezc0pDNnkyRzN5RzRKV1AwdDc3V1NZa0hvM2xjb0V1Q1dRclMwQVpoM0UK"
+    }
+  }
+}

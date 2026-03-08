@@ -1,44 +1,192 @@
 // src/components/VerticalVideoSlot.tsx
 import React from 'react';
 import { useCurrentAsset } from '../hooks/useCurrentAsset';
-import { useAudioSettings } from '../hooks/useAudioSettings';
-import { logInfo, logWarn, logError } from '../logs/logging';
+import { useAudioSettingsContext } from '../contexts/AudioSettingsContext';
+import { logWarn, logError, logDebug } from '../logs/logging';
 
 interface VerticalVideoSlotProps {
   forceReload?: number;
 }
 
+const MAX_RETRY_COUNT = 5;
+const INITIAL_RETRY_DELAY_MS = 1000;
+const FREEZE_TIMEOUT_MS = 30000; // 30秒間 timeupdate が来なければフリーズとみなす
+const HEALTH_CHECK_INTERVAL_MS = 60000; // 60秒間隔でヘルスチェック
+const MAX_RECREATE_COUNT = 3; // 動画要素の再生成上限
+
 const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }) => {
   const { asset, isLoading } = useCurrentAsset();
-  const { settings: audioSettings } = useAudioSettings();
-  
+  const { audioSettings } = useAudioSettingsContext();
+
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
   const prevAssetIdRef = React.useRef<string | null>(null);
+  const retryCountRef = React.useRef<number>(0);
+  const retryTimerRef = React.useRef<number | undefined>(undefined);
   const [objectFit, setObjectFit] = React.useState<'cover' | 'contain'>('cover');
 
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
-  // Reset error when asset changes
+  // Freeze detection
+  const lastTimeUpdateRef = React.useRef<number>(Date.now());
+  const freezeTimerRef = React.useRef<number | undefined>(undefined);
+  const healthCheckTimerRef = React.useRef<number | undefined>(undefined);
+
+  // Video element recreation
+  const [videoKey, setVideoKey] = React.useState<number>(0);
+  const recreateCountRef = React.useRef<number>(0);
+
+  // Cleanup video resources and timers on unmount to prevent memory leaks.
+  // When CMS asset becomes null, React unmounts the video element but Chromium
+  // may retain decoded frame buffers unless explicitly released.
+  React.useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.removeAttribute('src');
+        videoRef.current.load();
+      }
+      if (retryTimerRef.current !== undefined) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = undefined;
+      }
+      if (freezeTimerRef.current !== undefined) {
+        window.clearInterval(freezeTimerRef.current);
+        freezeTimerRef.current = undefined;
+      }
+      if (healthCheckTimerRef.current !== undefined) {
+        window.clearInterval(healthCheckTimerRef.current);
+        healthCheckTimerRef.current = undefined;
+      }
+    };
+  }, []);
+
+  // Reset error and retry count when asset changes
   React.useEffect(() => {
     setErrorMsg(null);
+    retryCountRef.current = 0;
+    recreateCountRef.current = 0;
+    lastTimeUpdateRef.current = Date.now();
+    if (retryTimerRef.current !== undefined) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = undefined;
+    }
   }, [asset?.id, asset?.src]);
+
+  // Recovery logic
+  const attemptRecovery = React.useCallback(() => {
+    if (retryCountRef.current < MAX_RETRY_COUNT) {
+      retryCountRef.current += 1;
+      const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCountRef.current - 1);
+      logWarn('VIDEO', `Attempting video recovery (${retryCountRef.current}/${MAX_RETRY_COUNT}), delay=${delay}ms`, {
+        assetId: asset?.id,
+      });
+      setErrorMsg(`Retrying (${retryCountRef.current}/${MAX_RETRY_COUNT})...`);
+
+      retryTimerRef.current = window.setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.load();
+          videoRef.current.play().catch(() => {});
+          lastTimeUpdateRef.current = Date.now();
+        }
+      }, delay);
+    } else if (recreateCountRef.current < MAX_RECREATE_COUNT) {
+      // All retries exhausted - recreate the video element
+      recreateCountRef.current += 1;
+      retryCountRef.current = 0;
+      logWarn('VIDEO', `Recreating video element (${recreateCountRef.current}/${MAX_RECREATE_COUNT})`, {
+        assetId: asset?.id,
+      });
+      setErrorMsg(`Recreating player (${recreateCountRef.current}/${MAX_RECREATE_COUNT})...`);
+      lastTimeUpdateRef.current = Date.now();
+      setVideoKey(prev => prev + 1);
+    } else {
+      logError('VIDEO', 'All video recovery attempts exhausted', {
+        assetId: asset?.id,
+        retryCount: retryCountRef.current,
+        recreateCount: recreateCountRef.current,
+      });
+      setErrorMsg('Video Error: All recovery attempts exhausted');
+    }
+  }, [asset?.id]);
+
+  // Freeze detection & health check
+  React.useEffect(() => {
+    if (!asset) return;
+
+    const isImage = asset.mediaType === 'image' ||
+      (asset.src && /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(asset.src));
+    if (isImage) return;
+
+    // Periodic freeze check
+    freezeTimerRef.current = window.setInterval(() => {
+      const video = videoRef.current;
+      if (!video || video.paused || video.ended) return;
+
+      const elapsed = Date.now() - lastTimeUpdateRef.current;
+      if (elapsed > FREEZE_TIMEOUT_MS) {
+        logWarn('VIDEO', 'Video freeze detected - no timeupdate for 30s, attempting recovery', {
+          assetId: asset.id,
+          elapsed,
+          readyState: video.readyState,
+          networkState: video.networkState,
+          currentTime: video.currentTime,
+        });
+        attemptRecovery();
+      }
+    }, 10000);
+
+    // Periodic health check
+    healthCheckTimerRef.current = window.setInterval(() => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      logDebug('VIDEO', 'Video health check', {
+        assetId: asset.id,
+        paused: video.paused,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        currentTime: video.currentTime,
+        duration: video.duration,
+        error: video.error?.message || null,
+      });
+
+      // Detect stuck states: video should be playing but isn't
+      if (!video.paused && video.readyState < 2 && !video.error) {
+        const elapsed = Date.now() - lastTimeUpdateRef.current;
+        if (elapsed > FREEZE_TIMEOUT_MS) {
+          logWarn('VIDEO', 'Video stuck in low readyState, attempting recovery', {
+            assetId: asset.id,
+            readyState: video.readyState,
+            elapsed,
+          });
+          attemptRecovery();
+        }
+      }
+    }, HEALTH_CHECK_INTERVAL_MS);
+
+    return () => {
+      if (freezeTimerRef.current !== undefined) window.clearInterval(freezeTimerRef.current);
+      if (healthCheckTimerRef.current !== undefined) window.clearInterval(healthCheckTimerRef.current);
+    };
+  }, [asset?.id, asset?.src, attemptRecovery]);
 
   // Handle force reload
   React.useEffect(() => {
     if (forceReload > 0) {
       setErrorMsg(null);
-      logInfo('VIDEO', 'Force reload triggered in VerticalVideoSlot', { forceReload });
+      retryCountRef.current = 0;
+      recreateCountRef.current = 0;
+      lastTimeUpdateRef.current = Date.now();
+      logDebug('VIDEO', 'Force reload triggered in VerticalVideoSlot', { forceReload });
       if (videoRef.current) {
         videoRef.current.load();
-        // Try to play after reload
         videoRef.current.play().catch(e => {
             logError('VIDEO', 'Failed to play video after force reload', { error: e.message });
         });
       }
       if (imgRef.current && asset) {
-        // Force image reload using cache (reset to original asset source)
-        logInfo('VIDEO', 'Refreshing image with cache', { src: asset.src });
+        logDebug('VIDEO', 'Refreshing image with cache', { src: asset.src });
         imgRef.current.src = asset.src;
       }
     }
@@ -50,38 +198,42 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   // アスペクト比に基づいてobject-fitを決定
   const calculateObjectFit = (mediaWidth: number, mediaHeight: number) => {
     const mediaAspectRatio = mediaWidth / mediaHeight;
-    // 横長のコンテンツ（メディアのアスペクト比 > コンテナのアスペクト比）: contain（横幅マックス、上下余白）
-    // 縦長のコンテンツ（メディアのアスペクト比 <= コンテナのアスペクト比）: cover（エリアいっぱい）
     return mediaAspectRatio > containerAspectRatio ? 'contain' : 'cover';
   };
 
   // Reset media element when asset changes
   React.useEffect(() => {
     if (asset && asset.id !== prevAssetIdRef.current) {
-      // Asset changed - reset media elements and object-fit
-      setObjectFit('cover'); // デフォルトにリセット
+      setObjectFit('cover');
+      // Release decoded video frames before loading new asset to prevent memory leak.
+      // Without this, Chromium accumulates decoded frame buffers across asset changes.
+      // After clearing, re-set the new src because useEffect runs after React's DOM update,
+      // so removeAttribute('src') would otherwise erase the new src that React already applied.
       if (videoRef.current) {
-        videoRef.current.load(); // Force reload
+        videoRef.current.pause();
+        videoRef.current.removeAttribute('src');
+        videoRef.current.load();
+        videoRef.current.src = asset.src;
+        videoRef.current.load();
       }
       if (imgRef.current) {
-        imgRef.current.src = asset.src; // Force reload
+        imgRef.current.src = asset.src;
       }
       prevAssetIdRef.current = asset.id;
     }
-  }, [asset?.id, asset?.src]);
+  }, [asset]);
 
   // Ensure video playback when asset is available
   React.useEffect(() => {
     if (!asset || !videoRef.current) return;
 
     const video = videoRef.current;
-    
-    // Function to attempt playback
+
     const attemptPlay = async () => {
-      if (video.paused && video.readyState >= 2) { // HAVE_CURRENT_DATA
+      if (video.paused && video.readyState >= 2) {
         try {
           await video.play();
-          logInfo('VIDEO', 'Video play() called successfully', {
+          logDebug('VIDEO', 'Video play() called successfully', {
             assetId: asset.id,
             readyState: video.readyState,
             currentTime: video.currentTime,
@@ -96,22 +248,20 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       }
     };
 
-    // Try to play when video is ready
     if (video.readyState >= 2) {
       attemptPlay();
     } else {
-      // Wait for video to be ready
       const onCanPlay = () => {
         attemptPlay();
         video.removeEventListener('canplay', onCanPlay);
       };
       video.addEventListener('canplay', onCanPlay);
-      
+
       return () => {
         video.removeEventListener('canplay', onCanPlay);
       };
     }
-  }, [asset?.id, asset?.src]);
+  }, [asset]);
 
   // Handle audio settings updates dynamically
   React.useEffect(() => {
@@ -157,12 +307,9 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     );
   }
 
-  // Determine if asset is an image
-  // Check mediaType first, then fall back to file extension
-  const isImage = asset.mediaType === 'VIDEO' || 
+  const isImage = asset.mediaType === 'image' ||
     (asset.src && /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(asset.src));
 
-  // Use both id and src in key to ensure remount when either changes
   const mediaKey = `${asset.id}-${asset.src}`;
 
   // Debug/Error Overlay
@@ -194,7 +341,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   };
 
   if (isImage) {
-    // Render as image
     return (
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>
           {renderOverlay()}
@@ -213,7 +359,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
               const img = e.currentTarget;
               const fit = calculateObjectFit(img.naturalWidth, img.naturalHeight);
               setObjectFit(fit);
-              logInfo('VIDEO', 'Image loaded in VerticalVideoSlot', {
+              logDebug('VIDEO', 'Image loaded in VerticalVideoSlot', {
                 assetId: asset.id,
                 src: asset.src,
                 naturalWidth: img.naturalWidth,
@@ -240,7 +386,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         {renderOverlay()}
         <video
           ref={videoRef}
-          key={mediaKey}
+          key={`video-slot-${videoKey}`}
           src={asset.src}
           autoPlay
           muted={audioSettings.cmsMuted}
@@ -252,9 +398,12 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
             display: 'block',
             objectFit: objectFit,
           }}
+          onTimeUpdate={() => {
+            lastTimeUpdateRef.current = Date.now();
+          }}
           onLoadedMetadata={(e) => {
             const video = e.currentTarget;
-            logInfo('VIDEO', 'Video metadata loaded', {
+            logDebug('VIDEO', 'Video metadata loaded', {
               assetId: asset.id,
               videoWidth: video.videoWidth,
               videoHeight: video.videoHeight,
@@ -265,7 +414,10 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
             const video = e.currentTarget;
             const fit = calculateObjectFit(video.videoWidth, video.videoHeight);
             setObjectFit(fit);
-            logInfo('VIDEO', 'Video loaded in VerticalVideoSlot', {
+            retryCountRef.current = 0; // Reset retry count on successful load
+            lastTimeUpdateRef.current = Date.now();
+            setErrorMsg(null);
+            logDebug('VIDEO', 'Video loaded in VerticalVideoSlot', {
               assetId: asset.id,
               src: asset.src,
               videoWidth: video.videoWidth,
@@ -274,10 +426,9 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
               paused: video.paused,
               readyState: video.readyState,
             });
-            // Ensure playback starts after loading
             if (video.paused && video.readyState >= 2) {
               video.play().then(() => {
-                logInfo('VIDEO', 'Video play() succeeded in onLoadedData', {
+                logDebug('VIDEO', 'Video play() succeeded in onLoadedData', {
                   assetId: asset.id,
                   currentTime: video.currentTime,
                 });
@@ -294,15 +445,14 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
           }}
           onCanPlay={(e) => {
             const video = e.currentTarget;
-            logInfo('VIDEO', 'Video can play', {
+            logDebug('VIDEO', 'Video can play', {
               assetId: asset.id,
               readyState: video.readyState,
               paused: video.paused,
             });
-            // Ensure playback starts when video can play
             if (video.paused) {
               video.play().then(() => {
-                logInfo('VIDEO', 'Video play() succeeded in onCanPlay', {
+                logDebug('VIDEO', 'Video play() succeeded in onCanPlay', {
                   assetId: asset.id,
                   currentTime: video.currentTime,
                 });
@@ -315,14 +465,23 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
             }
           }}
           onPlay={() => {
-            logInfo('VIDEO', 'Video playback started', {
+            lastTimeUpdateRef.current = Date.now();
+            logDebug('VIDEO', 'Video playback started', {
               assetId: asset.id,
               currentTime: videoRef.current?.currentTime,
               duration: videoRef.current?.duration,
             });
           }}
+          onStalled={() => {
+            logWarn('VIDEO', 'Video stalled (network throttle or buffer underrun)', {
+              assetId: asset.id,
+              src: asset.src,
+              readyState: videoRef.current?.readyState,
+              networkState: videoRef.current?.networkState,
+            });
+          }}
           onEnded={() => {
-            logInfo('VIDEO', 'Video playback ended (will loop)', {
+            logDebug('VIDEO', 'Video playback ended (will loop)', {
               assetId: asset.id,
             });
           }}
@@ -338,15 +497,8 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
               readyState: video.readyState,
             });
             setErrorMsg(`Video Error: ${msg} (Code: ${video.error?.code})`);
-            
-            // Try to reload on error
-            if (videoRef.current) {
-              setTimeout(() => {
-                if (videoRef.current && asset.src) {
-                  videoRef.current.load();
-                }
-              }, 1000);
-            }
+
+            attemptRecovery();
           }}
         />
     </div>

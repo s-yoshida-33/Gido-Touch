@@ -3,7 +3,30 @@ import { APP_CONFIG } from "../config";
 import { parseFloorsFromBridge } from "../api/bridgeClient";
 import { logWarn } from "../logs/logging";
 
-export function convertSseShopDataToShop(item: any): Shop {
+interface SseShopData {
+  shopId?: string | number;
+  shopName?: string;
+  shopNameEnglish?: string;
+  shopLogo?: string;
+  shopLogoLocalPath?: string;
+  genre?: string;
+  genreSub?: string;
+  genreMemo?: string;
+  genreMemoEnglish?: string;
+  number?: string;
+  floors?: unknown;
+  photo1?: string;
+  photo1LocalPath?: string;
+  photo2?: string;
+  photo2LocalPath?: string;
+  description?: string;
+  openTime?: string;
+  tel?: string;
+  takeOut?: string;
+  alcohol?: string;
+}
+
+export function convertSseShopDataToShop(item: SseShopData): Shop {
   const defaultFloor = APP_CONFIG.floor;
   const floors = parseFloorsFromBridge(item.floors, defaultFloor);
 

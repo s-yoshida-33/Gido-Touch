@@ -1,7 +1,7 @@
 // src/api/bridgeClient.ts
 import { getApiBaseUrl, APP_CONFIG } from "../config";
 import type { BridgeShop, Shop, FloorId } from "../types/shop";
-
+import { fetch } from "@tauri-apps/plugin-http";
 import { logInfo, logWarn, logError } from "../logs/logging";
 
 // Normalize floor id string (you can extend this if needed)
