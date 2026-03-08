@@ -1,5 +1,5 @@
 git# Logs
-logs
+/logs
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -38,6 +38,13 @@ out/
 media/*
 !media/.gitkeep
 
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Private keys / secrets
+~/*
+!~/.gitkeep
+
 # Temporary files
 tmp/
-
