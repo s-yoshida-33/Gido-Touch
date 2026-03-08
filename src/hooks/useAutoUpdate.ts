@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { check } from '@tauri-apps/plugin-updater';
 import type { Update, DownloadEvent } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { invoke } from '@tauri-apps/api/core';
 import { logInfo, logError } from '../logs/logging';
 
 const formatBytes = (bytes: number): string => {
@@ -75,6 +76,16 @@ export const useAutoUpdate = () => {
   const downloadAndInstallUpdate = async (update: Update) => {
     try {
       setUpdateStatus({ status: 'downloading', progress: 0, message: 'アップデートをダウンロード中...' });
+
+      // Pause the watchdog during download+install to prevent false-positive
+      // restarts on slow networks where the process can block the WebView.
+      try {
+        await invoke('pause_watchdog');
+        logInfo('UPDATER', 'Watchdog paused for update download');
+      } catch (e) {
+        logError('UPDATER', 'Failed to pause watchdog', { error: String(e) });
+      }
+
       const downloadStartTime = Date.now();
       let contentLength = 0;
       let downloaded = 0;
@@ -111,6 +122,15 @@ export const useAutoUpdate = () => {
     } catch (error) {
       logError('UPDATER', 'Failed to download/install update', { error: String(error) });
       setUpdateStatus({ status: 'error', progress: 0, message: 'アップデートのダウンロードに失敗しました' });
+    } finally {
+      // Always resume watchdog after download attempt, whether it succeeded or failed.
+      // On success the app will relaunch shortly, but resume anyway for safety.
+      try {
+        await invoke('resume_watchdog');
+        logInfo('UPDATER', 'Watchdog resumed after update download');
+      } catch (e) {
+        logError('UPDATER', 'Failed to resume watchdog', { error: String(e) });
+      }
     }
   };
 
