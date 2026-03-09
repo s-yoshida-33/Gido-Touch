@@ -223,6 +223,12 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     const video = videoRef.current;
 
     if (isAssetChanged) {
+      logDebug('VIDEO', 'CMS asset transition', {
+        from: prevAssetIdRef.current,
+        to: asset.id,
+        mediaType: asset.mediaType,
+      });
+
       setObjectFit('cover');
 
       // Release decoded video frames before loading new asset to prevent memory leak.
@@ -230,6 +236,8 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       // After clearing, re-set the new src because useEffect runs after React's DOM update,
       // so removeAttribute('src') would otherwise erase the new src that React already applied.
       if (video) {
+        // Explicitly pause the looping video first to prevent it from
+        // restarting playback between src removal and new src assignment.
         video.pause();
         video.removeAttribute('src');
         video.load();
@@ -239,6 +247,18 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       if (imgRef.current) {
         imgRef.current.src = asset.src;
       }
+
+      // Release preload buffer if the preloaded asset matches the new current asset,
+      // since the main player now owns this content.
+      const preloadVideo = preloadVideoRef.current;
+      if (preloadVideo && preloadVideo.src) {
+        const preloadSrc = decodeURIComponent(preloadVideo.src);
+        if (preloadSrc.includes(asset.id) || preloadVideo.src === asset.src) {
+          preloadVideo.removeAttribute('src');
+          preloadVideo.load();
+        }
+      }
+
       prevAssetIdRef.current = asset.id;
     }
 
