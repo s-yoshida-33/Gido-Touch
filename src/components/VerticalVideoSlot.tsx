@@ -201,39 +201,48 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     return mediaAspectRatio > containerAspectRatio ? 'contain' : 'cover';
   };
 
-  // Reset media element when asset changes
+  // Reset media element and ensure playback when asset changes.
+  // Consolidated into a single effect to prevent the race condition where
+  // a separate playback effect reads stale readyState immediately after
+  // the reset effect calls load() (which resets readyState to 0).
   React.useEffect(() => {
-    if (asset && asset.id !== prevAssetIdRef.current) {
-      setObjectFit('cover');
-      // Guard: skip if src is empty (failed URL conversion) to prevent black screen
-      if (!asset.src) {
+    if (!asset) return;
+
+    const isAssetChanged = asset.id !== prevAssetIdRef.current;
+
+    // Guard: skip if src is empty (failed URL conversion) to prevent black screen
+    if (!asset.src) {
+      if (isAssetChanged) {
         logWarn('VIDEO', 'Asset has empty src, skipping media load', { assetId: asset.id });
         prevAssetIdRef.current = asset.id;
-        return;
       }
+      return;
+    }
+
+    const video = videoRef.current;
+
+    if (isAssetChanged) {
+      setObjectFit('cover');
+
       // Release decoded video frames before loading new asset to prevent memory leak.
       // Without this, Chromium accumulates decoded frame buffers across asset changes.
       // After clearing, re-set the new src because useEffect runs after React's DOM update,
       // so removeAttribute('src') would otherwise erase the new src that React already applied.
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.removeAttribute('src');
-        videoRef.current.load();
-        videoRef.current.src = asset.src;
-        videoRef.current.load();
+      if (video) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        video.src = asset.src;
+        video.load();
       }
       if (imgRef.current) {
         imgRef.current.src = asset.src;
       }
       prevAssetIdRef.current = asset.id;
     }
-  }, [asset]);
 
-  // Ensure video playback when asset is available
-  React.useEffect(() => {
-    if (!asset || !videoRef.current) return;
-
-    const video = videoRef.current;
+    // Ensure video playback after src is set (within the same effect)
+    if (!video) return;
 
     const attemptPlay = async () => {
       if (video.paused && video.readyState >= 2) {
