@@ -5,9 +5,12 @@ import { loadMallSettings, saveMallSettings } from '../utils/settings';
 import { useMall } from './MallContext';
 
 interface AudioSettingsContextType {
+  /** Effective audio settings (force-muted when black screen is active) */
   audioSettings: AudioSettings;
   setAudioSettings: (settings: AudioSettings) => void;
   saveAudioSettings: (settings: AudioSettings) => Promise<void>;
+  /** Set to true when the black screen overlay is visible — forces all audio muted */
+  setBlackScreenActive: (active: boolean) => void;
   isLoading: boolean;
 }
 
@@ -15,12 +18,14 @@ const AudioSettingsContext = createContext<AudioSettingsContextType>({
   audioSettings: DEFAULT_AUDIO_SETTINGS,
   setAudioSettings: () => {},
   saveAudioSettings: async () => {},
+  setBlackScreenActive: () => {},
   isLoading: true,
 });
 
 export const AudioSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { mallId } = useMall();
   const [audioSettings, setAudioSettings] = useState<AudioSettings>(DEFAULT_AUDIO_SETTINGS);
+  const [blackScreenActive, setBlackScreenActive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load audio settings when mallId changes
@@ -52,8 +57,13 @@ export const AudioSettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [mallId]);
 
+  // When black screen is active, force all audio muted (runtime-only, not persisted)
+  const effectiveAudioSettings: AudioSettings = blackScreenActive
+    ? { cmsMuted: true, localMediaMuted: true }
+    : audioSettings;
+
   return (
-    <AudioSettingsContext.Provider value={{ audioSettings, setAudioSettings, saveAudioSettings, isLoading }}>
+    <AudioSettingsContext.Provider value={{ audioSettings: effectiveAudioSettings, setAudioSettings, saveAudioSettings, setBlackScreenActive, isLoading }}>
       {children}
     </AudioSettingsContext.Provider>
   );
