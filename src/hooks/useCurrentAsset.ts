@@ -6,6 +6,7 @@ import { logInfo, logWarn, logDebug } from '../logs/logging';
 
 interface UseCurrentAssetResult {
   asset: CurrentAsset | null;
+  nextAsset: CurrentAsset | null;
   isLoading: boolean;
 }
 
@@ -62,14 +63,36 @@ function mapCmsEventToAsset(event: CmsTimelineEvent): CurrentAsset | null {
   };
 }
 
+function mapCmsEventToNextAsset(event: CmsTimelineEvent): CurrentAsset | null {
+  if (!event.next_media_id || !event.next_media_local_path) return null;
+
+  const src = toAssetUrl(event.next_media_local_path);
+
+  return {
+    id: event.next_media_id,
+    src,
+    duration: 0,
+    width: 0,
+    height: 0,
+    name: '',
+    startTime: '',
+    endTime: '',
+    mediaType: '', // type not provided for next media
+    type: '',
+  };
+}
+
 /**
  * Receives real-time content updates from CMS Timeline API via SSE.
  * Listens to event: item_changed on http://localhost:48080/api/timeline/stream.
- * 
+ *
+ * Returns the current asset and the next asset (for preloading).
+ *
  * @param enabled Whether CMS integration is enabled (from cmsSettings)
  */
 export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult {
   const [asset, setAsset] = useState<CurrentAsset | null>(null);
+  const [nextAsset, setNextAsset] = useState<CurrentAsset | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -86,21 +109,32 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
         mediaId: data.current_media_id,
         mediaType: data.current_media_type,
         mediaName: data.current_media_name,
+        nextMediaId: data.next_media_id,
       });
 
-      const nextAsset = mapCmsEventToAsset(data);
+      const mappedAsset = mapCmsEventToAsset(data);
+      const mappedNextAsset = mapCmsEventToNextAsset(data);
 
-      if (nextAsset) {
+      if (mappedAsset) {
         setAsset(prevAsset => {
-          if (prevAsset && prevAsset.id === nextAsset.id) {
+          if (prevAsset && prevAsset.id === mappedAsset.id && prevAsset.src === mappedAsset.src) {
             return prevAsset;
           }
-          return nextAsset;
+          return mappedAsset;
         });
       } else {
         logWarn('VIDEO', 'Failed to map CMS event to asset');
         setAsset(null);
       }
+
+      setNextAsset(prevNext => {
+        if (!mappedNextAsset) return null;
+        if (prevNext && prevNext.id === mappedNextAsset.id && prevNext.src === mappedNextAsset.src) {
+          return prevNext;
+        }
+        return mappedNextAsset;
+      });
+
       setIsLoading(false);
     };
 
@@ -125,5 +159,5 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
     };
   }, [enabled]);
 
-  return { asset, isLoading };
+  return { asset, nextAsset, isLoading };
 }

@@ -15,10 +15,11 @@ const HEALTH_CHECK_INTERVAL_MS = 60000; // 60秒間隔でヘルスチェック
 const MAX_RECREATE_COUNT = 3; // 動画要素の再生成上限
 
 const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }) => {
-  const { asset, isLoading } = useCurrentAsset();
+  const { asset, nextAsset, isLoading } = useCurrentAsset();
   const { audioSettings } = useAudioSettingsContext();
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const preloadVideoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
   const prevAssetIdRef = React.useRef<string | null>(null);
   const retryCountRef = React.useRef<number>(0);
@@ -57,6 +58,12 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       if (healthCheckTimerRef.current !== undefined) {
         window.clearInterval(healthCheckTimerRef.current);
         healthCheckTimerRef.current = undefined;
+      }
+      // Release preload video buffer to prevent orphaned decoded frames
+      if (preloadVideoRef.current) {
+        preloadVideoRef.current.pause();
+        preloadVideoRef.current.removeAttribute('src');
+        preloadVideoRef.current.load();
       }
     };
   }, []);
@@ -201,33 +208,68 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     return mediaAspectRatio > containerAspectRatio ? 'contain' : 'cover';
   };
 
-  // Reset media element when asset changes
+  // Reset media element and ensure playback when asset changes.
+  // Consolidated into a single effect to prevent the race condition where
+  // a separate playback effect reads stale readyState immediately after
+  // the reset effect calls load() (which resets readyState to 0).
   React.useEffect(() => {
-    if (asset && asset.id !== prevAssetIdRef.current) {
+    if (!asset) return;
+
+    const isAssetChanged = asset.id !== prevAssetIdRef.current;
+
+    // Guard: skip if src is empty (failed URL conversion) to prevent black screen
+    if (!asset.src) {
+      if (isAssetChanged) {
+        logWarn('VIDEO', 'Asset has empty src, skipping media load', { assetId: asset.id });
+        prevAssetIdRef.current = asset.id;
+      }
+      return;
+    }
+
+    const video = videoRef.current;
+
+    if (isAssetChanged) {
+      logDebug('VIDEO', 'CMS asset transition', {
+        from: prevAssetIdRef.current,
+        to: asset.id,
+        mediaType: asset.mediaType,
+      });
+
       setObjectFit('cover');
+
       // Release decoded video frames before loading new asset to prevent memory leak.
       // Without this, Chromium accumulates decoded frame buffers across asset changes.
       // After clearing, re-set the new src because useEffect runs after React's DOM update,
       // so removeAttribute('src') would otherwise erase the new src that React already applied.
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.removeAttribute('src');
-        videoRef.current.load();
-        videoRef.current.src = asset.src;
-        videoRef.current.load();
+      if (video) {
+        // Explicitly pause the looping video first to prevent it from
+        // restarting playback between src removal and new src assignment.
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        video.src = asset.src;
+        video.load();
       }
       if (imgRef.current) {
         imgRef.current.src = asset.src;
       }
+
+      // Release preload buffer if the preloaded asset matches the new current asset,
+      // since the main player now owns this content.
+      const preloadVideo = preloadVideoRef.current;
+      if (preloadVideo && preloadVideo.src) {
+        const preloadSrc = decodeURIComponent(preloadVideo.src);
+        if (preloadSrc.includes(asset.id) || preloadVideo.src === asset.src) {
+          preloadVideo.removeAttribute('src');
+          preloadVideo.load();
+        }
+      }
+
       prevAssetIdRef.current = asset.id;
     }
-  }, [asset]);
 
-  // Ensure video playback when asset is available
-  React.useEffect(() => {
-    if (!asset || !videoRef.current) return;
-
-    const video = videoRef.current;
+    // Ensure video playback after src is set (within the same effect)
+    if (!video) return;
 
     const attemptPlay = async () => {
       if (video.paused && video.readyState >= 2) {
@@ -262,6 +304,27 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       };
     }
   }, [asset]);
+
+  // Preload next asset for seamless transition
+  React.useEffect(() => {
+    const preloadVideo = preloadVideoRef.current;
+    if (!preloadVideo || !nextAsset?.src) return;
+
+    const isNextVideo = !nextAsset.src.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
+    if (!isNextVideo) return;
+
+    const currentPreloadSrc = decodeURIComponent(preloadVideo.src || '');
+    if (currentPreloadSrc.includes(nextAsset.id) || preloadVideo.src === nextAsset.src) return;
+
+    // Release previous preload buffer, then set new source
+    if (preloadVideo.src) {
+      preloadVideo.removeAttribute('src');
+      preloadVideo.load();
+    }
+    preloadVideo.src = nextAsset.src;
+    preloadVideo.load();
+    logDebug('VIDEO', 'Preloading next CMS asset', { nextAssetId: nextAsset.id });
+  }, [nextAsset?.id, nextAsset?.src]);
 
   // Handle audio settings updates dynamically
   React.useEffect(() => {
@@ -500,6 +563,14 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
 
             attemptRecovery();
           }}
+        />
+        {/* Hidden preload element for next CMS asset */}
+        <video
+          ref={preloadVideoRef}
+          muted
+          preload="metadata"
+          playsInline
+          style={{ display: 'none' }}
         />
     </div>
   );
