@@ -15,10 +15,11 @@ const HEALTH_CHECK_INTERVAL_MS = 60000; // 60秒間隔でヘルスチェック
 const MAX_RECREATE_COUNT = 3; // 動画要素の再生成上限
 
 const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }) => {
-  const { asset, isLoading } = useCurrentAsset();
+  const { asset, nextAsset, isLoading } = useCurrentAsset();
   const { audioSettings } = useAudioSettingsContext();
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const preloadVideoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
   const prevAssetIdRef = React.useRef<string | null>(null);
   const retryCountRef = React.useRef<number>(0);
@@ -278,6 +279,27 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [asset]);
 
+  // Preload next asset for seamless transition
+  React.useEffect(() => {
+    const preloadVideo = preloadVideoRef.current;
+    if (!preloadVideo || !nextAsset?.src) return;
+
+    const isNextVideo = !nextAsset.src.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
+    if (!isNextVideo) return;
+
+    const currentPreloadSrc = decodeURIComponent(preloadVideo.src || '');
+    if (currentPreloadSrc.includes(nextAsset.id) || preloadVideo.src === nextAsset.src) return;
+
+    // Release previous preload buffer, then set new source
+    if (preloadVideo.src) {
+      preloadVideo.removeAttribute('src');
+      preloadVideo.load();
+    }
+    preloadVideo.src = nextAsset.src;
+    preloadVideo.load();
+    logDebug('VIDEO', 'Preloading next CMS asset', { nextAssetId: nextAsset.id });
+  }, [nextAsset?.id, nextAsset?.src]);
+
   // Handle audio settings updates dynamically
   React.useEffect(() => {
     if (videoRef.current) {
@@ -515,6 +537,14 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
 
             attemptRecovery(video);
           }}
+        />
+        {/* Hidden preload element for next CMS asset */}
+        <video
+          ref={preloadVideoRef}
+          muted
+          preload="metadata"
+          playsInline
+          style={{ display: 'none' }}
         />
     </div>
   );

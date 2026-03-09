@@ -166,12 +166,27 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
   const imgRef = React.useRef<HTMLImageElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
-  
+
   // Media files list and current index
   const [mediaFiles, setMediaFiles] = React.useState<string[]>([]);
   const [playlist, setPlaylist] = React.useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [isLoadingMedia, setIsLoadingMedia] = React.useState(true);
+
+  // Refs mirroring state values for use in callbacks (watchdog, event listeners)
+  // to avoid stale closures between state updates and effect re-setup.
+  const activePlayerIdRef = React.useRef(activePlayerId);
+  activePlayerIdRef.current = activePlayerId;
+  const currentIndexRef = React.useRef(currentIndex);
+  currentIndexRef.current = currentIndex;
+  const playlistRef = React.useRef(playlist);
+  playlistRef.current = playlist;
+  const mediaFilesRef = React.useRef(mediaFiles);
+  mediaFilesRef.current = mediaFiles;
+  const shopsRef = React.useRef(shops);
+  shopsRef.current = shops;
+  const overrideShopIdRef = React.useRef(overrideShopId);
+  overrideShopIdRef.current = overrideShopId;
   
   // Override image state
   const [overrideImage, setOverrideImage] = React.useState<string | null>(null);
@@ -215,9 +230,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     };
   }, []);
 
-  // Helper to get active/inactive video refs
-  const getActiveVideo = () => activePlayerId === 'A' ? videoRefA.current : videoRefB.current;
-  const getInactiveVideo = () => activePlayerId === 'A' ? videoRefB.current : videoRefA.current;
+  // Helper to get active/inactive video refs (reads from ref for latest value)
+  const getActiveVideo = () => activePlayerIdRef.current === 'A' ? videoRefA.current : videoRefB.current;
+  const getInactiveVideo = () => activePlayerIdRef.current === 'A' ? videoRefB.current : videoRefA.current;
 
   // Helper to format buffered ranges
   const getBufferedRanges = (video: HTMLVideoElement) => {
@@ -505,7 +520,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           nextFile = playlist[nextIndex];
       }
 
-      // Logic to move to next item (guarded against concurrent calls)
+      // Logic to move to next item (guarded against concurrent calls).
+      // Reads from refs (not closure) to always use latest state values,
+      // preventing stale closures between state updates and effect re-setup.
       const handleNext = () => {
         // Prevent concurrent transitions from watchdog + ended + error firing simultaneously
         if (isTransitioningRef.current) {
@@ -514,6 +531,14 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         }
         isTransitioningRef.current = true;
 
+        // Read latest values from refs
+        const latestPlaylist = playlistRef.current;
+        const latestIndex = currentIndexRef.current;
+        const latestActivePlayerId = activePlayerIdRef.current;
+        const latestShops = shopsRef.current;
+        const latestOverrideShopId = overrideShopIdRef.current;
+        const latestMediaFiles = mediaFilesRef.current;
+
         // Reset watchdog refs
         lastTimeRef.current = 0;
         freezeCounterRef.current = 0;
@@ -521,10 +546,6 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         lastGoodStateTimeRef.current = Date.now();
 
         // Release decoded video frames from the outgoing player to prevent memory leak.
-        // pause + removeAttribute('src') + load() on the SAME element is sufficient to
-        // release decoder buffers. Do NOT recreate the DOM element via React key changes,
-        // as destroyed elements become "Detached DOM" that Chromium's media pipeline
-        // keeps referenced, causing memory to accumulate instead of being freed.
         const outgoingVideo = getActiveVideo();
         if (outgoingVideo) {
           outgoingVideo.pause();
@@ -532,16 +553,16 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           outgoingVideo.load();
         }
 
-        if (playlist.length > 1) {
-          const nextIndex = currentIndex + 1;
-          const prevPlayer = activePlayerId;
-          const nextPlayer = activePlayerId === 'A' ? 'B' : 'A';
-          const nextFileObj = playlist[nextIndex >= playlist.length ? 0 : nextIndex];
+        if (latestPlaylist.length > 1) {
+          const nextIndex = latestIndex + 1;
+          const prevPlayer = latestActivePlayerId;
+          const nextPlayer = latestActivePlayerId === 'A' ? 'B' : 'A';
+          const nextFileObj = latestPlaylist[nextIndex >= latestPlaylist.length ? 0 : nextIndex];
 
           // Check if matched with shop data
           const nextFilename = extractFilename(nextFileObj);
           const nextShopId = nextFilename.replace(/\.[^/.]+$/, "");
-          const isMatched = shops.some(s => String(s.shopId) === nextShopId || String(s.number) === nextShopId);
+          const isMatched = latestShops.some(s => String(s.shopId) === nextShopId || String(s.number) === nextShopId);
 
           // Get next player ready state
           const nextVideoElement = nextPlayer === 'A' ? videoRefA.current : videoRefB.current;
@@ -558,19 +579,19 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             shopId: nextShopId,
             isMatched,
             readyState: nextReadyState,
-            playlistLength: playlist.length
+            playlistLength: latestPlaylist.length
           });
 
-          if (nextIndex >= playlist.length) {
+          if (nextIndex >= latestPlaylist.length) {
             // Reached end of playlist
             logDebug('MEDIA_SWAP', 'Playlist cycle completed');
 
-            if (overrideShopId) {
+            if (latestOverrideShopId) {
                // In override mode, just loop back
                setCurrentIndex(0);
             } else {
                // Normal mode: reshuffle and restart
-               setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
+               setPlaylist(shuffleArray(filterByActiveShops(latestMediaFiles, latestShops)));
                setCurrentIndex(0);
             }
           } else {
@@ -578,13 +599,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           }
 
           // Switch active player for the NEXT render cycle
-          // Using callback to ensure we toggle from current state
           setActivePlayerId(prev => prev === 'A' ? 'B' : 'A');
-        } else if (playlist.length === 1) {
+        } else if (latestPlaylist.length === 1) {
             // Single file loop - just replay current
-            if (activeVideo) {
-                activeVideo.currentTime = 0;
-                activeVideo.play().catch(e => logError('VIDEO', 'Replay failed', { error: e.message }));
+            const currentVideo = getActiveVideo();
+            if (currentVideo) {
+                currentVideo.currentTime = 0;
+                currentVideo.play().catch(e => logError('VIDEO', 'Replay failed', { error: e.message }));
             }
         }
 
@@ -822,16 +843,18 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         currentSrcRef.current = currentFile;
       }
       
-      // Timer for image display
+      // Timer for image display (reads from refs for latest state)
       const timer = setTimeout(() => {
-        if (playlist.length > 1) {
-          const nextIndex = currentIndex + 1;
-          if (nextIndex >= playlist.length) {
+        const latestPlaylist = playlistRef.current;
+        const latestIndex = currentIndexRef.current;
+        if (latestPlaylist.length > 1) {
+          const nextIndex = latestIndex + 1;
+          if (nextIndex >= latestPlaylist.length) {
             logDebug('MEDIA_SWAP', 'Playlist cycle completed');
-            if (overrideShopId) {
+            if (overrideShopIdRef.current) {
                setCurrentIndex(0);
             } else {
-               setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
+               setPlaylist(shuffleArray(filterByActiveShops(mediaFilesRef.current, shopsRef.current)));
                setCurrentIndex(0);
             }
           } else {
@@ -984,13 +1007,15 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
               }}
               onError={() => {
                 logError('VIDEO', 'Image load error', { file: currentFile });
-                // Skip to next
-                const nextIndex = currentIndex + 1;
-                if (nextIndex >= playlist.length) {
-                   if (overrideShopId) setCurrentIndex(0);
-                   else { setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops))); setCurrentIndex(0); }
+                // Skip to next (read refs for latest state)
+                const latestIndex = currentIndexRef.current;
+                const latestPlaylist = playlistRef.current;
+                const nextIdx = latestIndex + 1;
+                if (nextIdx >= latestPlaylist.length) {
+                   if (overrideShopIdRef.current) setCurrentIndex(0);
+                   else { setPlaylist(shuffleArray(filterByActiveShops(mediaFilesRef.current, shopsRef.current))); setCurrentIndex(0); }
                 } else {
-                   setCurrentIndex(nextIndex);
+                   setCurrentIndex(nextIdx);
                 }
               }}
             />
