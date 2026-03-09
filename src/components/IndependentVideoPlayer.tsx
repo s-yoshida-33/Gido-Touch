@@ -213,6 +213,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   // Transition guard to prevent concurrent handleNext() calls
   const isTransitioningRef = React.useRef<boolean>(false);
 
+  // Error retry timer (for cleanup)
+  const errorRetryTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Watchdog refs
   const lastTimeRef = React.useRef<number>(0);
   const freezeCounterRef = React.useRef<number>(0);
@@ -687,7 +690,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       if (retryCountRef.current < MAX_RETRY_COUNT) {
         retryCountRef.current += 1;
         logWarn('VIDEO', `Retrying video load (${retryCountRef.current}/${MAX_RETRY_COUNT})`, { file: fileName });
-        setTimeout(() => {
+        errorRetryTimerRef.current = setTimeout(() => {
+          errorRetryTimerRef.current = null;
           if (target && target.src) {
             target.load();
             target.play().catch(() => {});
@@ -788,6 +792,11 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       activeVideo.removeEventListener('ended', onEnded);
       activeVideo.removeEventListener('stalled', onStalled);
       activeVideo.removeEventListener('error', onError);
+      // Clear pending error retry timer to prevent load/play on detached element
+      if (errorRetryTimerRef.current) {
+        clearTimeout(errorRetryTimerRef.current);
+        errorRetryTimerRef.current = null;
+      }
     };
   }, [playlist, currentIndex, isLoadingMedia, overrideImage, activePlayerId, handleNext]);
 

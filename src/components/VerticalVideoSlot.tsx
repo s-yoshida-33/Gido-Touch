@@ -59,6 +59,12 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         window.clearInterval(healthCheckTimerRef.current);
         healthCheckTimerRef.current = undefined;
       }
+      // Release preload video buffer to prevent orphaned decoded frames
+      if (preloadVideoRef.current) {
+        preloadVideoRef.current.pause();
+        preloadVideoRef.current.removeAttribute('src');
+        preloadVideoRef.current.load();
+      }
     };
   }, []);
 
