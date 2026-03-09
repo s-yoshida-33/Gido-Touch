@@ -193,6 +193,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const MAX_RETRY_COUNT = 3;
   const retryCountRef = React.useRef<number>(0);
 
+  // Transition guard to prevent concurrent handleNext() calls
+  const isTransitioningRef = React.useRef<boolean>(false);
+
   // Watchdog refs
   const lastTimeRef = React.useRef<number>(0);
   const freezeCounterRef = React.useRef<number>(0);
@@ -502,8 +505,15 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           nextFile = playlist[nextIndex];
       }
 
-      // Logic to move to next item
+      // Logic to move to next item (guarded against concurrent calls)
       const handleNext = () => {
+        // Prevent concurrent transitions from watchdog + ended + error firing simultaneously
+        if (isTransitioningRef.current) {
+          logDebug('MEDIA_SWAP', 'handleNext skipped: transition already in progress');
+          return;
+        }
+        isTransitioningRef.current = true;
+
         // Reset watchdog refs
         lastTimeRef.current = 0;
         freezeCounterRef.current = 0;
@@ -532,7 +542,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           const nextFilename = extractFilename(nextFileObj);
           const nextShopId = nextFilename.replace(/\.[^/.]+$/, "");
           const isMatched = shops.some(s => String(s.shopId) === nextShopId || String(s.number) === nextShopId);
-          
+
           // Get next player ready state
           const nextVideoElement = nextPlayer === 'A' ? videoRefA.current : videoRefB.current;
           const nextReadyState = nextVideoElement ? nextVideoElement.readyState : 'null';
@@ -554,7 +564,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           if (nextIndex >= playlist.length) {
             // Reached end of playlist
             logDebug('MEDIA_SWAP', 'Playlist cycle completed');
-            
+
             if (overrideShopId) {
                // In override mode, just loop back
                setCurrentIndex(0);
@@ -566,7 +576,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
           } else {
             setCurrentIndex(nextIndex);
           }
-          
+
           // Switch active player for the NEXT render cycle
           // Using callback to ensure we toggle from current state
           setActivePlayerId(prev => prev === 'A' ? 'B' : 'A');
@@ -577,6 +587,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 activeVideo.play().catch(e => logError('VIDEO', 'Replay failed', { error: e.message }));
             }
         }
+
+        // Release transition guard after React state updates are scheduled.
+        // Use rAF to ensure the guard is held through the current event loop tick,
+        // preventing a second handleNext() from the same batch of events.
+        requestAnimationFrame(() => {
+          isTransitioningRef.current = false;
+        });
       };
 
       // Playback Logic

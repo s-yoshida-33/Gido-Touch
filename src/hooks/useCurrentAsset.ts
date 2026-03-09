@@ -92,7 +92,7 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
 
       if (nextAsset) {
         setAsset(prevAsset => {
-          if (prevAsset && prevAsset.id === nextAsset.id) {
+          if (prevAsset && prevAsset.id === nextAsset.id && prevAsset.src === nextAsset.src) {
             return prevAsset;
           }
           return nextAsset;

@@ -205,6 +205,12 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   React.useEffect(() => {
     if (asset && asset.id !== prevAssetIdRef.current) {
       setObjectFit('cover');
+      // Guard: skip if src is empty (failed URL conversion) to prevent black screen
+      if (!asset.src) {
+        logWarn('VIDEO', 'Asset has empty src, skipping media load', { assetId: asset.id });
+        prevAssetIdRef.current = asset.id;
+        return;
+      }
       // Release decoded video frames before loading new asset to prevent memory leak.
       // Without this, Chromium accumulates decoded frame buffers across asset changes.
       // After clearing, re-set the new src because useEffect runs after React's DOM update,
