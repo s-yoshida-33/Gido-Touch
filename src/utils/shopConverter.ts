@@ -31,7 +31,7 @@ export function convertSseShopDataToShop(item: SseShopData): Shop {
   const floors = parseFloorsFromBridge(item.floors, defaultFloor);
 
   if (floors.length === 0) {
-    logWarn("SHOP_MAP", "Shop has no floors after normalization", {
+    logWarn("DATA_SYNC", "Shop has no floors after normalization", {
       shopId: item.shopId,
       name: item.shopName,
       rawFloors: item.floors,

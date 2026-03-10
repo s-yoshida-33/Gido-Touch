@@ -51,7 +51,7 @@ class SSEService {
     this.setStatus('connecting');
 
     try {
-      logDebug("sse", `[${this.name}] Connecting to SSE endpoint via Tauri HTTP`, { url: this.url });
+      logDebug("SSE", `[${this.name}] Connecting to SSE endpoint via Tauri HTTP`, { url: this.url });
 
       this.abortController = new AbortController();
 
@@ -67,7 +67,7 @@ class SSEService {
 
       this.setStatus('connected');
       this.reconnectAttempt = 0;
-      logInfo("sse", `[${this.name}] SSE connection opened`);
+      logInfo("SSE", `[${this.name}] SSE connection opened`);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -89,16 +89,16 @@ class SSEService {
         }
       }
 
-      logDebug("sse", `[${this.name}] SSE stream ended`);
+      logDebug("SSE", `[${this.name}] SSE stream ended`);
       this.setStatus('disconnected');
       this.reconnect();
 
     } catch (error: unknown) {
       if (error instanceof Error && error.name === "AbortError") {
-        logDebug("sse", `[${this.name}] SSE connection aborted`);
+        logDebug("SSE", `[${this.name}] SSE connection aborted`);
         return;
       }
-      logError("sse", `[${this.name}] SSE Error occurred`, { error: error instanceof Error ? error.message : String(error) });
+      logError("SSE", `[${this.name}] SSE Error occurred`, { error: error instanceof Error ? error.message : String(error) });
       this.setStatus('error');
       this.reconnect();
     }
@@ -130,7 +130,7 @@ class SSEService {
 
     try {
       const data = JSON.parse(rawData);
-      logDebug("sse", `[${this.name}] Received ${eventType} event`, data);
+      logDebug("SSE", `[${this.name}] Received ${eventType} event`, data);
 
       // Dispatch to the specific event type listeners
       this.emit(eventType, data);
@@ -159,7 +159,7 @@ class SSEService {
     const finalDelay = Math.round(delay + jitter);
     this.reconnectAttempt++;
 
-    logDebug("sse", `[${this.name}] Scheduling reconnect in ${finalDelay}ms (attempt ${this.reconnectAttempt})...`);
+    logDebug("SSE", `[${this.name}] Scheduling reconnect in ${finalDelay}ms (attempt ${this.reconnectAttempt})...`);
     this.retryTimeout = setTimeout(() => {
       this.retryTimeout = null;
       this.connect();
@@ -199,7 +199,7 @@ class SSEService {
         try {
           cb(data);
         } catch (e) {
-          logError("sse", `[${this.name}] Error in event listener`, { error: e });
+          logError("SSE", `[${this.name}] Error in event listener`, { error: e });
         }
       });
     }

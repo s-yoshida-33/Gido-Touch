@@ -906,7 +906,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                   display: 'block'
               }}
               onError={(e) => {
-                  logError('SHOP_MAP', 'Failed to load override shop image');
+                  logError('VIDEO', 'Failed to load override shop image');
                   e.currentTarget.style.display = 'none';
               }}
           />,

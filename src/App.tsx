@@ -460,14 +460,14 @@ const App: React.FC = () => {
         setBlackScreenSettings(mallData.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
 
         addDebug(`Mall settings loaded for ${currentMallId}`);
-        logInfo("app", "Settings loaded", {
+        logInfo("APP", "Settings loaded", {
           mallId: currentMallId,
           shopPositions: Object.keys(mallData.shopPositions.positions).length,
         });
         logInfo("SYSTEM", "Application initialized successfully");
       } catch (e) {
         addDebug(`Failed to load settings: ${e}`);
-        logError("app", "Failed to load settings from Tauri", { error: e });
+        logError("APP", "Failed to load settings from Tauri", { error: e });
       }
 
       setIsInitializing(false);

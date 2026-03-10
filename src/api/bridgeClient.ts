@@ -46,7 +46,7 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
   const baseUrl = await getApiBaseUrl();
   const url = `${baseUrl}/api/shops`;
 
-  logInfo("SHOP_MAP", "Requesting shops from Bridge API", { url });
+  logInfo("DATA_SYNC", "Requesting shops from Bridge API", { url });
 
   try {
     const res = await fetch(url, { method: "GET" });
@@ -68,13 +68,13 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
     } else if (Array.isArray((json as any).data)) {
       rawList = (json as any).data;
       logInfo(
-        "SHOP_MAP",
+        "DATA_SYNC",
         "Bridge API returned data under json.data (legacy format)"
       );
     } else if (Array.isArray((json as any).items)) {
       rawList = (json as any).items;
       logInfo(
-        "SHOP_MAP",
+        "DATA_SYNC",
         "Bridge API returned data under json.items (legacy format)"
       );
     } else {
@@ -89,7 +89,7 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
       const floors = parseFloorsFromBridge(item.floors, defaultFloor);
 
       if (floors.length === 0) {
-        logWarn("SHOP_MAP", "Shop has no floors after normalization", {
+        logWarn("DATA_SYNC", "Shop has no floors after normalization", {
           shopId: item.shopId,
           name: item.shopName,
           rawFloors: item.floors,
@@ -105,13 +105,13 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
       // Verbose logging for shop logo removed to reduce noise, unless debugging needed
       /*
       if (shopLogoValue) {
-        logInfo("SHOP_MAP", "Shop has shop_logo", {
+        logInfo("DATA_SYNC", "Shop has shop_logo", {
           shopId: item.shopId,
           shopName: item.shopName,
           shopLogo: shopLogoValue,
         });
       } else {
-        logInfo("SHOP_MAP", "Shop missing shop_logo", {
+        logInfo("DATA_SYNC", "Shop missing shop_logo", {
           shopId: item.shopId,
           shopName: item.shopName,
           availableKeys: Object.keys(item),
@@ -140,7 +140,7 @@ export async function fetchShopsFromBridge(): Promise<Shop[]> {
       };
     });
 
-    logInfo("SHOP_MAP", "Shops fetched & normalized", {
+    logInfo("DATA_SYNC", "Shops fetched & normalized", {
       count: shops.length,
       defaultFloor,
     });

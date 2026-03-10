@@ -9,54 +9,37 @@ export type LogTag =
   // System lifecycle
   | 'SYS_INIT'
   | 'SYS_SHUTDOWN'
-  | 'SYSTEM'          // [ALERT] Uncaught global errors, unhandled rejections
 
-  // Data fetching (Shop REST)
-  | 'DATA_FETCH'      // [ALERT] Shop API communication errors
-  | 'SHOP_MAP'        // Shop data processing
+  // UI / Screen features
+  | 'MAP'             // [ALERT] Floor map display / interaction errors
+  | 'SHOPLIST'        // [ALERT] Shop list rendering errors
+  | 'VIDEO'           // [ALERT] Video player / local media / CMS delivery errors
 
-  // Asset resolution (image load, picto icons)
-  | 'ASSET_RESOLVE'   // [ALERT] Asset/image resolution failures
+  // Data fetching / communication
+  | 'DATA_SYNC'       // [ALERT] Shop API data sync errors
+  | 'CMS_DELIVERY'    // [ALERT] CMS timeline delivery errors
+  | 'SSE'             // [ALERT] SSE connection errors
 
-  // SSE connection
-  | 'sse'             // [ALERT] SSE connection errors
+  // Asset (file) management
+  | 'ASSET_CHECK'     // [ALERT] Asset file existence / download errors
 
-  // Application general
-  | 'app'             // [ALERT] App-level data load / settings errors
-
-  // Map rendering
-  | 'map'             // [ALERT] Floor map image load errors
-
-  // Shop list
-  | 'shopList'        // [ALERT] Shop list rendering errors
-
-  // Configuration
+  // System / App infrastructure
+  | 'SYSTEM'          // [ALERT] Rust backend crashes, watchdog timeouts
+  | 'RENDERER_ERROR'  // [ALERT] WebView/React rendering errors
+  | 'APP'             // [ALERT] App lifecycle errors
+  | 'UPDATER'         // [ALERT] Tauri auto-update errors
   | 'CONFIG'          // [ALERT] Settings file read/write errors
 
-  // Auto-updater
-  | 'UPDATER'         // [ALERT] Update check/download/install failures
-
-  // CMS / Video
-  | 'VIDEO'           // Video playback
-  | 'CMS_SETTINGS'    // CMS settings
-
-  // Error handling
-  | 'RENDERER_ERROR'  // [ALERT] React ErrorBoundary caught errors
+  // Non-alert scopes
   | 'IPC_ERROR'
-  | 'API_ERROR'       // API communication errors
-
-  // UI / Analytics
+  | 'API_ERROR'
+  | 'CMS_SETTINGS'
   | 'SCREEN_VIEW'
-  | 'TOUCH'           // Touch event tracking
-  | 'idle'
-  | 'repository'
-
-  // User actions
+  | 'TOUCH'
   | 'USER_ACTION'
-
-  // Media
-  | 'MEDIA_SWAP'      // Content switching
-  | 'MEDIA_DOWNLOAD'  // Media download from GitHub Releases
+  | 'MEDIA_SWAP'
+  | 'MEDIA_DOWNLOAD'
+  | 'MEDIA_FILTER'
 
   // Catch-all for compatibility
   | string;
