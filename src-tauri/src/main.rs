@@ -185,9 +185,10 @@ fn write_log(
 
     // Slack notification target scopes
     let alert_scopes = [
-        "map", "shopList", "NEWS", "DATA_FETCH", "ASSET_RESOLVE",
-        "sse", "app", "UPDATER", "CONFIG",
-        "SYSTEM", "RENDERER_ERROR"
+        "MAP", "SHOPLIST", "VIDEO",
+        "DATA_SYNC", "CMS_DELIVERY", "SSE",
+        "ASSET_CHECK",
+        "SYSTEM", "RENDERER_ERROR", "APP", "UPDATER", "CONFIG",
     ];
 
     let upper_level = level.to_uppercase();
