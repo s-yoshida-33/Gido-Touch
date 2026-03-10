@@ -10,9 +10,9 @@ interface VerticalVideoSlotProps {
 
 const MAX_RETRY_COUNT = 5;
 const INITIAL_RETRY_DELAY_MS = 1000;
-const FREEZE_TIMEOUT_MS = 30000; // 30秒間 timeupdate が来なければフリーズとみなす
-const HEALTH_CHECK_INTERVAL_MS = 60000; // 60秒間隔でヘルスチェック
-const MAX_RECREATE_COUNT = 3; // 動画要素の再生成上限
+const FREEZE_TIMEOUT_MS = 30000; // Consider as frozen if no timeupdate for 30 seconds
+const HEALTH_CHECK_INTERVAL_MS = 60000; // Health check interval of 60 seconds
+const MAX_RECREATE_COUNT = 3; // Maximum limit for recreating the video element
 
 const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }) => {
   const { asset, nextAsset, isLoading } = useCurrentAsset();
@@ -199,10 +199,10 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [forceReload, asset]);
 
-  // CMSエリアのアスペクト比: 1080px × 607.5px (16:9)
+  // CMS area aspect ratio: 1080px x 607.5px (16:9)
   const containerAspectRatio = 1080 / 607.5;
 
-  // アスペクト比に基づいてobject-fitを決定
+  // Determine object-fit based on aspect ratio
   const calculateObjectFit = (mediaWidth: number, mediaHeight: number) => {
     const mediaAspectRatio = mediaWidth / mediaHeight;
     return mediaAspectRatio > containerAspectRatio ? 'contain' : 'cover';
@@ -359,7 +359,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         }}
       >
         <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-          {isLoading ? 'Loading...' : 'No connected.'}
+          {isLoading ? 'Loading...' : 'Not connected.'}
         </div>
         {!isLoading && (
             <div style={{ fontSize: 10, color: '#aaa' }}>
