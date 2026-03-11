@@ -15,7 +15,7 @@ const HEALTH_CHECK_INTERVAL_MS = 60000; // Health check interval of 60 seconds
 const MAX_RECREATE_COUNT = 3; // Maximum limit for recreating the video element
 
 const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }) => {
-  const { asset, nextAsset, isLoading } = useCurrentAsset();
+  const { asset, nextAsset, isLoading, isScheduleRecalculating } = useCurrentAsset();
   const { audioSettings } = useAudioSettingsContext();
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -116,6 +116,43 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       setErrorMsg('Video Error: All recovery attempts exhausted');
     }
   }, [asset?.id]);
+
+  // Pause video on last frame during CMS schedule recalculation.
+  // When a valid event arrives within the grace period, resume playback.
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !asset) return;
+
+    const isImage = asset.mediaType === 'image' ||
+      (asset.src && /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(asset.src));
+    if (isImage) return;
+
+    if (isScheduleRecalculating) {
+      if (!video.paused) {
+        video.pause();
+        logDebug('VIDEO', 'Paused video for schedule recalculation (holding last frame)', {
+          assetId: asset.id,
+          currentTime: video.currentTime,
+        });
+      }
+    } else {
+      // Reset freeze detection baseline so the paused duration doesn't trigger false recovery
+      lastTimeUpdateRef.current = Date.now();
+      if (video.paused && video.readyState >= 2) {
+        video.play().then(() => {
+          logDebug('VIDEO', 'Resumed video after schedule recalculation', {
+            assetId: asset.id,
+            currentTime: video.currentTime,
+          });
+        }).catch((err) => {
+          logError('VIDEO', 'Failed to resume video after schedule recalculation', {
+            assetId: asset.id,
+            error: err?.message,
+          });
+        });
+      }
+    }
+  }, [isScheduleRecalculating, asset?.id]);
 
   // Freeze detection & health check
   React.useEffect(() => {

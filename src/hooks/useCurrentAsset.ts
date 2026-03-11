@@ -1,27 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { cmsSseService } from '../services/SSEService';
 import type { CurrentAsset } from '../types/wsp';
-import { logInfo, logWarn, logDebug } from '../logs/logging';
+import { logInfo, logWarn, logDebug, logError } from '../logs/logging';
 
 interface UseCurrentAssetResult {
   asset: CurrentAsset | null;
   nextAsset: CurrentAsset | null;
   isLoading: boolean;
+  /** true while waiting for a valid event after receiving a null item_changed (schedule recalculation) */
+  isScheduleRecalculating: boolean;
 }
 
 /**
  * CMS Timeline SSE event payload (from /api/timeline/stream).
  * event: item_changed
+ *
+ * During hourly schedule recalculation, current_media_* fields may be null.
  */
 interface CmsTimelineEvent {
   event_type: 'item_changed';
-  current_media_id: string;
-  current_media_name: string;
-  current_media_type: string; // 'image' | 'video'
-  current_media_local_path: string;
-  next_media_id: string;
-  next_media_local_path: string;
+  current_media_id: string | null;
+  current_media_name: string | null;
+  current_media_type: string | null;
+  current_media_local_path: string | null;
+  next_media_id: string | null;
+  next_media_local_path: string | null;
   timeline_count: number;
   timestamp: string;
 }
@@ -47,19 +51,19 @@ function toAssetUrl(filePath: string): string {
 function mapCmsEventToAsset(event: CmsTimelineEvent): CurrentAsset | null {
   if (!event.current_media_id) return null;
 
-  const src = toAssetUrl(event.current_media_local_path);
+  const src = toAssetUrl(event.current_media_local_path ?? '');
 
   return {
     id: event.current_media_id,
     src,
-    duration: 0, // Not provided by new API
+    duration: 0,
     width: 0,
     height: 0,
-    name: event.current_media_name,
+    name: event.current_media_name ?? '',
     startTime: event.timestamp,
     endTime: '',
-    mediaType: event.current_media_type,
-    type: event.current_media_type,
+    mediaType: event.current_media_type ?? '',
+    type: event.current_media_type ?? '',
   };
 }
 
@@ -77,10 +81,12 @@ function mapCmsEventToNextAsset(event: CmsTimelineEvent): CurrentAsset | null {
     name: '',
     startTime: '',
     endTime: '',
-    mediaType: '', // type not provided for next media
+    mediaType: '',
     type: '',
   };
 }
+
+const NULL_GRACE_PERIOD_MS = 5000;
 
 /**
  * Receives real-time content updates from CMS Timeline API via SSE.
@@ -88,18 +94,32 @@ function mapCmsEventToNextAsset(event: CmsTimelineEvent): CurrentAsset | null {
  *
  * Returns the current asset and the next asset (for preloading).
  *
+ * When receiving an item_changed with null current_media (schedule recalculation),
+ * the hook keeps the current asset and enters a 5-second grace period.
+ * If a valid event arrives within 5s, playback resumes seamlessly.
+ * If the grace period expires, it is treated as an error and asset is cleared.
+ *
  * @param enabled Whether CMS integration is enabled (from cmsSettings)
  */
 export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult {
   const [asset, setAsset] = useState<CurrentAsset | null>(null);
   const [nextAsset, setNextAsset] = useState<CurrentAsset | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isScheduleRecalculating, setIsScheduleRecalculating] = useState<boolean>(false);
+  const nullGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!enabled) {
       setIsLoading(false);
       return;
     }
+
+    const clearNullGraceTimer = () => {
+      if (nullGraceTimerRef.current !== null) {
+        clearTimeout(nullGraceTimerRef.current);
+        nullGraceTimerRef.current = null;
+      }
+    };
 
     // Connect to CMS SSE
     cmsSseService.connect();
@@ -112,6 +132,56 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
         nextMediaId: data.next_media_id,
       });
 
+      const isNullEvent = !data.current_media_id;
+
+      if (isNullEvent) {
+        // Schedule recalculation: CMS sends null during hourly recalc.
+        // Keep the current asset displayed (video paused on last frame)
+        // and wait up to 5 seconds for a valid event.
+        if (nullGraceTimerRef.current !== null) {
+          logDebug('VIDEO', 'Null grace period already active, ignoring duplicate null event');
+          return;
+        }
+
+        logInfo('VIDEO', 'Received null item_changed (schedule recalculation), entering grace period', {
+          timestamp: data.timestamp,
+          timelineCount: data.timeline_count,
+          nextMediaId: data.next_media_id,
+        });
+        setIsScheduleRecalculating(true);
+
+        nullGraceTimerRef.current = setTimeout(() => {
+          nullGraceTimerRef.current = null;
+          logError('VIDEO', 'Null grace period expired without valid event — treating as error', {
+            gracePeriodMs: NULL_GRACE_PERIOD_MS,
+          });
+          setIsScheduleRecalculating(false);
+          setAsset(null);
+          setNextAsset(null);
+        }, NULL_GRACE_PERIOD_MS);
+
+        // Update nextAsset even during grace period if provided
+        const mappedNextAsset = mapCmsEventToNextAsset(data);
+        setNextAsset(prevNext => {
+          if (!mappedNextAsset) return prevNext;
+          if (prevNext && prevNext.id === mappedNextAsset.id && prevNext.src === mappedNextAsset.src) {
+            return prevNext;
+          }
+          return mappedNextAsset;
+        });
+
+        return;
+      }
+
+      // Valid event received — clear grace period if active
+      if (nullGraceTimerRef.current !== null) {
+        logInfo('VIDEO', 'Valid item_changed received during grace period — resuming playback', {
+          mediaId: data.current_media_id,
+        });
+        clearNullGraceTimer();
+      }
+      setIsScheduleRecalculating(false);
+
       const mappedAsset = mapCmsEventToAsset(data);
       const mappedNextAsset = mapCmsEventToNextAsset(data);
 
@@ -123,7 +193,7 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
           return mappedAsset;
         });
       } else {
-        logWarn('VIDEO', 'Failed to map CMS event to asset');
+        logWarn('VIDEO', 'Failed to map CMS event to asset (non-null id but mapping failed)');
         setAsset(null);
       }
 
@@ -155,9 +225,10 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
       unsubscribeItemChanged();
       unsubscribeConnected();
       clearTimeout(timeout);
+      clearNullGraceTimer();
       cmsSseService.disconnect();
     };
   }, [enabled]);
 
-  return { asset, nextAsset, isLoading };
+  return { asset, nextAsset, isLoading, isScheduleRecalculating };
 }
