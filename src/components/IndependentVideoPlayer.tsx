@@ -349,7 +349,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         setCurrentIndex(0);
         setOverrideImage(null); // Clear override image
       } else {
-        logWarn('MEDIA_SWAP', `No local media found for shop override: ${overrideShopId}. Trying shop details image.`);
+        logInfo('MEDIA_SWAP', `No local media found for shop override: ${overrideShopId}. Trying shop details image.`);
         
         // 2. If no local media, try to load shop image
         // Find shop using loose equality
