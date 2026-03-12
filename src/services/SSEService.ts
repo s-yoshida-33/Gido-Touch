@@ -21,6 +21,7 @@ class SSEService {
   private _status: SseConnectionStatus = 'disconnected';
   private url: string;
   private name: string;
+  private logTag: string;
   private reconnectAttempt: number = 0;
   private static readonly BASE_DELAY_MS = 3000;
   private static readonly MAX_DELAY_MS = 60000;
@@ -36,9 +37,10 @@ class SSEService {
     }
   }
 
-  constructor(url: string, name: string = 'SSE', autoConnect: boolean = true) {
+  constructor(url: string, name: string = 'SSE', autoConnect: boolean = true, logTag: string = 'SSE') {
     this.url = url;
     this.name = name;
+    this.logTag = logTag;
     if (autoConnect) {
       this.connect();
     }
@@ -51,7 +53,7 @@ class SSEService {
     this.setStatus('connecting');
 
     try {
-      logDebug("SSE", `[${this.name}] Connecting to SSE endpoint via Tauri HTTP`, { url: this.url });
+      logDebug(this.logTag, `[${this.name}] Connecting to SSE endpoint via Tauri HTTP`, { url: this.url });
 
       this.abortController = new AbortController();
 
@@ -67,7 +69,7 @@ class SSEService {
 
       this.setStatus('connected');
       this.reconnectAttempt = 0;
-      logInfo("SSE", `[${this.name}] SSE connection opened`);
+      logInfo(this.logTag, `[${this.name}] SSE connection opened`);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -89,16 +91,16 @@ class SSEService {
         }
       }
 
-      logDebug("SSE", `[${this.name}] SSE stream ended`);
+      logDebug(this.logTag, `[${this.name}] SSE stream ended`);
       this.setStatus('disconnected');
       this.reconnect();
 
     } catch (error: unknown) {
       if (error instanceof Error && error.name === "AbortError") {
-        logDebug("SSE", `[${this.name}] SSE connection aborted`);
+        logDebug(this.logTag, `[${this.name}] SSE connection aborted`);
         return;
       }
-      logError("SSE", `[${this.name}] SSE Error occurred`, { error: error instanceof Error ? error.message : String(error) });
+      logError(this.logTag, `[${this.name}] SSE Error occurred`, { error: error instanceof Error ? error.message : String(error) });
       this.setStatus('error');
       this.reconnect();
     }
@@ -130,7 +132,7 @@ class SSEService {
 
     try {
       const data = JSON.parse(rawData);
-      logDebug("SSE", `[${this.name}] Received ${eventType} event`, data);
+      logDebug(this.logTag, `[${this.name}] Received ${eventType} event`, data);
 
       // Dispatch to the specific event type listeners
       this.emit(eventType, data);
@@ -159,7 +161,7 @@ class SSEService {
     const finalDelay = Math.round(delay + jitter);
     this.reconnectAttempt++;
 
-    logDebug("SSE", `[${this.name}] Scheduling reconnect in ${finalDelay}ms (attempt ${this.reconnectAttempt})...`);
+    logDebug(this.logTag, `[${this.name}] Scheduling reconnect in ${finalDelay}ms (attempt ${this.reconnectAttempt})...`);
     this.retryTimeout = setTimeout(() => {
       this.retryTimeout = null;
       this.connect();
@@ -199,7 +201,7 @@ class SSEService {
         try {
           cb(data);
         } catch (e) {
-          logError("SSE", `[${this.name}] Error in event listener`, { error: e });
+          logError(this.logTag, `[${this.name}] Error in event listener`, { error: e });
         }
       });
     }
@@ -221,6 +223,7 @@ export const shopSseService = new SSEService(
   'http://localhost:8090/api/events',
   'Shop_SSE',
   true,
+  'DATA_SYNC',
 );
 
 // CMS Timeline API SSE — conditionally connected (controlled by cmsSettings.enabled)
@@ -228,6 +231,7 @@ export const cmsSseService = new SSEService(
   'http://localhost:48080/api/timeline/stream',
   'CMS_SSE',
   false,
+  'CMS_DELIVERY',
 );
 
 export { SSEService };

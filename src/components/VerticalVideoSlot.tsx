@@ -130,7 +130,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     if (isScheduleRecalculating) {
       if (!video.paused) {
         video.pause();
-        logDebug('VIDEO', 'Paused video for schedule recalculation (holding last frame)', {
+        logDebug('CMS_DELIVERY', 'Paused video for schedule recalculation (holding last frame)', {
           assetId: asset.id,
           currentTime: video.currentTime,
         });
@@ -140,12 +140,12 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       lastTimeUpdateRef.current = Date.now();
       if (video.paused && video.readyState >= 2) {
         video.play().then(() => {
-          logDebug('VIDEO', 'Resumed video after schedule recalculation', {
+          logDebug('CMS_DELIVERY', 'Resumed video after schedule recalculation', {
             assetId: asset.id,
             currentTime: video.currentTime,
           });
         }).catch((err) => {
-          logError('VIDEO', 'Failed to resume video after schedule recalculation', {
+          logError('CMS_DELIVERY', 'Failed to resume video after schedule recalculation', {
             assetId: asset.id,
             error: err?.message,
           });
@@ -257,7 +257,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     // Guard: skip if src is empty (failed URL conversion) to prevent black screen
     if (!asset.src) {
       if (isAssetChanged) {
-        logWarn('VIDEO', 'Asset has empty src, skipping media load', { assetId: asset.id });
+        logWarn('CMS_DELIVERY', 'Asset has empty src, skipping media load', { assetId: asset.id });
         prevAssetIdRef.current = asset.id;
       }
       return;
@@ -266,7 +266,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     const video = videoRef.current;
 
     if (isAssetChanged) {
-      logDebug('VIDEO', 'CMS asset transition', {
+      logDebug('CMS_DELIVERY', 'CMS asset transition', {
         from: prevAssetIdRef.current,
         to: asset.id,
         mediaType: asset.mediaType,
@@ -360,7 +360,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
     preloadVideo.src = nextAsset.src;
     preloadVideo.load();
-    logDebug('VIDEO', 'Preloading next CMS asset', { nextAssetId: nextAsset.id });
+    logDebug('CMS_DELIVERY', 'Preloading next CMS asset', { nextAssetId: nextAsset.id });
   }, [nextAsset?.id, nextAsset?.src]);
 
   // Handle audio settings updates dynamically
@@ -373,7 +373,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   // No asset case
   if (!asset) {
     if (!isLoading) {
-      logWarn('VIDEO', 'No video asset available for VerticalVideoSlot', {
+      logWarn('CMS_DELIVERY', 'No video asset available for VerticalVideoSlot', {
         isLoading,
         currentAssetId: null,
       });

@@ -4,6 +4,8 @@ import { cmsSseService } from '../services/SSEService';
 import type { CurrentAsset } from '../types/wsp';
 import { logInfo, logWarn, logDebug, logError } from '../logs/logging';
 
+const LOG_TAG = 'CMS_DELIVERY' as const;
+
 interface UseCurrentAssetResult {
   asset: CurrentAsset | null;
   nextAsset: CurrentAsset | null;
@@ -125,7 +127,7 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
     cmsSseService.connect();
 
     const handleItemChanged = (data: CmsTimelineEvent) => {
-      logDebug('VIDEO', 'CMS item_changed via SSE', {
+      logDebug(LOG_TAG, 'CMS item_changed via SSE', {
         mediaId: data.current_media_id,
         mediaType: data.current_media_type,
         mediaName: data.current_media_name,
@@ -139,11 +141,11 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
         // Keep the current asset displayed (video paused on last frame)
         // and wait up to 5 seconds for a valid event.
         if (nullGraceTimerRef.current !== null) {
-          logDebug('VIDEO', 'Null grace period already active, ignoring duplicate null event');
+          logDebug(LOG_TAG, 'Null grace period already active, ignoring duplicate null event');
           return;
         }
 
-        logInfo('VIDEO', 'Received null item_changed (schedule recalculation), entering grace period', {
+        logInfo(LOG_TAG, 'Received null item_changed (schedule recalculation), entering grace period', {
           timestamp: data.timestamp,
           timelineCount: data.timeline_count,
           nextMediaId: data.next_media_id,
@@ -152,7 +154,7 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
 
         nullGraceTimerRef.current = setTimeout(() => {
           nullGraceTimerRef.current = null;
-          logError('VIDEO', 'Null grace period expired without valid event — treating as error', {
+          logError(LOG_TAG, 'Null grace period expired without valid event — treating as error', {
             gracePeriodMs: NULL_GRACE_PERIOD_MS,
           });
           setIsScheduleRecalculating(false);
@@ -175,7 +177,7 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
 
       // Valid event received — clear grace period if active
       if (nullGraceTimerRef.current !== null) {
-        logInfo('VIDEO', 'Valid item_changed received during grace period — resuming playback', {
+        logInfo(LOG_TAG, 'Valid item_changed received during grace period — resuming playback', {
           mediaId: data.current_media_id,
         });
         clearNullGraceTimer();
@@ -193,7 +195,7 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
           return mappedAsset;
         });
       } else {
-        logWarn('VIDEO', 'Failed to map CMS event to asset (non-null id but mapping failed)');
+        logWarn(LOG_TAG, 'Failed to map CMS event to asset (non-null id but mapping failed)');
         setAsset(null);
       }
 
@@ -209,7 +211,7 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
     };
 
     const handleConnected = () => {
-      logInfo('VIDEO', 'CMS SSE Connected');
+      logInfo(LOG_TAG, 'CMS SSE Connected');
       setIsLoading(false);
     };
 
