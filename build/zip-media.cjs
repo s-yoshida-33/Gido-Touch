@@ -76,8 +76,13 @@ function createMediaZips() {
 
   for (const mallDir of mallDirs) {
     const mallId = mallDir.name;
-    const sourceDir = path.join(MEDIA_ROOT, mallId);
+    const sourceDir = path.join(MEDIA_ROOT, mallId, 'videos', 'optimized');
     const zipFileName = `media-${mallId}.zip`;
+
+    if (!fs.existsSync(sourceDir)) {
+      console.log(`  Skipping ${mallId}: optimized directory not found (${sourceDir})`);
+      continue;
+    }
     const zipFilePath = path.join(RELEASE_DIR, zipFileName);
 
     // Count files
