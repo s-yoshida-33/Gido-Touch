@@ -1033,7 +1033,13 @@ fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -
 
     // Extract ZIP into videos/ subdirectory so that list_media_files can find them.
     // The ZIP contains bare video files (e.g. 1.mp4) built from videos/optimized/.
+    // Purge existing videos first so that files removed from the ZIP (e.g. after
+    // deleting an unused shopId media) don't linger on disk.
     let videos_dir = mall_dir.join("videos");
+    if videos_dir.exists() {
+        fs::remove_dir_all(&videos_dir)
+            .map_err(|e| format!("Failed to clean existing videos directory: {}", e))?;
+    }
     fs::create_dir_all(&videos_dir)
         .map_err(|e| format!("Failed to create mall media/videos directory: {}", e))?;
 
