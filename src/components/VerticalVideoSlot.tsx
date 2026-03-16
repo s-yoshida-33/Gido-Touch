@@ -369,7 +369,9 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         pv.load();
       }
       pv.src = nextSrc;
-      pv.load();
+      // Rely on preload="metadata" to load only metadata, not full video data.
+      // Explicit load() overrides the preload hint and causes aggressive buffering,
+      // allocating a software decode pipeline that competes with the main player.
       logDebug('CMS_DELIVERY', 'Preloading next CMS asset', { nextAssetId: nextId });
     }, 300);
 

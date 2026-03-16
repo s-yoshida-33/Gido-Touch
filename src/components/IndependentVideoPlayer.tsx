@@ -657,7 +657,9 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
               inactiveVideo.load();
             }
             inactiveVideo.src = nextFileUrl;
-            inactiveVideo.load();
+            // Rely on preload="metadata" to load only metadata, not full video data.
+            // Explicit load() overrides the preload hint and causes aggressive buffering,
+            // allocating a full software decode pipeline that competes with the CMS player.
             inactiveVideo.muted = audioMutedRef.current;
           }
         }
