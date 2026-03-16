@@ -591,6 +591,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   }, [audioSettings.localMediaMuted]);
 
   // --- Effect 3: Video source & preload — manages src on active/inactive players ---
+  // Preload of the next video on the inactive player is staggered by 500ms
+  // to avoid concurrent decode pressure with the CMS player (VerticalVideoSlot).
   React.useEffect(() => {
     if (overrideImage || playlist.length === 0 || isLoadingMedia) return;
 
@@ -598,7 +600,6 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     if (!currentFile || !isVideoFile(currentFile)) return;
 
     const activeVideo = getActiveVideo();
-    const inactiveVideo = getInactiveVideo();
 
     // Set source on active player if needed
     if (activeVideo) {
@@ -635,27 +636,37 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       }
     }
 
-    // Preload next video on inactive player
-    if (inactiveVideo && playlist.length > 1) {
-      const nextIndex = (currentIndex + 1) % playlist.length;
-      const nextFile = playlist[nextIndex];
-      if (nextFile && isVideoFile(nextFile)) {
-        const nextFileUrl = toAssetUrl(nextFile);
-        const nextFilename = extractFilename(nextFile);
-        const nextSrcDecoded = decodeURIComponent(inactiveVideo.src);
+    // Preload next video on inactive player (staggered to reduce decode contention)
+    let preloadTimer: ReturnType<typeof setTimeout> | null = null;
+    if (playlist.length > 1) {
+      preloadTimer = setTimeout(() => {
+        const inactiveVideo = getInactiveVideo();
+        if (!inactiveVideo) return;
 
-        if (!inactiveVideo.src || !nextSrcDecoded.includes(nextFilename)) {
-          if (inactiveVideo.src) {
-            inactiveVideo.pause();
-            inactiveVideo.removeAttribute('src');
+        const nextIndex = (currentIndex + 1) % playlist.length;
+        const nextFile = playlist[nextIndex];
+        if (nextFile && isVideoFile(nextFile)) {
+          const nextFileUrl = toAssetUrl(nextFile);
+          const nextFilename = extractFilename(nextFile);
+          const nextSrcDecoded = decodeURIComponent(inactiveVideo.src || '');
+
+          if (!inactiveVideo.src || !nextSrcDecoded.includes(nextFilename)) {
+            if (inactiveVideo.src) {
+              inactiveVideo.pause();
+              inactiveVideo.removeAttribute('src');
+              inactiveVideo.load();
+            }
+            inactiveVideo.src = nextFileUrl;
             inactiveVideo.load();
+            inactiveVideo.muted = audioMutedRef.current;
           }
-          inactiveVideo.src = nextFileUrl;
-          inactiveVideo.load();
-          inactiveVideo.muted = audioMutedRef.current;
         }
-      }
+      }, 500);
     }
+
+    return () => {
+      if (preloadTimer) clearTimeout(preloadTimer);
+    };
   }, [playlist, currentIndex, isLoadingMedia, overrideImage, activePlayerId]);
 
   // --- Effect 4: Event listeners & watchdog — attached to active video element ---

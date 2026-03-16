@@ -342,25 +342,38 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [asset]);
 
-  // Preload next asset for seamless transition
+  // Preload next asset for seamless transition.
+  // Staggered by 300ms to avoid concurrent decode pressure when the main
+  // video is loading a new asset or the local media player is also decoding.
   React.useEffect(() => {
-    const preloadVideo = preloadVideoRef.current;
-    if (!preloadVideo || !nextAsset?.src) return;
+    if (!nextAsset?.src) return;
 
     const isNextVideo = !nextAsset.src.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
     if (!isNextVideo) return;
 
+    const preloadVideo = preloadVideoRef.current;
+    if (!preloadVideo) return;
+
     const currentPreloadSrc = decodeURIComponent(preloadVideo.src || '');
     if (currentPreloadSrc.includes(nextAsset.id) || preloadVideo.src === nextAsset.src) return;
 
-    // Release previous preload buffer, then set new source
-    if (preloadVideo.src) {
-      preloadVideo.removeAttribute('src');
-      preloadVideo.load();
-    }
-    preloadVideo.src = nextAsset.src;
-    preloadVideo.load();
-    logDebug('CMS_DELIVERY', 'Preloading next CMS asset', { nextAssetId: nextAsset.id });
+    const nextSrc = nextAsset.src;
+    const nextId = nextAsset.id;
+
+    const timer = window.setTimeout(() => {
+      const pv = preloadVideoRef.current;
+      if (!pv) return;
+
+      if (pv.src) {
+        pv.removeAttribute('src');
+        pv.load();
+      }
+      pv.src = nextSrc;
+      pv.load();
+      logDebug('CMS_DELIVERY', 'Preloading next CMS asset', { nextAssetId: nextId });
+    }, 300);
+
+    return () => window.clearTimeout(timer);
   }, [nextAsset?.id, nextAsset?.src]);
 
   // Handle audio settings updates dynamically
@@ -492,6 +505,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
           muted={audioSettings.cmsMuted}
           loop={true}
           playsInline
+          preload="metadata"
           style={{
             width: '100%',
             height: '100%',
