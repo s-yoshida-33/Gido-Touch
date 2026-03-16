@@ -42,10 +42,14 @@ export function PatchScreen({ onComplete }: PatchScreenProps) {
     }
   }, [updateStatus.status, mediaStatus.status, onComplete]);
 
-  // Current phase for display
+  // Current phase for display – prioritise whichever is actively working.
+  // If media is already downloading/extracting, show that even when the app
+  // update check hasn't finished yet (both hooks run in parallel).
   type Phase = 'app_update' | 'media_download';
   const currentPhase: Phase = (() => {
     const appDone = updateStatus.status === 'uptodate' || updateStatus.status === 'error';
+    const mediaActive = mediaStatus.status === 'downloading';
+    if (mediaActive) return 'media_download';
     if (!appDone) return 'app_update';
     return 'media_download';
   })();

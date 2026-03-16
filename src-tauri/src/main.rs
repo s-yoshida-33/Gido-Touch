@@ -1031,9 +1031,11 @@ fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -
         message: "ダウンロード完了。展開中…".to_string(),
     });
 
-    // Extract ZIP
-    fs::create_dir_all(&mall_dir)
-        .map_err(|e| format!("Failed to create mall media directory: {}", e))?;
+    // Extract ZIP into videos/ subdirectory so that list_media_files can find them.
+    // The ZIP contains bare video files (e.g. 1.mp4) built from videos/optimized/.
+    let videos_dir = mall_dir.join("videos");
+    fs::create_dir_all(&videos_dir)
+        .map_err(|e| format!("Failed to create mall media/videos directory: {}", e))?;
 
     let zip_file = fs::File::open(&zip_path)
         .map_err(|e| format!("Failed to open zip file: {}", e))?;
@@ -1046,7 +1048,7 @@ fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -
             .map_err(|e| format!("Failed to read zip entry: {}", e))?;
 
         let out_path = match file.enclosed_name() {
-            Some(path) => mall_dir.join(path),
+            Some(path) => videos_dir.join(path),
             None => continue,
         };
 
