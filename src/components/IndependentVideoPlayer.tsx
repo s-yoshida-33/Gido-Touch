@@ -590,9 +590,14 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     if (inactiveVideo) inactiveVideo.muted = audioSettings.localMediaMuted;
   }, [audioSettings.localMediaMuted]);
 
-  // --- Effect 3: Video source & preload — manages src on active/inactive players ---
-  // Preload of the next video on the inactive player is staggered by 500ms
-  // to avoid concurrent decode pressure with the CMS player (VerticalVideoSlot).
+  // --- Effect 3: Video source — manages src on the active player only ---
+  // No preloading on the inactive player. On systems without hardware video
+  // acceleration (e.g. USB virtual display), Chromium allocates a full software
+  // decode pipeline per video element that has buffered data, regardless of the
+  // preload attribute. Two concurrent decode pipelines (local + CMS) plus a
+  // preloaded buffer consistently caused PIPELINE_ERROR_DECODE on both streams.
+  // Local files load from disk via asset:// (~200ms), so the transition gap is
+  // imperceptible for digital signage.
   React.useEffect(() => {
     if (overrideImage || playlist.length === 0 || isLoadingMedia) return;
 
@@ -635,40 +640,6 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         });
       }
     }
-
-    // Preload next video on inactive player (staggered to reduce decode contention)
-    let preloadTimer: ReturnType<typeof setTimeout> | null = null;
-    if (playlist.length > 1) {
-      preloadTimer = setTimeout(() => {
-        const inactiveVideo = getInactiveVideo();
-        if (!inactiveVideo) return;
-
-        const nextIndex = (currentIndex + 1) % playlist.length;
-        const nextFile = playlist[nextIndex];
-        if (nextFile && isVideoFile(nextFile)) {
-          const nextFileUrl = toAssetUrl(nextFile);
-          const nextFilename = extractFilename(nextFile);
-          const nextSrcDecoded = decodeURIComponent(inactiveVideo.src || '');
-
-          if (!inactiveVideo.src || !nextSrcDecoded.includes(nextFilename)) {
-            if (inactiveVideo.src) {
-              inactiveVideo.pause();
-              inactiveVideo.removeAttribute('src');
-              inactiveVideo.load();
-            }
-            inactiveVideo.src = nextFileUrl;
-            // Rely on preload="metadata" to load only metadata, not full video data.
-            // Explicit load() overrides the preload hint and causes aggressive buffering,
-            // allocating a full software decode pipeline that competes with the CMS player.
-            inactiveVideo.muted = audioMutedRef.current;
-          }
-        }
-      }, 500);
-    }
-
-    return () => {
-      if (preloadTimer) clearTimeout(preloadTimer);
-    };
   }, [playlist, currentIndex, isLoadingMedia, overrideImage, activePlayerId]);
 
   // --- Effect 4: Event listeners & watchdog — attached to active video element ---

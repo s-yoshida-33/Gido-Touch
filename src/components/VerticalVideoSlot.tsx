@@ -15,11 +15,10 @@ const HEALTH_CHECK_INTERVAL_MS = 60000; // Health check interval of 60 seconds
 const MAX_RECREATE_COUNT = 3; // Maximum limit for recreating the video element
 
 const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }) => {
-  const { asset, nextAsset, isLoading, isScheduleRecalculating } = useCurrentAsset();
+  const { asset, isLoading, isScheduleRecalculating } = useCurrentAsset();
   const { audioSettings } = useAudioSettingsContext();
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
-  const preloadVideoRef = React.useRef<HTMLVideoElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
   const prevAssetIdRef = React.useRef<string | null>(null);
   const retryCountRef = React.useRef<number>(0);
@@ -58,12 +57,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       if (healthCheckTimerRef.current !== undefined) {
         window.clearInterval(healthCheckTimerRef.current);
         healthCheckTimerRef.current = undefined;
-      }
-      // Release preload video buffer to prevent orphaned decoded frames
-      if (preloadVideoRef.current) {
-        preloadVideoRef.current.pause();
-        preloadVideoRef.current.removeAttribute('src');
-        preloadVideoRef.current.load();
       }
     };
   }, []);
@@ -291,17 +284,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         imgRef.current.src = asset.src;
       }
 
-      // Release preload buffer if the preloaded asset matches the new current asset,
-      // since the main player now owns this content.
-      const preloadVideo = preloadVideoRef.current;
-      if (preloadVideo && preloadVideo.src) {
-        const preloadSrc = decodeURIComponent(preloadVideo.src);
-        if (preloadSrc.includes(asset.id) || preloadVideo.src === asset.src) {
-          preloadVideo.removeAttribute('src');
-          preloadVideo.load();
-        }
-      }
-
       prevAssetIdRef.current = asset.id;
     }
 
@@ -342,41 +324,10 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [asset]);
 
-  // Preload next asset for seamless transition.
-  // Staggered by 300ms to avoid concurrent decode pressure when the main
-  // video is loading a new asset or the local media player is also decoding.
-  React.useEffect(() => {
-    if (!nextAsset?.src) return;
-
-    const isNextVideo = !nextAsset.src.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
-    if (!isNextVideo) return;
-
-    const preloadVideo = preloadVideoRef.current;
-    if (!preloadVideo) return;
-
-    const currentPreloadSrc = decodeURIComponent(preloadVideo.src || '');
-    if (currentPreloadSrc.includes(nextAsset.id) || preloadVideo.src === nextAsset.src) return;
-
-    const nextSrc = nextAsset.src;
-    const nextId = nextAsset.id;
-
-    const timer = window.setTimeout(() => {
-      const pv = preloadVideoRef.current;
-      if (!pv) return;
-
-      if (pv.src) {
-        pv.removeAttribute('src');
-        pv.load();
-      }
-      pv.src = nextSrc;
-      // Rely on preload="metadata" to load only metadata, not full video data.
-      // Explicit load() overrides the preload hint and causes aggressive buffering,
-      // allocating a software decode pipeline that competes with the main player.
-      logDebug('CMS_DELIVERY', 'Preloading next CMS asset', { nextAssetId: nextId });
-    }, 300);
-
-    return () => window.clearTimeout(timer);
-  }, [nextAsset?.id, nextAsset?.src]);
+  // CMS preload disabled: on systems without hardware video acceleration,
+  // Chromium allocates a full software decode pipeline for any video element
+  // with buffered data, causing PIPELINE_ERROR_DECODE when multiple pipelines
+  // compete for CPU. CMS assets are local files that load quickly on demand.
 
   // Handle audio settings updates dynamically
   React.useEffect(() => {
@@ -616,14 +567,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
 
             attemptRecovery();
           }}
-        />
-        {/* Hidden preload element for next CMS asset */}
-        <video
-          ref={preloadVideoRef}
-          muted
-          preload="metadata"
-          playsInline
-          style={{ display: 'none' }}
         />
     </div>
   );
