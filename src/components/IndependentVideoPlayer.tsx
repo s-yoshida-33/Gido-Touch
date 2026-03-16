@@ -939,6 +939,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             ref={videoRefA}
             muted={audioSettings.localMediaMuted}
             playsInline
+            preload="metadata"
             style={{
                 width: '100%',
                 height: '100%',
@@ -958,6 +959,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             ref={videoRefB}
             muted={audioSettings.localMediaMuted}
             playsInline
+            preload="metadata"
             style={{
                 width: '100%',
                 height: '100%',
