@@ -1467,13 +1467,6 @@ mod focus_guard {
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(RESTORE_DELAY_SECS));
 
-            // Re-check PAUSED after waking up.  The settings screen or tray
-            // menu may have set PAUSED=true while we were sleeping.
-            if PAUSED.load(Ordering::Relaxed) {
-                RESTORE_PENDING.store(false, Ordering::Relaxed);
-                return;
-            }
-
             unsafe {
                 let fg = GetForegroundWindow();
                 if fg != own {
