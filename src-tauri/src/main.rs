@@ -1329,9 +1329,13 @@ fn start_webview_watchdog(app_handle: tauri::AppHandle) {
 }
 
 // ---------------------------------------------------------------------------
-// Focus guard: EVENT_SYSTEM_FOREGROUND hook (Windows only)
-// Restores the Gido Touch window to the foreground when another TOPMOST window
-// (e.g. a stale RustDesk overlay) steals focus.
+// Focus guard: EVENT_SYSTEM_FOREGROUND hook + periodic TOPMOST re-assertion
+// (Windows only)
+//
+// Two-layer protection against other windows appearing above Gido Touch:
+// 1. Event hook — catches windows that steal keyboard focus (immediate)
+// 2. Timer — catches TOPMOST overlays that don't steal focus, such as
+//    RustDesk notification popups (periodic, every few seconds)
 // ---------------------------------------------------------------------------
 
 #[cfg(target_os = "windows")]
@@ -1346,13 +1350,22 @@ mod focus_guard {
     type BOOL = i32;
     type WPARAM = usize;
     type LPARAM = isize;
+    #[allow(non_camel_case_types)]
+    type UINT_PTR = usize;
 
+    // Win32 constants
     const EVENT_SYSTEM_FOREGROUND: DWORD = 0x0003;
     const WINEVENT_OUTOFCONTEXT: DWORD = 0x0000;
     const HWND_TOPMOST: HWND = -1;
     const SWP_NOMOVE: UINT = 0x0002;
     const SWP_NOSIZE: UINT = 0x0001;
+    const SWP_NOACTIVATE: UINT = 0x0010;
     const SWP_SHOWWINDOW: UINT = 0x0040;
+    const WM_TIMER: UINT = 0x0113;
+    const TOPMOST_TIMER_ID: UINT_PTR = 1;
+    /// Re-assert TOPMOST every 5 seconds to push away non-focus-stealing
+    /// overlay windows (e.g. RustDesk notifications).
+    const TOPMOST_INTERVAL_MS: u32 = 5_000;
 
     #[repr(C)]
     #[allow(non_snake_case)]
@@ -1396,6 +1409,12 @@ mod focus_guard {
             msg_filter_max: UINT,
         ) -> BOOL;
         fn DispatchMessageW(msg: *const MSG) -> isize;
+        fn SetTimer(
+            hwnd: HWND,
+            id_event: UINT_PTR,
+            elapse: UINT,
+            lp_timer_func: LPARAM,
+        ) -> UINT_PTR;
     }
 
     /// HWND of the Gido Touch main window (set once at startup).
@@ -1410,6 +1429,8 @@ mod focus_guard {
     /// disappeared by this time, so we only act on persistent windows.
     const RESTORE_DELAY_SECS: u64 = 3;
 
+    /// Layer 1: EVENT_SYSTEM_FOREGROUND callback.
+    /// Fires when another process takes keyboard focus.
     unsafe extern "system" fn hook_proc(
         _hook: HWINEVENTHOOK,
         _event: DWORD,
@@ -1442,7 +1463,7 @@ mod focus_guard {
                     SetForegroundWindow(own);
                     super::write_to_log_file_direct(
                         "FOCUS_GUARD",
-                        "Restored foreground focus (another window was on top)",
+                        "Restored foreground focus (another window stole focus)",
                     );
                 }
             }
@@ -1455,13 +1476,18 @@ mod focus_guard {
         PAUSED.store(paused, Ordering::Relaxed);
     }
 
-    /// Start the foreground event hook on a dedicated thread with its own
-    /// Windows message pump.
+    /// Start the focus guard on a dedicated thread with its own message pump.
+    ///
+    /// Layer 1: `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` — immediate
+    /// response when another window steals keyboard focus.
+    /// Layer 2: `SetTimer` — periodic TOPMOST re-assertion to push away
+    /// overlay windows that don't steal focus (e.g. RustDesk popups).
     pub fn start(hwnd: isize) {
         OWN_HWND.store(hwnd, Ordering::Relaxed);
 
-        std::thread::spawn(|| {
+        std::thread::spawn(move || {
             unsafe {
+                // Layer 1: foreground event hook
                 let hook = SetWinEventHook(
                     EVENT_SYSTEM_FOREGROUND,
                     EVENT_SYSTEM_FOREGROUND,
@@ -1480,8 +1506,25 @@ mod focus_guard {
                     return;
                 }
 
+                // Layer 2: periodic TOPMOST re-assertion timer
+                // Uses SWP_NOACTIVATE so it never steals focus from other apps
+                // or interferes with settings-screen interactions.
+                SetTimer(0, TOPMOST_TIMER_ID, TOPMOST_INTERVAL_MS, 0);
+
+                // Message pump — required for both the event hook and WM_TIMER
                 let mut msg: MSG = std::mem::zeroed();
                 while GetMessageW(&mut msg, 0, 0, 0) > 0 {
+                    // Handle TOPMOST re-assertion timer
+                    if msg.message == WM_TIMER && msg.wParam == TOPMOST_TIMER_ID {
+                        if !PAUSED.load(Ordering::Relaxed) {
+                            SetWindowPos(
+                                hwnd, HWND_TOPMOST,
+                                0, 0, 0, 0,
+                                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                            );
+                        }
+                        continue;
+                    }
                     DispatchMessageW(&msg);
                 }
             }
