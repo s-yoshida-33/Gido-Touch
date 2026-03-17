@@ -1184,6 +1184,19 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+#[tauri::command]
+fn set_always_on_top(app: tauri::AppHandle, value: bool) -> Result<(), String> {
+    let window = app.get_webview_window("main")
+        .ok_or("Main window not found")?;
+    window.set_always_on_top(value)
+        .map_err(|e| format!("Failed to set always_on_top: {}", e))?;
+
+    #[cfg(target_os = "windows")]
+    focus_guard::set_paused(!value);
+
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // WebView Watchdog: frontend pings Rust periodically; if no ping arrives
 // within the timeout the WebView is assumed dead and the app restarts.
@@ -1389,6 +1402,8 @@ mod focus_guard {
     static OWN_HWND: AtomicIsize = AtomicIsize::new(0);
     /// Guards against spawning multiple restore threads concurrently.
     static RESTORE_PENDING: AtomicBool = AtomicBool::new(false);
+    /// When true, the hook ignores foreground changes (e.g. settings screen open).
+    static PAUSED: AtomicBool = AtomicBool::new(false);
 
     /// Seconds to wait before restoring focus.
     /// Short-lived popups (e.g. RustDesk connection toast) will have
@@ -1405,7 +1420,7 @@ mod focus_guard {
         _event_time: DWORD,
     ) {
         let own = OWN_HWND.load(Ordering::Relaxed);
-        if own == 0 || hwnd == own {
+        if own == 0 || hwnd == own || PAUSED.load(Ordering::Relaxed) {
             return;
         }
 
@@ -1434,6 +1449,10 @@ mod focus_guard {
 
             RESTORE_PENDING.store(false, Ordering::Relaxed);
         });
+    }
+
+    pub fn set_paused(paused: bool) {
+        PAUSED.store(paused, Ordering::Relaxed);
     }
 
     /// Start the foreground event hook on a dedicated thread with its own
@@ -1529,7 +1548,24 @@ fn setup_system_tray(app: &tauri::App) -> Result<tauri::tray::TrayIcon, Box<dyn 
         .icon(app.default_window_icon().cloned().unwrap())
         .tooltip(app.config().product_name.as_deref().unwrap_or("Gido Touch"))
         .menu(&menu)
+        .on_tray_icon_event(|tray, event| {
+            if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
+                if button == tauri::tray::MouseButton::Right {
+                    if let Some(window) = tray.app_handle().get_webview_window("main") {
+                        let _ = window.set_always_on_top(false);
+                        #[cfg(target_os = "windows")]
+                        focus_guard::set_paused(true);
+                    }
+                }
+            }
+        })
         .on_menu_event(|app, event| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_always_on_top(true);
+                #[cfg(target_os = "windows")]
+                focus_guard::set_paused(false);
+            }
+
             match event.id().as_ref() {
                 "show" => {
                     if let Some(window) = app.get_webview_window("main") {
@@ -1592,6 +1628,7 @@ fn main() {
             get_media_file_path,
             list_media_files,
             quit_app,
+            set_always_on_top,
             webview_ping,
             pause_watchdog,
             resume_watchdog,
