@@ -1452,6 +1452,13 @@ mod focus_guard {
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(RESTORE_DELAY_SECS));
 
+            // Re-check PAUSED after waking up.  The settings screen or tray
+            // menu may have set PAUSED=true while we were sleeping.
+            if PAUSED.load(Ordering::Relaxed) {
+                RESTORE_PENDING.store(false, Ordering::Relaxed);
+                return;
+            }
+
             unsafe {
                 let fg = GetForegroundWindow();
                 if fg != own {
@@ -1592,13 +1599,12 @@ fn setup_system_tray(app: &tauri::App) -> Result<tauri::tray::TrayIcon, Box<dyn 
         .tooltip(app.config().product_name.as_deref().unwrap_or("Gido Touch"))
         .menu(&menu)
         .on_tray_icon_event(|tray, event| {
-            if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
-                if button == tauri::tray::MouseButton::Right {
-                    if let Some(window) = tray.app_handle().get_webview_window("main") {
-                        let _ = window.set_always_on_top(false);
-                        #[cfg(target_os = "windows")]
-                        focus_guard::set_paused(true);
-                    }
+            if let tauri::tray::TrayIconEvent::Click { .. } = event {
+                // Pause focus guard for ANY click (both left and right show the menu).
+                if let Some(window) = tray.app_handle().get_webview_window("main") {
+                    let _ = window.set_always_on_top(false);
+                    #[cfg(target_os = "windows")]
+                    focus_guard::set_paused(true);
                 }
             }
         })
