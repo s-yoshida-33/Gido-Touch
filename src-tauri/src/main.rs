@@ -1342,6 +1342,7 @@ mod focus_guard {
     type UINT_PTR = usize;
     type WNDENUMPROC = unsafe extern "system" fn(HWND, LPARAM) -> BOOL;
 
+    // Win32 constants
     const EVENT_SYSTEM_FOREGROUND: DWORD = 0x0003;
     const WINEVENT_OUTOFCONTEXT: DWORD = 0x0000;
     const HWND_TOPMOST: HWND = -1;
@@ -1466,6 +1467,13 @@ mod focus_guard {
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(RESTORE_DELAY_SECS));
 
+            // Re-check PAUSED after waking up.  The settings screen or tray
+            // menu may have set PAUSED=true while we were sleeping.
+            if PAUSED.load(Ordering::Relaxed) {
+                RESTORE_PENDING.store(false, Ordering::Relaxed);
+                return;
+            }
+
             unsafe {
                 let fg = GetForegroundWindow();
                 if fg != own {
@@ -1477,7 +1485,7 @@ mod focus_guard {
                     SetForegroundWindow(own);
                     super::write_to_log_file_direct(
                         "FOCUS_GUARD",
-                        "Restored foreground focus (another window was on top)",
+                        "Restored foreground focus (another window stole focus)",
                     );
                 }
             }
