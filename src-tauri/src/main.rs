@@ -1184,34 +1184,6 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
-#[tauri::command]
-fn set_always_on_top(app: tauri::AppHandle, value: bool) -> Result<(), String> {
-    let window = app.get_webview_window("main")
-        .ok_or("Main window not found")?;
-
-    if value {
-        // Re-enter kiosk mode: fullscreen → always-on-top → focus guard active
-        window.set_fullscreen(true)
-            .map_err(|e| format!("Failed to set fullscreen: {}", e))?;
-        window.set_always_on_top(true)
-            .map_err(|e| format!("Failed to set always_on_top: {}", e))?;
-    } else {
-        // Exit kiosk mode for interactive UI (settings screen, etc.).
-        // Exiting fullscreen allows native popups (<select>, <input type="time">)
-        // to render correctly — in exclusive fullscreen they are hidden or
-        // immediately dismissed by the OS.
-        window.set_fullscreen(false)
-            .map_err(|e| format!("Failed to set fullscreen: {}", e))?;
-        window.set_always_on_top(false)
-            .map_err(|e| format!("Failed to set always_on_top: {}", e))?;
-    }
-
-    #[cfg(target_os = "windows")]
-    focus_guard::set_paused(!value);
-
-    Ok(())
-}
-
 // ---------------------------------------------------------------------------
 // WebView Watchdog: frontend pings Rust periodically; if no ping arrives
 // within the timeout the WebView is assumed dead and the app restarts.
@@ -1344,13 +1316,14 @@ fn start_webview_watchdog(app_handle: tauri::AppHandle) {
 }
 
 // ---------------------------------------------------------------------------
-// Focus guard: EVENT_SYSTEM_FOREGROUND hook + periodic TOPMOST re-assertion
+// Focus guard: EVENT_SYSTEM_FOREGROUND hook + periodic TOPMOST enforcement
 // (Windows only)
 //
-// Two-layer protection against other windows appearing above Gido Touch:
-// 1. Event hook — catches windows that steal keyboard focus (immediate)
-// 2. Timer — catches TOPMOST overlays that don't steal focus, such as
-//    RustDesk notification popups (periodic, every few seconds)
+// Three-layer protection against other windows appearing above Gido Touch:
+// 1. Event hook  — catches windows that steal keyboard focus (immediate)
+// 2. Timer       — periodic enforcement every 5 seconds:
+//    2a. Demote foreign visible TOPMOST windows to NOTOPMOST (EnumWindows)
+//    2b. Re-assert our own TOPMOST position
 // ---------------------------------------------------------------------------
 
 #[cfg(target_os = "windows")]
@@ -1367,19 +1340,23 @@ mod focus_guard {
     type LPARAM = isize;
     #[allow(non_camel_case_types)]
     type UINT_PTR = usize;
+    type WNDENUMPROC = unsafe extern "system" fn(HWND, LPARAM) -> BOOL;
 
     // Win32 constants
     const EVENT_SYSTEM_FOREGROUND: DWORD = 0x0003;
     const WINEVENT_OUTOFCONTEXT: DWORD = 0x0000;
     const HWND_TOPMOST: HWND = -1;
+    const HWND_NOTOPMOST: HWND = -2;
     const SWP_NOMOVE: UINT = 0x0002;
     const SWP_NOSIZE: UINT = 0x0001;
     const SWP_NOACTIVATE: UINT = 0x0010;
     const SWP_SHOWWINDOW: UINT = 0x0040;
     const WM_TIMER: UINT = 0x0113;
+    const GWL_EXSTYLE: i32 = -20;
+    const WS_EX_TOPMOST: LONG = 0x0008;
     const TOPMOST_TIMER_ID: UINT_PTR = 1;
-    /// Re-assert TOPMOST every 5 seconds to push away non-focus-stealing
-    /// overlay windows (e.g. RustDesk notifications).
+    /// Enforce TOPMOST every 5 seconds: demote foreign TOPMOST windows and
+    /// re-assert our own position.
     const TOPMOST_INTERVAL_MS: u32 = 5_000;
 
     #[repr(C)]
@@ -1430,19 +1407,42 @@ mod focus_guard {
             elapse: UINT,
             lp_timer_func: LPARAM,
         ) -> UINT_PTR;
+        fn EnumWindows(
+            lp_enum_func: WNDENUMPROC,
+            l_param: LPARAM,
+        ) -> BOOL;
+        fn GetWindowLongW(hwnd: HWND, n_index: i32) -> LONG;
+        fn IsWindowVisible(hwnd: HWND) -> BOOL;
     }
 
     /// HWND of the Gido Touch main window (set once at startup).
     static OWN_HWND: AtomicIsize = AtomicIsize::new(0);
     /// Guards against spawning multiple restore threads concurrently.
     static RESTORE_PENDING: AtomicBool = AtomicBool::new(false);
-    /// When true, the hook ignores foreground changes (e.g. settings screen open).
-    static PAUSED: AtomicBool = AtomicBool::new(false);
 
     /// Seconds to wait before restoring focus.
     /// Short-lived popups (e.g. RustDesk connection toast) will have
     /// disappeared by this time, so we only act on persistent windows.
     const RESTORE_DELAY_SECS: u64 = 3;
+
+    /// EnumWindows callback: demote any visible foreign TOPMOST window to
+    /// NOTOPMOST so it drops below our window in the Z-order.
+    /// lParam carries our own HWND to skip.
+    unsafe extern "system" fn enum_demote_topmost(hwnd: HWND, l_param: LPARAM) -> BOOL {
+        let own = l_param as HWND;
+        if hwnd == own || IsWindowVisible(hwnd) == 0 {
+            return 1;
+        }
+        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+        if (ex_style & WS_EX_TOPMOST) != 0 {
+            SetWindowPos(
+                hwnd, HWND_NOTOPMOST,
+                0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+            );
+        }
+        1
+    }
 
     /// Layer 1: EVENT_SYSTEM_FOREGROUND callback.
     /// Fires when another process takes keyboard focus.
@@ -1456,7 +1456,7 @@ mod focus_guard {
         _event_time: DWORD,
     ) {
         let own = OWN_HWND.load(Ordering::Relaxed);
-        if own == 0 || hwnd == own || PAUSED.load(Ordering::Relaxed) {
+        if own == 0 || hwnd == own {
             return;
         }
 
@@ -1494,16 +1494,13 @@ mod focus_guard {
         });
     }
 
-    pub fn set_paused(paused: bool) {
-        PAUSED.store(paused, Ordering::Relaxed);
-    }
-
     /// Start the focus guard on a dedicated thread with its own message pump.
     ///
     /// Layer 1: `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` — immediate
-    /// response when another window steals keyboard focus.
-    /// Layer 2: `SetTimer` — periodic TOPMOST re-assertion to push away
-    /// overlay windows that don't steal focus (e.g. RustDesk popups).
+    ///          response when another window steals keyboard focus.
+    /// Layer 2: `SetTimer` — periodic TOPMOST enforcement that demotes
+    ///          foreign TOPMOST windows (e.g. RustDesk overlays) and
+    ///          re-asserts our own TOPMOST position.
     pub fn start(hwnd: isize) {
         OWN_HWND.store(hwnd, Ordering::Relaxed);
 
@@ -1528,24 +1525,21 @@ mod focus_guard {
                     return;
                 }
 
-                // Layer 2: periodic TOPMOST re-assertion timer
-                // Uses SWP_NOACTIVATE so it never steals focus from other apps
-                // or interferes with settings-screen interactions.
+                // Layer 2: periodic TOPMOST enforcement timer
                 SetTimer(0, TOPMOST_TIMER_ID, TOPMOST_INTERVAL_MS, 0);
 
                 // Message pump — required for both the event hook and WM_TIMER
                 let mut msg: MSG = std::mem::zeroed();
                 while GetMessageW(&mut msg, 0, 0, 0) > 0 {
-                    // Handle TOPMOST re-assertion timer
                     if msg.message == WM_TIMER && msg.wParam == TOPMOST_TIMER_ID {
-                        if !PAUSED.load(Ordering::Relaxed) {
-                            SetWindowPos(
-                                hwnd, HWND_TOPMOST,
-                                0, 0, 0, 0,
-                                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-                            );
-                        }
-                        continue;
+                        // Demote all foreign visible TOPMOST windows first
+                        EnumWindows(enum_demote_topmost, hwnd as LPARAM);
+                        // Then re-assert our own TOPMOST
+                        SetWindowPos(
+                            hwnd, HWND_TOPMOST,
+                            0, 0, 0, 0,
+                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                        );
                     }
                     DispatchMessageW(&msg);
                 }
@@ -1613,26 +1607,7 @@ fn setup_system_tray(app: &tauri::App) -> Result<tauri::tray::TrayIcon, Box<dyn 
         .icon(app.default_window_icon().cloned().unwrap())
         .tooltip(app.config().product_name.as_deref().unwrap_or("Gido Touch"))
         .menu(&menu)
-        .on_tray_icon_event(|tray, event| {
-            if let tauri::tray::TrayIconEvent::Click { .. } = event {
-                // Exit kiosk mode for ANY click (both left and right show the menu).
-                // Fullscreen must be disabled so the OS tray popup is not occluded.
-                if let Some(window) = tray.app_handle().get_webview_window("main") {
-                    let _ = window.set_fullscreen(false);
-                    let _ = window.set_always_on_top(false);
-                    #[cfg(target_os = "windows")]
-                    focus_guard::set_paused(true);
-                }
-            }
-        })
         .on_menu_event(|app, event| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_fullscreen(true);
-                let _ = window.set_always_on_top(true);
-                #[cfg(target_os = "windows")]
-                focus_guard::set_paused(false);
-            }
-
             match event.id().as_ref() {
                 "show" => {
                     if let Some(window) = app.get_webview_window("main") {
@@ -1695,7 +1670,6 @@ fn main() {
             get_media_file_path,
             list_media_files,
             quit_app,
-            set_always_on_top,
             webview_ping,
             pause_watchdog,
             resume_watchdog,

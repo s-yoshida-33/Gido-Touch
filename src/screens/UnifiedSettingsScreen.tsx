@@ -1,6 +1,5 @@
 // src/screens/UnifiedSettingsScreen.tsx
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import GidoApp from "./GidoApp";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
@@ -189,17 +188,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
     });
   }, [initialFloorLayout, initialLocationIconSettings, initialImageSettings]);
-
-  useEffect(() => {
-    // When visible: disable always-on-top (and pause focus guard).
-    // When hidden: re-enable always-on-top (and resume focus guard).
-    // NOTE: No cleanup return — the cleanup's set_always_on_top(true) would
-    // race with the new effect's set_always_on_top(false) because both are
-    // async IPC calls whose execution order is not guaranteed.
-    invoke("set_always_on_top", { value: !visible }).catch((e: unknown) =>
-      console.warn("set_always_on_top failed:", e)
-    );
-  }, [visible]);
 
   // Sync mall setting when settings screen opens (only on open transition)
   const prevVisibleForMallSync = useRef(false);
