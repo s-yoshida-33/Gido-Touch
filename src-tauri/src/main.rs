@@ -1188,8 +1188,23 @@ fn quit_app(app: tauri::AppHandle) {
 fn set_always_on_top(app: tauri::AppHandle, value: bool) -> Result<(), String> {
     let window = app.get_webview_window("main")
         .ok_or("Main window not found")?;
-    window.set_always_on_top(value)
-        .map_err(|e| format!("Failed to set always_on_top: {}", e))?;
+
+    if value {
+        // Re-enter kiosk mode: fullscreen → always-on-top → focus guard active
+        window.set_fullscreen(true)
+            .map_err(|e| format!("Failed to set fullscreen: {}", e))?;
+        window.set_always_on_top(true)
+            .map_err(|e| format!("Failed to set always_on_top: {}", e))?;
+    } else {
+        // Exit kiosk mode for interactive UI (settings screen, etc.).
+        // Exiting fullscreen allows native popups (<select>, <input type="time">)
+        // to render correctly — in exclusive fullscreen they are hidden or
+        // immediately dismissed by the OS.
+        window.set_fullscreen(false)
+            .map_err(|e| format!("Failed to set fullscreen: {}", e))?;
+        window.set_always_on_top(false)
+            .map_err(|e| format!("Failed to set always_on_top: {}", e))?;
+    }
 
     #[cfg(target_os = "windows")]
     focus_guard::set_paused(!value);
@@ -1557,8 +1572,10 @@ fn setup_system_tray(app: &tauri::App) -> Result<tauri::tray::TrayIcon, Box<dyn 
         .menu(&menu)
         .on_tray_icon_event(|tray, event| {
             if let tauri::tray::TrayIconEvent::Click { .. } = event {
-                // Pause focus guard for ANY click (both left and right show the menu).
+                // Exit kiosk mode for ANY click (both left and right show the menu).
+                // Fullscreen must be disabled so the OS tray popup is not occluded.
                 if let Some(window) = tray.app_handle().get_webview_window("main") {
+                    let _ = window.set_fullscreen(false);
                     let _ = window.set_always_on_top(false);
                     #[cfg(target_os = "windows")]
                     focus_guard::set_paused(true);
@@ -1567,6 +1584,7 @@ fn setup_system_tray(app: &tauri::App) -> Result<tauri::tray::TrayIcon, Box<dyn 
         })
         .on_menu_event(|app, event| {
             if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_fullscreen(true);
                 let _ = window.set_always_on_top(true);
                 #[cfg(target_os = "windows")]
                 focus_guard::set_paused(false);
