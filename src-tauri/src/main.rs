@@ -1329,9 +1329,14 @@ fn start_webview_watchdog(app_handle: tauri::AppHandle) {
 }
 
 // ---------------------------------------------------------------------------
-// Focus guard: EVENT_SYSTEM_FOREGROUND hook (Windows only)
-// Restores the Gido Touch window to the foreground when another TOPMOST window
-// (e.g. a stale RustDesk overlay) steals focus.
+// Focus guard: EVENT_SYSTEM_FOREGROUND hook + periodic TOPMOST enforcement
+// (Windows only)
+//
+// Three-layer protection against other windows appearing above Gido Touch:
+// 1. Event hook  — catches windows that steal keyboard focus (immediate)
+// 2. Timer       — periodic enforcement every 5 seconds:
+//    2a. Demote foreign visible TOPMOST windows to NOTOPMOST (EnumWindows)
+//    2b. Re-assert our own TOPMOST position
 // ---------------------------------------------------------------------------
 
 #[cfg(target_os = "windows")]
@@ -1346,13 +1351,25 @@ mod focus_guard {
     type BOOL = i32;
     type WPARAM = usize;
     type LPARAM = isize;
+    #[allow(non_camel_case_types)]
+    type UINT_PTR = usize;
+    type WNDENUMPROC = unsafe extern "system" fn(HWND, LPARAM) -> BOOL;
 
     const EVENT_SYSTEM_FOREGROUND: DWORD = 0x0003;
     const WINEVENT_OUTOFCONTEXT: DWORD = 0x0000;
     const HWND_TOPMOST: HWND = -1;
+    const HWND_NOTOPMOST: HWND = -2;
     const SWP_NOMOVE: UINT = 0x0002;
     const SWP_NOSIZE: UINT = 0x0001;
+    const SWP_NOACTIVATE: UINT = 0x0010;
     const SWP_SHOWWINDOW: UINT = 0x0040;
+    const WM_TIMER: UINT = 0x0113;
+    const GWL_EXSTYLE: i32 = -20;
+    const WS_EX_TOPMOST: LONG = 0x0008;
+    const TOPMOST_TIMER_ID: UINT_PTR = 1;
+    /// Enforce TOPMOST every 5 seconds: demote foreign TOPMOST windows and
+    /// re-assert our own position.
+    const TOPMOST_INTERVAL_MS: u32 = 5_000;
 
     #[repr(C)]
     #[allow(non_snake_case)]
@@ -1396,6 +1413,18 @@ mod focus_guard {
             msg_filter_max: UINT,
         ) -> BOOL;
         fn DispatchMessageW(msg: *const MSG) -> isize;
+        fn SetTimer(
+            hwnd: HWND,
+            id_event: UINT_PTR,
+            elapse: UINT,
+            lp_timer_func: LPARAM,
+        ) -> UINT_PTR;
+        fn EnumWindows(
+            lp_enum_func: WNDENUMPROC,
+            l_param: LPARAM,
+        ) -> BOOL;
+        fn GetWindowLongW(hwnd: HWND, n_index: i32) -> LONG;
+        fn IsWindowVisible(hwnd: HWND) -> BOOL;
     }
 
     /// HWND of the Gido Touch main window (set once at startup).
@@ -1410,6 +1439,27 @@ mod focus_guard {
     /// disappeared by this time, so we only act on persistent windows.
     const RESTORE_DELAY_SECS: u64 = 3;
 
+    /// EnumWindows callback: demote any visible foreign TOPMOST window to
+    /// NOTOPMOST so it drops below our window in the Z-order.
+    /// lParam carries our own HWND to skip.
+    unsafe extern "system" fn enum_demote_topmost(hwnd: HWND, l_param: LPARAM) -> BOOL {
+        let own = l_param as HWND;
+        if hwnd == own || IsWindowVisible(hwnd) == 0 {
+            return 1;
+        }
+        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+        if (ex_style & WS_EX_TOPMOST) != 0 {
+            SetWindowPos(
+                hwnd, HWND_NOTOPMOST,
+                0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+            );
+        }
+        1
+    }
+
+    /// Layer 1: EVENT_SYSTEM_FOREGROUND callback.
+    /// Fires when another process takes keyboard focus.
     unsafe extern "system" fn hook_proc(
         _hook: HWINEVENTHOOK,
         _event: DWORD,
@@ -1455,13 +1505,19 @@ mod focus_guard {
         PAUSED.store(paused, Ordering::Relaxed);
     }
 
-    /// Start the foreground event hook on a dedicated thread with its own
-    /// Windows message pump.
+    /// Start the focus guard on a dedicated thread with its own message pump.
+    ///
+    /// Layer 1: `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` — immediate
+    ///          response when another window steals keyboard focus.
+    /// Layer 2: `SetTimer` — periodic TOPMOST enforcement that demotes
+    ///          foreign TOPMOST windows (e.g. RustDesk overlays) and
+    ///          re-asserts our own TOPMOST position.
     pub fn start(hwnd: isize) {
         OWN_HWND.store(hwnd, Ordering::Relaxed);
 
-        std::thread::spawn(|| {
+        std::thread::spawn(move || {
             unsafe {
+                // Layer 1: foreground event hook
                 let hook = SetWinEventHook(
                     EVENT_SYSTEM_FOREGROUND,
                     EVENT_SYSTEM_FOREGROUND,
@@ -1480,8 +1536,22 @@ mod focus_guard {
                     return;
                 }
 
+                // Layer 2: periodic TOPMOST enforcement timer
+                SetTimer(0, TOPMOST_TIMER_ID, TOPMOST_INTERVAL_MS, 0);
+
+                // Message pump — required for both the event hook and WM_TIMER
                 let mut msg: MSG = std::mem::zeroed();
                 while GetMessageW(&mut msg, 0, 0, 0) > 0 {
+                    if msg.message == WM_TIMER && msg.wParam == TOPMOST_TIMER_ID {
+                        // Demote all foreign visible TOPMOST windows first
+                        EnumWindows(enum_demote_topmost, hwnd as LPARAM);
+                        // Then re-assert our own TOPMOST
+                        SetWindowPos(
+                            hwnd, HWND_TOPMOST,
+                            0, 0, 0, 0,
+                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                        );
+                    }
                     DispatchMessageW(&msg);
                 }
             }
