@@ -35,8 +35,8 @@ out/
 
 # Media directory (local content files)
 # Exclude all files in media/ but keep the directory structure
-media/*
-!media/.gitkeep
+medias/*
+!medias/.gitkeep
 
 # Tauri
 src-tauri/target/
