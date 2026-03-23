@@ -25,8 +25,7 @@
 
 param(
     [string]$MallId = "",
-    [ValidateSet("assets", "maps", "videos", "all")]
-    [string]$MediaType = "all"
+    [string]$MediaType = ""
 )
 
 chcp 65001 | Out-Null
@@ -42,6 +41,17 @@ if ([string]::IsNullOrWhiteSpace($MallId)) {
     $MallId = Read-Host
     if ([string]::IsNullOrWhiteSpace($MallId)) {
         Write-Host "Error: Mall ID is required." -ForegroundColor Red
+        exit 1
+    }
+}
+
+# Require MediaType
+$validMediaTypes = @("assets", "maps", "videos", "all")
+if ([string]::IsNullOrWhiteSpace($MediaType) -or $validMediaTypes -notcontains $MediaType) {
+    Write-Host "Media type [assets / maps / videos / all]: " -NoNewline
+    $MediaType = Read-Host
+    if ([string]::IsNullOrWhiteSpace($MediaType) -or $validMediaTypes -notcontains $MediaType) {
+        Write-Host "Error: MediaType must be one of: $($validMediaTypes -join ', ')." -ForegroundColor Red
         exit 1
     }
 }
@@ -70,12 +80,12 @@ function Compress-And-Upload {
         return $false
     }
 
-    # Get files to compress
+    # Get files to compress (recursive to handle subdirectories like buttons/)
     if ($FileExtensions.Count -gt 0) {
         $extPattern = ($FileExtensions | ForEach-Object { "\.$_" }) -join '|'
-        $files = Get-ChildItem -Path $SourceDir -File | Where-Object { $_.Extension -match $extPattern }
+        $files = Get-ChildItem -Path $SourceDir -File -Recurse | Where-Object { $_.Extension -match $extPattern }
     } else {
-        $files = Get-ChildItem -Path $SourceDir -File
+        $files = Get-ChildItem -Path $SourceDir -File -Recurse | Where-Object { $_.Name -notmatch '^\.' }
     }
 
     if ($files.Count -eq 0) {
@@ -84,7 +94,10 @@ function Compress-And-Upload {
     }
 
     Write-Host "  Found $($files.Count) file(s):" -ForegroundColor Green
-    $files | ForEach-Object { Write-Host "    - $($_.Name)" -ForegroundColor Gray }
+    $files | ForEach-Object {
+        $rel = $_.FullName.Substring($SourceDir.Length).TrimStart('\', '/')
+        Write-Host "    - $rel" -ForegroundColor Gray
+    }
 
     # Prepare output dir
     if (-not (Test-Path $OutputDir)) {
