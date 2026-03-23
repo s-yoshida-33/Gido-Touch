@@ -2,9 +2,9 @@
 # Usage: powershell -ExecutionPolicy Bypass -File .\build\compress-media.ps1 -MallId "suzaka" -MediaType "all"
 #
 # MediaType options:
-#   assets  - Compress medias/{MallId}/assets/
-#   maps    - Compress medias/{MallId}/maps/{hostname}/ for each hostname dir
-#   videos  - Compress medias/{MallId}/videos/optimized/ (fallback: videos/)
+#   assets  - Compress medias/assets/{MallId}/
+#   maps    - Compress medias/maps/{MallId}/{hostname}/ for each hostname dir
+#   videos  - Compress medias/videos/{MallId}/optimized/ (fallback: videos/{MallId}/)
 #   all     - All of the above
 #
 # S3 upload paths:
@@ -13,10 +13,10 @@
 #   s3://tti-distribution/public/gido-touch/medias/videos/{MallId}/
 #
 # Local source layout:
-#   medias/{MallId}/assets/                   <- asset files
-#   medias/{MallId}/maps/{hostname}/          <- map files per hostname (auto-scanned)
-#   medias/{MallId}/videos/optimized/         <- optimized video files
-#   medias/{MallId}/videos/                   <- fallback (raw videos)
+#   medias/assets/{MallId}/                   <- asset files
+#   medias/maps/{MallId}/{hostname}/          <- map files per hostname (auto-scanned)
+#   medias/videos/{MallId}/optimized/         <- optimized video files
+#   medias/videos/{MallId}/                   <- fallback (raw videos)
 #
 # Release output:
 #   release/{MallId}/assets/assets-{timestamp}.zip + latest.json
@@ -48,9 +48,9 @@ if ([string]::IsNullOrWhiteSpace($MallId)) {
 
 Write-Host "Processing media for mall: $MallId (type: $MediaType)" -ForegroundColor Cyan
 
-$rootDir   = Split-Path -Parent $PSScriptRoot
-$mediasDir = Join-Path $rootDir "medias\$MallId"
-$today     = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
+$rootDir    = Split-Path -Parent $PSScriptRoot
+$mediasRoot = Join-Path $rootDir "medias"
+$today      = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
 
 # ---------------------------------------------------------------------------
 # Helper: Compress a source dir into a ZIP and generate latest.json, then upload
@@ -174,7 +174,7 @@ function Compress-And-Upload {
 function Process-Assets {
     Write-Host "`n[ASSETS]" -ForegroundColor Magenta
 
-    $sourceDir = Join-Path $mediasDir "assets"
+    $sourceDir = Join-Path $mediasRoot "assets\$MallId"
     $outputDir = Join-Path $rootDir "release\$MallId\assets"
     $s3Base    = "s3://tti-distribution/public/gido-touch/medias/assets/$MallId"
 
@@ -187,7 +187,7 @@ function Process-Assets {
 function Process-Maps {
     Write-Host "`n[MAPS]" -ForegroundColor Magenta
 
-    $mapsBaseDir = Join-Path $mediasDir "maps"
+    $mapsBaseDir = Join-Path $mediasRoot "maps\$MallId"
 
     if (-not (Test-Path $mapsBaseDir)) {
         Write-Host "  Maps directory not found: $mapsBaseDir" -ForegroundColor Yellow
@@ -220,8 +220,8 @@ function Process-Maps {
 function Process-Videos {
     Write-Host "`n[VIDEOS]" -ForegroundColor Magenta
 
-    $sourceDir   = Join-Path $mediasDir "videos\optimized"
-    $fallbackDir = Join-Path $mediasDir "videos"
+    $sourceDir   = Join-Path $mediasRoot "videos\$MallId\optimized"
+    $fallbackDir = Join-Path $mediasRoot "videos\$MallId"
     $outputDir   = Join-Path $rootDir "release\$MallId\videos"
     $s3Base      = "s3://tti-distribution/public/gido-touch/medias/videos/$MallId"
 

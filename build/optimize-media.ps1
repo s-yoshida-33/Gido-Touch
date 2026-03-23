@@ -1,21 +1,21 @@
 # build/optimize-media.ps1
 # Local media video optimization script
-# Optimizes .mp4 files in media/{mallId}/videos/ using ffmpeg and saves to optimized/
+# Optimizes .mp4 files in medias/videos/{mallId}/ using ffmpeg and saves to optimized/
 
 $ErrorActionPreference = "Stop"
 
-$rootDir = Split-Path -Parent $PSScriptRoot
-$mediaRoot = Join-Path $rootDir "media"
+$rootDir    = Split-Path -Parent $PSScriptRoot
+$videosRoot = Join-Path $rootDir "medias\videos"
 
-if (-not (Test-Path $mediaRoot)) {
-    Write-Host "Media directory not found: $mediaRoot" -ForegroundColor Red
+if (-not (Test-Path $videosRoot)) {
+    Write-Host "Videos directory not found: $videosRoot" -ForegroundColor Red
     exit 1
 }
 
-$mallDirs = Get-ChildItem -Path $mediaRoot -Directory | Where-Object { -not $_.Name.StartsWith('.') }
+$mallDirs = Get-ChildItem -Path $videosRoot -Directory | Where-Object { -not $_.Name.StartsWith('.') }
 
 if ($mallDirs.Count -eq 0) {
-    Write-Host "No mall directories found under media/." -ForegroundColor Red
+    Write-Host "No mall directories found under medias/videos/." -ForegroundColor Red
     exit 1
 }
 
@@ -23,12 +23,7 @@ Write-Host "`n=== Local Media Video Optimization ===" -ForegroundColor Cyan
 Write-Host "Target malls: $($mallDirs.Count)`n"
 
 foreach ($mall in $mallDirs) {
-    $videosDir = Join-Path $mall.FullName "videos"
-
-    if (-not (Test-Path $videosDir)) {
-        Write-Host "[$($mall.Name)] No videos directory - skipping" -ForegroundColor DarkGray
-        continue
-    }
+    $videosDir = $mall.FullName
 
     $mp4Files = Get-ChildItem -Path $videosDir -Filter *.mp4
     if ($mp4Files.Count -eq 0) {
