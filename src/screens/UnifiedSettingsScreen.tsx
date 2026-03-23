@@ -93,6 +93,10 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   // Hostname for S3 maps path
   const [hostname, setHostname] = useState<string>('');
 
+  // Tracks whether maps were fetched from S3 in this settings session.
+  // On save, floorMaps are cleared so Path B (disk) becomes the sole map source.
+  const [mapsFetchedFromS3, setMapsFetchedFromS3] = useState(false);
+
   // Audio settings via shared context (enables instant propagation to video components)
   const { audioSettings, setAudioSettings: setContextAudioSettings, isLoading: isAudioSettingsLoading } = useAudioSettingsContext();
   const [currentAudioSettings, setCurrentAudioSettings] = useState(audioSettings);
@@ -356,6 +360,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const handleCancel = () => {
     // Discard all unsaved edits
     mallEditingCache.current.clear();
+    setMapsFetchedFromS3(false);
 
     // Revert mall to original if changed
     if (mallId !== initialMallId) {
@@ -423,9 +428,21 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         }
       }
 
-      // Save the currently active mall's settings
+      // Save the currently active mall's settings.
+      // If maps were fetched from S3 this session, clear floorMaps before saving
+      // so Path B (disk files via list_mall_assets) becomes the sole map source.
       const currentSnapshot = captureCurrentSnapshot();
       const currentMallSettings = buildMallSettings(currentSnapshot);
+      if (mapsFetchedFromS3) {
+        const emptyFloorMaps = Object.fromEntries(
+          Object.keys(currentMallSettings.imageSettings.floorMaps).map((k) => [k, '']),
+        ) as Record<string, string>;
+        currentMallSettings.imageSettings = {
+          ...currentMallSettings.imageSettings,
+          floorMaps: emptyFloorMaps,
+        };
+        setMapsFetchedFromS3(false);
+      }
       await saveMallSettingsToFile(mallId, currentMallSettings);
 
       // Save mallId and hostname to global settings so they persist across restarts
@@ -825,6 +842,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onChangeFloor={setFloor}
               imageSettings={imageSettings}
               onChangeImageSettings={setImageSettings}
+              onMapsFetchedFromS3={() => setMapsFetchedFromS3(true)}
             />
           )}
           {activeTab === "shopPosition" && (

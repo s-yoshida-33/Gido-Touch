@@ -1,12 +1,14 @@
 import React, { useRef, useState } from "react";
 import type { FloorId } from "../types/floorLayout";
 import type { ImageSettings } from "../types/imageSettings";
+import { useMapForceFetch } from "../hooks/useMapForceFetch";
 
 export interface ImageSettingsTabProps {
   floor: FloorId;
   onChangeFloor: (floor: FloorId) => void;
   imageSettings: ImageSettings;
   onChangeImageSettings: (settings: ImageSettings) => void;
+  onMapsFetchedFromS3: () => void;
 }
 
 const FLOORS: FloorId[] = ["1F", "2F", "3F", "4F"];
@@ -16,10 +18,13 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
   onChangeFloor,
   imageSettings,
   onChangeImageSettings,
+  onMapsFetchedFromS3,
 }) => {
   const floorMapInputRef = useRef<HTMLInputElement>(null);
   const openTimeInputRef = useRef<HTMLInputElement>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const { status: fetchStatus, fetchMaps, reset: resetFetch } = useMapForceFetch();
 
   const validateSvgFile = (file: File): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -31,7 +36,6 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
-        // Basic SVG validation: check if it contains <svg> tag
         if (content && content.includes("<svg")) {
           resolve(true);
         } else {
@@ -53,7 +57,6 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
 
     setErrors({});
 
-    // Validate file type
     if (file.type !== "image/svg+xml" && !file.name.toLowerCase().endsWith(".svg")) {
       const errorKey = type === "floorMap" ? `floorMap-${floorId}` : "openTime";
       setErrors({
@@ -63,7 +66,6 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
       return;
     }
 
-    // Validate SVG content
     const isValid = await validateSvgFile(file);
     if (!isValid) {
       const errorKey = type === "floorMap" ? `floorMap-${floorId}` : "openTime";
@@ -74,7 +76,6 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
       return;
     }
 
-    // Convert to data URL
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
@@ -95,7 +96,6 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
     };
     reader.readAsDataURL(file);
 
-    // Reset input
     event.target.value = "";
   };
 
@@ -116,11 +116,101 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
     }
   };
 
+  const handleFetchMapsFromS3 = async () => {
+    resetFetch();
+    const floorMaps = await fetchMaps();
+    if (!floorMaps) return;
+
+    onChangeImageSettings({
+      ...imageSettings,
+      floorMaps: {
+        ...imageSettings.floorMaps,
+        ...floorMaps,
+      },
+    });
+    onMapsFetchedFromS3();
+  };
+
+  const isFetching = fetchStatus.status === 'fetching';
+
   return (
     <div style={{ color: "#ffffff" }}>
       <h2 style={{ marginTop: 0, marginBottom: 24, fontSize: 20, fontWeight: 600 }}>
         画像設定
       </h2>
+
+      {/* S3 Map Fetch */}
+      <div
+        style={{
+          marginBottom: 32,
+          padding: 16,
+          backgroundColor: "#1E2A3A",
+          borderRadius: 6,
+          border: "1px solid #2A3F55",
+        }}
+      >
+        <div style={{ marginBottom: 10, fontSize: 14, fontWeight: 500, color: "#E0E0E0" }}>
+          マップ画像の自動取得
+        </div>
+        <div style={{ marginBottom: 12, fontSize: 12, color: "#9E9E9E" }}>
+          S3から全フロア分の最新マップ画像を取得します。保存時に反映されます。
+        </div>
+        <button
+          onClick={handleFetchMapsFromS3}
+          disabled={isFetching}
+          style={{
+            padding: "10px 16px",
+            backgroundColor: isFetching ? "#2A3F55" : "#1565C0",
+            border: "none",
+            borderRadius: 4,
+            color: isFetching ? "#9E9E9E" : "#ffffff",
+            cursor: isFetching ? "not-allowed" : "pointer",
+            fontSize: 14,
+            fontWeight: 500,
+          }}
+        >
+          {isFetching ? "取得中..." : "最新のマップ画像を取得"}
+        </button>
+
+        {fetchStatus.status !== 'idle' && (
+          <div style={{ marginTop: 12 }}>
+            {isFetching && (
+              <div
+                style={{
+                  height: 4,
+                  backgroundColor: "#2A3F55",
+                  borderRadius: 2,
+                  marginBottom: 8,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${fetchStatus.progress}%`,
+                    backgroundColor: "#4A9EFF",
+                    borderRadius: 2,
+                    transition: "width 0.3s ease",
+                  }}
+                />
+              </div>
+            )}
+            <div
+              style={{
+                fontSize: 12,
+                color:
+                  fetchStatus.status === 'error'
+                    ? "#EF9A9A"
+                    : fetchStatus.status === 'done'
+                    ? "#A5D6A7"
+                    : "#9E9E9E",
+              }}
+            >
+              {fetchStatus.message}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Floor Selection */}
       <div style={{ marginBottom: 32 }}>
@@ -327,4 +417,3 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
     </div>
   );
 };
-
