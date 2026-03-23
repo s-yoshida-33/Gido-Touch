@@ -711,12 +711,11 @@ fn get_gpu_name() -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Media download commands (GitHub Releases ZIP)
+// Media download commands (S3 ZIP)
 //
-// Version management: .media-meta.json stores the GitHub asset's `updated_at`
-// timestamp. On each check we query the GitHub API for the current asset
-// metadata, so re-uploading the same-named ZIP to the same release will
-// trigger a re-download.
+// Version management: .media-meta.json (per mall) stores the last downloaded
+// ZIP filename (lastZipName). The frontend compares this against S3 latest.json
+// and calls sync_video_from_s3 when the filename changes.
 // ---------------------------------------------------------------------------
 
 fn get_media_dir() -> Result<PathBuf, String> {
@@ -742,71 +741,6 @@ fn get_media_base_dir() -> Result<PathBuf, String> {
     get_media_dir()
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-struct MediaMeta {
-    app_version: String,
-    updated_at: String,
-}
-
-fn get_media_meta_path(mall_dir: &std::path::Path) -> PathBuf {
-    mall_dir.join(".media-meta.json")
-}
-
-fn read_media_meta(mall_dir: &std::path::Path) -> Option<MediaMeta> {
-    let path = get_media_meta_path(mall_dir);
-    let content = fs::read_to_string(&path).ok()?;
-    serde_json::from_str(&content).ok()
-}
-
-fn write_media_meta(mall_dir: &std::path::Path, meta: &MediaMeta) -> Result<(), String> {
-    let path = get_media_meta_path(mall_dir);
-    let json = serde_json::to_string_pretty(meta)
-        .map_err(|e| format!("Failed to serialize media meta: {}", e))?;
-    fs::write(&path, json)
-        .map_err(|e| format!("Failed to write media meta: {}", e))
-}
-
-/// Query GitHub API for the `updated_at` of `media-{mallId}.zip` in a release.
-fn fetch_remote_asset_updated_at(mall_id: &str, app_version: &str) -> Result<Option<String>, String> {
-    let api_url = format!(
-        "https://api.github.com/repos/s-yoshida-33/Gido-Touch/releases/tags/v{}",
-        app_version
-    );
-
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .map_err(|e| format!("Client build error: {}", e))?;
-
-    let response = client
-        .get(&api_url)
-        .header("User-Agent", "Gido-Touch-Updater")
-        .header("Accept", "application/vnd.github.v3+json")
-        .send()
-        .map_err(|e| format!("GitHub API error: {}", e))?;
-
-    if !response.status().is_success() {
-        // Release not found or API error – caller handles gracefully
-        return Ok(None);
-    }
-
-    let body: serde_json::Value = response
-        .json()
-        .map_err(|e| format!("Failed to parse GitHub API response: {}", e))?;
-
-    let target_name = format!("media-{}.zip", mall_id);
-    if let Some(assets) = body["assets"].as_array() {
-        for asset in assets {
-            if asset["name"].as_str() == Some(&target_name) {
-                return Ok(asset["updated_at"].as_str().map(|s| s.to_string()));
-            }
-        }
-    }
-
-    // Asset not found in release
-    Ok(None)
-}
-
 #[derive(Serialize)]
 struct MediaDownloadResult {
     success: bool,
@@ -823,102 +757,13 @@ struct MediaProgressPayload {
     message: String,
 }
 
-/// Check if media needs to be downloaded.
-/// Compares the local `.media-meta.json` against the GitHub Release asset's
-/// `updated_at` timestamp. A re-upload of the ZIP (even at the same app
-/// version) will produce a different timestamp and trigger a download.
+/// Download video ZIP from S3 and extract to media/{mallId}/videos/.
+/// Version comparison and metadata updates are handled by the frontend.
 #[tauri::command]
-fn check_media_status(mall_id: String, app_version: String) -> Result<MediaDownloadResult, String> {
+fn sync_video_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -> Result<MediaDownloadResult, String> {
     let media_root = get_media_dir()?;
     let mall_dir = media_root.join(&mall_id);
-
-    let local_meta = read_media_meta(&mall_dir);
-
-    let has_files = mall_dir.exists() && fs::read_dir(&mall_dir)
-        .map(|mut entries| entries.any(|e| {
-            e.ok().map_or(false, |e| {
-                !e.file_name().to_string_lossy().starts_with('.')
-            })
-        }))
-        .unwrap_or(false);
-
-    // Ask GitHub for the current asset timestamp
-    let remote_updated_at = match fetch_remote_asset_updated_at(&mall_id, &app_version) {
-        Ok(Some(ts)) => ts,
-        Ok(None) => {
-            // Asset not found on GitHub
-            if has_files {
-                return Ok(MediaDownloadResult {
-                    success: true,
-                    message: "Media asset not found on server. Local files are kept.".to_string(),
-                    skipped: true,
-                });
-            }
-            return Ok(MediaDownloadResult {
-                success: true,
-                message: format!("No media asset for {} v{} on GitHub.", mall_id, app_version),
-                skipped: true,
-            });
-        }
-        Err(e) => {
-            // API unreachable – if we have local files, keep them
-            if has_files {
-                return Ok(MediaDownloadResult {
-                    success: true,
-                    message: format!("GitHub API check failed ({}). Using local files.", e),
-                    skipped: true,
-                });
-            }
-            return Ok(MediaDownloadResult {
-                success: false,
-                message: format!("GitHub API check failed: {}", e),
-                skipped: false,
-            });
-        }
-    };
-
-    // Compare with stored metadata
-    if has_files {
-        if let Some(meta) = &local_meta {
-            if meta.updated_at == remote_updated_at {
-                return Ok(MediaDownloadResult {
-                    success: true,
-                    message: format!(
-                        "Media for {} is up to date (updated_at={})",
-                        mall_id, remote_updated_at
-                    ),
-                    skipped: true,
-                });
-            }
-        }
-    }
-
-    Ok(MediaDownloadResult {
-        success: true,
-        message: format!(
-            "Media update needed for {}: remote_updated_at={}",
-            mall_id, remote_updated_at
-        ),
-        skipped: false,
-    })
-}
-
-/// Download media ZIP from GitHub Releases, extract, and store metadata.
-#[tauri::command]
-fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -> Result<MediaDownloadResult, String> {
-    let media_root = get_media_dir()?;
-    let mall_dir = media_root.join(&mall_id);
-    let zip_path = media_root.join(format!("media-{}.zip", &mall_id));
-
-    // First, get the remote updated_at for metadata storage
-    let remote_updated_at = fetch_remote_asset_updated_at(&mall_id, &app_version)
-        .unwrap_or(None)
-        .unwrap_or_default();
-
-    let download_url = format!(
-        "https://github.com/s-yoshida-33/Gido-Touch/releases/download/v{}/media-{}.zip",
-        app_version, mall_id
-    );
+    let zip_path = media_root.join(format!("video-{}.zip", &mall_id));
 
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
@@ -926,43 +771,13 @@ fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -
         .map_err(|e| format!("Client build error: {}", e))?;
 
     let mut response = client
-        .get(&download_url)
+        .get(&zip_url)
+        .header("User-Agent", "GidoTouch-MediaUpdater")
+        .header("Cache-Control", "no-cache")
         .send()
         .map_err(|e| format!("Download error: {}", e))?;
 
     let status = response.status();
-
-    if status == reqwest::StatusCode::NOT_FOUND {
-        let has_files = mall_dir.exists() && fs::read_dir(&mall_dir)
-            .map(|mut entries| entries.any(|e| {
-                e.ok().map_or(false, |e| {
-                    !e.file_name().to_string_lossy().starts_with('.')
-                })
-            }))
-            .unwrap_or(false);
-
-        if has_files {
-            // Keep existing, write meta so we don't re-check
-            fs::create_dir_all(&mall_dir)
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
-            write_media_meta(&mall_dir, &MediaMeta {
-                app_version: app_version.clone(),
-                updated_at: remote_updated_at,
-            })?;
-            return Ok(MediaDownloadResult {
-                success: true,
-                message: "Media not found on server. Keeping existing files.".to_string(),
-                skipped: true,
-            });
-        }
-
-        return Ok(MediaDownloadResult {
-            success: false,
-            message: format!("Media not available: HTTP {}", status),
-            skipped: false,
-        });
-    }
-
     if !status.is_success() {
         return Ok(MediaDownloadResult {
             success: false,
@@ -979,7 +794,6 @@ fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -
     let mut buffer = [0u8; 65536]; // 64KB chunks
     let mut last_emit = std::time::Instant::now();
 
-    // Emit initial progress
     let _ = app.emit("media-download-progress", MediaProgressPayload {
         phase: "download".to_string(),
         percent: 0.0,
@@ -1022,7 +836,6 @@ fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -
     }
     drop(file);
 
-    // Emit download complete
     let _ = app.emit("media-download-progress", MediaProgressPayload {
         phase: "download".to_string(),
         percent: 100.0,
@@ -1031,17 +844,14 @@ fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -
         message: "ダウンロード完了。展開中…".to_string(),
     });
 
-    // Extract ZIP into videos/ subdirectory so that list_media_files can find them.
-    // The ZIP contains bare video files (e.g. 1.mp4) built from videos/optimized/.
-    // Purge existing videos first so that files removed from the ZIP (e.g. after
-    // deleting an unused shopId media) don't linger on disk.
+    // Purge existing videos dir so removed files don't linger on disk
     let videos_dir = mall_dir.join("videos");
     if videos_dir.exists() {
         fs::remove_dir_all(&videos_dir)
             .map_err(|e| format!("Failed to clean existing videos directory: {}", e))?;
     }
     fs::create_dir_all(&videos_dir)
-        .map_err(|e| format!("Failed to create mall media/videos directory: {}", e))?;
+        .map_err(|e| format!("Failed to create videos directory: {}", e))?;
 
     let zip_file = fs::File::open(&zip_path)
         .map_err(|e| format!("Failed to open zip file: {}", e))?;
@@ -1050,15 +860,15 @@ fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -
 
     let total_entries = archive.len();
     for i in 0..total_entries {
-        let mut file = archive.by_index(i)
+        let mut entry = archive.by_index(i)
             .map_err(|e| format!("Failed to read zip entry: {}", e))?;
 
-        let out_path = match file.enclosed_name() {
+        let out_path = match entry.enclosed_name() {
             Some(path) => videos_dir.join(path),
             None => continue,
         };
 
-        if file.is_dir() {
+        if entry.is_dir() {
             fs::create_dir_all(&out_path)
                 .map_err(|e| format!("Failed to create directory: {}", e))?;
         } else {
@@ -1069,7 +879,7 @@ fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -
             let mut outfile = fs::File::create(&out_path)
                 .map_err(|e| format!("Failed to create file: {}", e))?;
             let mut buf = Vec::new();
-            file.read_to_end(&mut buf)
+            entry.read_to_end(&mut buf)
                 .map_err(|e| format!("Failed to read zip entry data: {}", e))?;
             outfile.write_all(&buf)
                 .map_err(|e| format!("Failed to write extracted file: {}", e))?;
@@ -1088,20 +898,13 @@ fn download_media(app: tauri::AppHandle, mall_id: String, app_version: String) -
         }
     }
 
-    // Write media metadata
-    write_media_meta(&mall_dir, &MediaMeta {
-        app_version: app_version.clone(),
-        updated_at: remote_updated_at.clone(),
-    })?;
-
-    // Cleanup zip
     let _ = fs::remove_file(&zip_path);
 
     Ok(MediaDownloadResult {
         success: true,
         message: format!(
-            "Media extracted to {} (v{}, updated_at={})",
-            mall_dir.display(), app_version, remote_updated_at
+            "Video extracted to {} (zip_url={})",
+            videos_dir.display(), zip_url
         ),
         skipped: false,
     })
@@ -1658,8 +1461,7 @@ fn main() {
             list_mall_assets,
             get_shop_image,
             get_system_info,
-            check_media_status,
-            download_media,
+            sync_video_from_s3,
             get_media_file_path,
             list_media_files,
             quit_app,
