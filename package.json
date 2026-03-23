@@ -24,7 +24,7 @@
     "tauri:build:signed": "node ./build/runner.js sign-and-build.ps1",
     "tauri:release": "npm run tauri:build:signed && node ./build/runner.js manage-release.ps1",
     "optimize:media": "node ./build/runner.js optimize-media.ps1",
-    "zip:media": "node build/zip-media.cjs",
+    "media:compress": "node ./build/runner.js compress-media.ps1",
     "icon:gen": "magick -background none -density 1024 src/assets/icon.svg -define icon:auto-resize=256,128,64,48,32,16 -write src/assets/icon.ico build/icon.ico",
     "bump:version": "powershell -ExecutionPolicy Bypass -File ./build/bump-version.ps1"
   },

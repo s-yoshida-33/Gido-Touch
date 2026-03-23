@@ -29,6 +29,7 @@ export interface GlobalSettings {
   mallId: MallId;
   floor: string;
   setupCompleted?: boolean;
+  hostname?: string;
 }
 
 /**
@@ -148,12 +149,13 @@ export async function loadGlobalSettings(): Promise<GlobalSettings> {
       mallId: (raw.mallId ?? 'suzaka') as MallId,
       floor: raw.floor ?? '1F',
       setupCompleted: raw.setupCompleted ?? false,
+      hostname: raw.hostname ?? '',
     };
   } catch (error) {
     logError('CONFIG', 'Failed to load global settings', {
       error: error instanceof Error ? error.message : String(error),
     });
-    return { mallId: 'suzaka', floor: '1F', setupCompleted: false };
+    return { mallId: 'suzaka', floor: '1F', setupCompleted: false, hostname: '' };
   }
 }
 

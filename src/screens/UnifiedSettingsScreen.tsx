@@ -90,6 +90,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [mallId, setMallIdLocal] = useState<MallId>(contextMallId);
   const [initialMallId, setInitialMallId] = useState<MallId>(contextMallId);
 
+  // Hostname for S3 maps path
+  const [hostname, setHostname] = useState<string>('');
+
   // Audio settings via shared context (enables instant propagation to video components)
   const { audioSettings, setAudioSettings: setContextAudioSettings, isLoading: isAudioSettingsLoading } = useAudioSettingsContext();
   const [currentAudioSettings, setCurrentAudioSettings] = useState(audioSettings);
@@ -303,6 +306,12 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
       }
 
+      // Load hostname from global settings
+      try {
+        const globalSettings = await loadGlobalSettings();
+        setHostname(globalSettings.hostname ?? '');
+      } catch {}
+
       setFloor(initialFloor);
       setActiveTab("image");
       setErrors({});
@@ -419,9 +428,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       const currentMallSettings = buildMallSettings(currentSnapshot);
       await saveMallSettingsToFile(mallId, currentMallSettings);
 
-      // Save mallId to global settings so it persists across restarts
+      // Save mallId and hostname to global settings so they persist across restarts
       const global = await loadGlobalSettings();
-      await saveGlobalSettings({ ...global, mallId } as GlobalSettings);
+      await saveGlobalSettings({ ...global, mallId, hostname } as GlobalSettings);
 
       // Clear the editing cache
       mallEditingCache.current.clear();
@@ -533,6 +542,25 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               <option value="suzaka">須坂 (ID: suzaka)</option>
               <option value="sendaikamisugi">仙台上杉 (ID: sendaikamisugi)</option>
             </select>
+          </div>
+
+          <div style={{ marginLeft: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: '#aaa', fontSize: 14 }}>ホスト名:</span>
+            <input
+              type="text"
+              value={hostname}
+              onChange={(e) => setHostname(e.target.value)}
+              placeholder="例: KIOSK-01"
+              style={{
+                backgroundColor: '#333',
+                color: '#fff',
+                border: '1px solid #555',
+                borderRadius: 4,
+                padding: '4px 8px',
+                fontSize: 14,
+                width: 140,
+              }}
+            />
           </div>
         </div>
 

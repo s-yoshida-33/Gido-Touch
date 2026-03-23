@@ -138,6 +138,26 @@ fn get_mall_id_from_settings() -> String {
         .to_string()
 }
 
+fn get_hostname_from_settings() -> String {
+    let path = match get_settings_path() {
+        Ok(p) => p,
+        Err(_) => return "unknown".to_string(),
+    };
+    let content = match fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return "unknown".to_string(),
+    };
+    let json: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(_) => return "unknown".to_string(),
+    };
+    let h = json.get("hostname")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    if h.is_empty() { "unknown".to_string() } else { h }
+}
+
 fn send_slack_notification(level: &str, tag: &str, message: &str, is_recovery: bool, context_str: &str) {
     let webhook_url = match std::env::var("SLACK_WEBHOOK_URL") {
         Ok(url) if !url.is_empty() => url,
@@ -151,9 +171,7 @@ fn send_slack_notification(level: &str, tag: &str, message: &str, is_recovery: b
     };
 
     let app_version = env!("CARGO_PKG_VERSION");
-    let hostname = hostname::get()
-        .map(|h| h.to_string_lossy().into_owned())
-        .unwrap_or_else(|_| "unknown".to_string());
+    let hostname = get_hostname_from_settings();
     let mall_id = get_mall_id_from_settings();
 
     let payload = serde_json::json!({
