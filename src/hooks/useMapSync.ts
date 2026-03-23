@@ -50,7 +50,7 @@ async function fetchMapVersionFromS3(mallId: string, hostname: string): Promise<
 }
 
 const mapMetaPath = (mallId: string, hostname: string) =>
-  `media/maps/${mallId}/${hostname}/.map-meta.json`;
+  `medias/maps/${mallId}/${hostname}/.map-meta.json`;
 
 async function readMapMeta(mallId: string, hostname: string): Promise<MapMeta | null> {
   try {
@@ -66,7 +66,7 @@ async function readMapMeta(mallId: string, hostname: string): Promise<MapMeta | 
 
 async function writeMapMeta(mallId: string, hostname: string, meta: MapMeta): Promise<void> {
   try {
-    await mkdir(`media/maps/${mallId}/${hostname}`, { baseDir: BaseDirectory.AppLocalData, recursive: true });
+    await mkdir(`medias/maps/${mallId}/${hostname}`, { baseDir: BaseDirectory.AppLocalData, recursive: true });
     await writeTextFile(mapMetaPath(mallId, hostname), JSON.stringify(meta), { baseDir: BaseDirectory.AppLocalData });
   } catch {
     // non-critical

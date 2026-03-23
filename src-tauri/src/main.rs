@@ -750,20 +750,20 @@ fn get_gpu_name() -> String {
 // ---------------------------------------------------------------------------
 
 fn get_media_dir() -> Result<PathBuf, String> {
-    let dir = get_app_data_dir()?.join("media");
+    let dir = get_app_data_dir()?.join("medias");
     fs::create_dir_all(&dir)
         .map_err(|e| format!("Failed to create media directory: {}", e))?;
     Ok(dir)
 }
 
 /// Resolve the base media directory.
-/// In dev mode: <cwd>/media  (project-local media directory)
-/// In production: %LOCALAPPDATA%/com.tti.gido-touch/media
+/// In dev mode: <cwd>/medias  (project-local media directory)
+/// In production: %LOCALAPPDATA%/com.tti.gido-touch/medias
 fn get_media_base_dir() -> Result<PathBuf, String> {
-    // Development: check for media/ relative to CWD
+    // Development: check for medias/ relative to CWD
     let dev_path = std::env::current_dir()
         .unwrap_or_default()
-        .join("media");
+        .join("medias");
     if dev_path.exists() {
         return Ok(dev_path);
     }
