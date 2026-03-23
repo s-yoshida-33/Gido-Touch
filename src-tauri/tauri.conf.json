@@ -65,7 +65,7 @@
   "plugins": {
     "updater": {
       "active": true,
-      "endpoints": ["https://github.com/s-yoshida-33/Gido-Touch/releases/latest/download/latest.json"],
+      "endpoints": ["https://dl.tti.ninja/gido-touch/releases/latest.json"],
       "dialog": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU4NkM2NkNBOTE2RjFBNjcKUldSbkdtK1J5bVpzV0Ezc0pDNnkyRzN5RzRKV1AwdDc3V1NZa0hvM2xjb0V1Q1dRclMwQVpoM0UK"
     }
