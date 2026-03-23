@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { loadGlobalSettings } from '../utils/settings';
 
 import mallsConfig from '../config/malls.json';
 
@@ -103,8 +104,11 @@ import selectLanguageSelectedEn from "../assets/lang/selected-en.svg";
  */
 async function loadExternalMallAssets(mallId: string): Promise<Record<string, string>> {
   try {
+    const globalSettings = await loadGlobalSettings();
+    const hostname = globalSettings.hostname ?? '';
     const result = await invoke<Record<string, string> | null>('list_mall_assets', {
       mallId,
+      hostname,
     });
     return result ?? {};
   } catch (error) {
@@ -148,39 +152,47 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
   useEffect(() => {
     if (!rawAssets) return;
 
-    const buttons: MallAssets['buttons'] = {};
     const maps: MallAssets['maps'] = {};
     let openTimeDefault = "";
     let openTimeJa = "";
     let openTimeEn = "";
 
+    // Button branch collection: floor → [{branch, default, highlight}]
+    const buttonBranches: Record<string, { branch: number; default: string; highlight: string }[]> = {};
+
     Object.entries(rawAssets).forEach(([relativePath, fileUrl]) => {
-      if (relativePath.startsWith('button/')) {
+      if (relativePath.startsWith('buttons/')) {
+        // Expected: buttons/{FLOOR}-button-{NN}.svg or buttons/{FLOOR}-button-{NN}-highlight.svg
         const fileName = relativePath.split('/').pop() || "";
         const namePart = fileName.replace('.svg', '');
-        
-        let floor = "";
-        let type: "default" | "highlight" = "default";
 
-        if (namePart.endsWith('-highlight')) {
-          floor = namePart.replace('-highlight', '');
-          type = "highlight";
-        } else {
-          floor = namePart;
-          type = "default";
-        }
+        const highlightMatch = namePart.match(/^(.+)-button-(\d+)-highlight$/);
+        const defaultMatch = namePart.match(/^(.+)-button-(\d+)$/);
 
-        if (!buttons[floor]) {
-          buttons[floor] = { default: "", highlight: "" };
+        const [floor, branch, isHighlight] = highlightMatch
+          ? [highlightMatch[1], parseInt(highlightMatch[2]), true]
+          : defaultMatch
+          ? [defaultMatch[1], parseInt(defaultMatch[2]), false]
+          : [null, null, false];
+
+        if (floor != null && branch != null) {
+          if (!buttonBranches[floor]) buttonBranches[floor] = [];
+          let entry = buttonBranches[floor].find(e => e.branch === branch);
+          if (!entry) {
+            entry = { branch, default: '', highlight: '' };
+            buttonBranches[floor].push(entry);
+          }
+          if (isHighlight) entry.highlight = fileUrl;
+          else entry.default = fileUrl;
         }
-        buttons[floor][type] = fileUrl;
 
       } else if (relativePath.startsWith('maps/')) {
+        // Expected: maps/{FLOOR}-map.svg
         const fileName = relativePath.split('/').pop() || "";
-        const floor = fileName.replace('.svg', '');
-        maps[floor] = fileUrl;
+        const floor = fileName.replace('-map.svg', '');
+        if (floor) maps[floor] = fileUrl;
 
-      } else if (relativePath.startsWith('open-time/')) {
+      } else if (relativePath.startsWith('open-times/')) {
         if (relativePath.includes('/en/')) {
           openTimeEn = fileUrl;
         } else if (relativePath.includes('/ja/')) {
@@ -188,6 +200,19 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
         } else {
           openTimeDefault = fileUrl;
         }
+      }
+    });
+
+    // Build buttons map: single-branch floors use floor key, multi-branch use floor-N key
+    const buttons: MallAssets['buttons'] = {};
+    Object.entries(buttonBranches).forEach(([floor, branches]) => {
+      branches.sort((a, b) => a.branch - b.branch);
+      if (branches.length === 1) {
+        buttons[floor] = { default: branches[0].default, highlight: branches[0].highlight };
+      } else {
+        branches.forEach(({ branch, default: d, highlight: h }) => {
+          buttons[`${floor}-${branch}`] = { default: d, highlight: h };
+        });
       }
     });
 

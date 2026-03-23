@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import appIcon from '../../build/icon.ico';
 import { useAutoUpdate } from '../hooks/useAutoUpdate';
 import { useMediaDownload } from '../hooks/useMediaDownload';
+import { useAssetSync } from '../hooks/useAssetSync';
+import { useMapSync } from '../hooks/useMapSync';
 import { getVersion } from '@tauri-apps/api/app';
 
 interface PatchScreenProps {
@@ -13,6 +15,8 @@ interface PatchScreenProps {
 export function PatchScreen({ onComplete }: PatchScreenProps) {
   const { updateStatus, installUpdate } = useAutoUpdate();
   const { mediaStatus } = useMediaDownload();
+  const { assetStatus } = useAssetSync();
+  const { mapStatus } = useMapSync();
   const [appVersion, setAppVersion] = useState<string>('');
 
   // Load app version from Tauri
@@ -32,15 +36,31 @@ export function PatchScreen({ onComplete }: PatchScreenProps) {
     }
   }, [updateStatus.status, installUpdate]);
 
-  // When app update and media download are both done, proceed immediately
+  // When app update and all media downloads are done, proceed immediately
   useEffect(() => {
     const appDone = updateStatus.status === 'uptodate' || updateStatus.status === 'error';
     const mediaDone = mediaStatus.status === 'done' || mediaStatus.status === 'error';
+    const assetDone = assetStatus.status === 'done' || assetStatus.status === 'error';
+    const mapDone = mapStatus.status === 'done' || mapStatus.status === 'error';
 
-    if (appDone && mediaDone) {
+    if (appDone && mediaDone && assetDone && mapDone) {
       onComplete();
     }
-  }, [updateStatus.status, mediaStatus.status, onComplete]);
+  }, [updateStatus.status, mediaStatus.status, assetStatus.status, mapStatus.status, onComplete]);
+
+  // Pick the most active media status for display (assets → maps → videos)
+  const activeMediaStatus = (() => {
+    for (const s of [assetStatus, mapStatus, mediaStatus]) {
+      if (s.status === 'downloading') return s;
+    }
+    for (const s of [assetStatus, mapStatus, mediaStatus]) {
+      if (s.status === 'checking') return s;
+    }
+    for (const s of [assetStatus, mapStatus, mediaStatus]) {
+      if (s.status === 'error') return s;
+    }
+    return mediaStatus;
+  })();
 
   // Current phase for display – prioritise whichever is actively working.
   // If media is already downloading/extracting, show that even when the app
@@ -48,7 +68,7 @@ export function PatchScreen({ onComplete }: PatchScreenProps) {
   type Phase = 'app_update' | 'media_download';
   const currentPhase: Phase = (() => {
     const appDone = updateStatus.status === 'uptodate' || updateStatus.status === 'error';
-    const mediaActive = mediaStatus.status === 'downloading';
+    const mediaActive = activeMediaStatus.status === 'downloading';
     if (mediaActive) return 'media_download';
     if (!appDone) return 'app_update';
     return 'media_download';
@@ -74,7 +94,7 @@ export function PatchScreen({ onComplete }: PatchScreenProps) {
             return 'アップデート状態';
         }
       case 'media_download':
-        switch (mediaStatus.status) {
+        switch (activeMediaStatus.status) {
           case 'idle':
           case 'checking':
             return 'メディアデータを確認中…';
@@ -98,20 +118,20 @@ export function PatchScreen({ onComplete }: PatchScreenProps) {
     if (currentPhase === 'app_update') {
       return updateStatus.message || '起動しています…';
     }
-    return mediaStatus.message || 'メディアデータを確認中…';
+    return activeMediaStatus.message || 'メディアデータを確認中…';
   })();
 
   // Display progress
   const displayPercent = (() => {
     if (updateStatus.status === 'ready') return 100;
     if (currentPhase === 'app_update') return updateStatus.progress;
-    return mediaStatus.progress;
+    return activeMediaStatus.progress;
   })();
 
   // Display state label
   const displayState = (() => {
     if (currentPhase === 'app_update') return updateStatus.status.toUpperCase();
-    return mediaStatus.status.toUpperCase();
+    return activeMediaStatus.status.toUpperCase();
   })();
 
   return (

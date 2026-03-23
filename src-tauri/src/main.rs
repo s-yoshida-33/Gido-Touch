@@ -561,20 +561,33 @@ fn read_mall_asset(relative_path: String) -> Result<Option<String>, String> {
     Ok(None)
 }
 
-/// List all mall-specific asset files (buttons, maps, open-time, etc.)
-/// and return them as a map of relative_path → data-URL.
-/// Looks in: <media_base>/<mall_id>/assets/
+/// List all mall-specific asset files (buttons, open-times, maps).
+/// Looks in:
+///   <media_base>/assets/<mall_id>/       → relative keys as-is (e.g. "buttons/...")
+///   <media_base>/maps/<mall_id>/<hostname>/ → prefixed with "maps/"
 #[tauri::command]
-fn list_mall_assets(mall_id: String) -> Result<HashMap<String, String>, String> {
+fn list_mall_assets(mall_id: String, hostname: String) -> Result<HashMap<String, String>, String> {
     let media_base = get_media_base_dir()?;
-    let assets_dir = media_base.join(&mall_id).join("assets");
+    let mut result = HashMap::new();
 
-    if !assets_dir.exists() {
-        return Ok(HashMap::new());
+    // Scan assets/{mall_id}/
+    let assets_dir = media_base.join("assets").join(&mall_id);
+    if assets_dir.exists() {
+        scan_assets_to_data_urls(&assets_dir, &assets_dir, &mut result)?;
     }
 
-    let mut result = HashMap::new();
-    scan_assets_to_data_urls(&assets_dir, &assets_dir, &mut result)?;
+    // Scan maps/{mall_id}/{hostname}/ → prefix keys with "maps/"
+    if !hostname.is_empty() && hostname != "unknown" {
+        let maps_dir = media_base.join("maps").join(&mall_id).join(&hostname);
+        if maps_dir.exists() {
+            let mut maps_raw = HashMap::new();
+            scan_assets_to_data_urls(&maps_dir, &maps_dir, &mut maps_raw)?;
+            for (k, v) in maps_raw {
+                result.insert(format!("maps/{}", k), v);
+            }
+        }
+    }
+
     Ok(result)
 }
 
@@ -775,21 +788,21 @@ struct MediaProgressPayload {
     message: String,
 }
 
-/// Download video ZIP from S3 and extract to media/{mallId}/videos/.
-/// Version comparison and metadata updates are handled by the frontend.
-#[tauri::command]
-fn sync_video_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -> Result<MediaDownloadResult, String> {
-    let media_root = get_media_dir()?;
-    let mall_dir = media_root.join(&mall_id);
-    let zip_path = media_root.join(format!("video-{}.zip", &mall_id));
-
+/// Internal helper: download a ZIP from S3 and extract to dest_dir (purging it first).
+fn sync_zip_to_dir(
+    app: &tauri::AppHandle,
+    zip_url: &str,
+    zip_path: &PathBuf,
+    dest_dir: &PathBuf,
+    label: &str,
+) -> Result<MediaDownloadResult, String> {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
         .build()
         .map_err(|e| format!("Client build error: {}", e))?;
 
     let mut response = client
-        .get(&zip_url)
+        .get(zip_url)
         .header("User-Agent", "GidoTouch-MediaUpdater")
         .header("Cache-Control", "no-cache")
         .send()
@@ -804,12 +817,11 @@ fn sync_video_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -
         });
     }
 
-    // Stream download in chunks with progress reporting
     let total_size = response.content_length().unwrap_or(0);
     let mut downloaded: u64 = 0;
-    let mut file = fs::File::create(&zip_path)
+    let mut file = fs::File::create(zip_path)
         .map_err(|e| format!("Failed to create zip file: {}", e))?;
-    let mut buffer = [0u8; 65536]; // 64KB chunks
+    let mut buffer = [0u8; 65536];
     let mut last_emit = std::time::Instant::now();
 
     let _ = app.emit("media-download-progress", MediaProgressPayload {
@@ -817,27 +829,22 @@ fn sync_video_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -
         percent: 0.0,
         downloaded_bytes: 0,
         total_bytes: total_size,
-        message: format!("ダウンロード開始 ({})", mall_id),
+        message: format!("ダウンロード開始 ({})", label),
     });
 
     loop {
         let bytes_read = response.read(&mut buffer)
             .map_err(|e| format!("Failed to read response data: {}", e))?;
-        if bytes_read == 0 {
-            break;
-        }
+        if bytes_read == 0 { break; }
         file.write_all(&buffer[..bytes_read])
             .map_err(|e| format!("Failed to write zip data: {}", e))?;
         downloaded += bytes_read as u64;
 
-        // Throttle event emission to ~4 times per second
         let now = std::time::Instant::now();
         if now.duration_since(last_emit).as_millis() >= 250 {
             let percent = if total_size > 0 {
                 (downloaded as f64 / total_size as f64) * 100.0
-            } else {
-                0.0
-            };
+            } else { 0.0 };
             let _ = app.emit("media-download-progress", MediaProgressPayload {
                 phase: "download".to_string(),
                 percent,
@@ -862,16 +869,15 @@ fn sync_video_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -
         message: "ダウンロード完了。展開中…".to_string(),
     });
 
-    // Purge existing videos dir so removed files don't linger on disk
-    let videos_dir = mall_dir.join("videos");
-    if videos_dir.exists() {
-        fs::remove_dir_all(&videos_dir)
-            .map_err(|e| format!("Failed to clean existing videos directory: {}", e))?;
+    // Purge existing dest dir so removed files don't linger
+    if dest_dir.exists() {
+        fs::remove_dir_all(dest_dir)
+            .map_err(|e| format!("Failed to clean existing directory: {}", e))?;
     }
-    fs::create_dir_all(&videos_dir)
-        .map_err(|e| format!("Failed to create videos directory: {}", e))?;
+    fs::create_dir_all(dest_dir)
+        .map_err(|e| format!("Failed to create directory: {}", e))?;
 
-    let zip_file = fs::File::open(&zip_path)
+    let zip_file = fs::File::open(zip_path)
         .map_err(|e| format!("Failed to open zip file: {}", e))?;
     let mut archive = zip::ZipArchive::new(zip_file)
         .map_err(|e| format!("Failed to read zip archive: {}", e))?;
@@ -882,7 +888,7 @@ fn sync_video_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -
             .map_err(|e| format!("Failed to read zip entry: {}", e))?;
 
         let out_path = match entry.enclosed_name() {
-            Some(path) => videos_dir.join(path),
+            Some(path) => dest_dir.join(path),
             None => continue,
         };
 
@@ -903,7 +909,6 @@ fn sync_video_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -
                 .map_err(|e| format!("Failed to write extracted file: {}", e))?;
         }
 
-        // Report extraction progress every 10 entries
         if total_entries > 0 && (i % 10 == 0 || i == total_entries - 1) {
             let extract_percent = ((i + 1) as f64 / total_entries as f64) * 100.0;
             let _ = app.emit("media-download-progress", MediaProgressPayload {
@@ -916,16 +921,41 @@ fn sync_video_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -
         }
     }
 
-    let _ = fs::remove_file(&zip_path);
+    let _ = fs::remove_file(zip_path);
 
     Ok(MediaDownloadResult {
         success: true,
-        message: format!(
-            "Video extracted to {} (zip_url={})",
-            videos_dir.display(), zip_url
-        ),
+        message: format!("Extracted to {} (zip_url={})", dest_dir.display(), zip_url),
         skipped: false,
     })
+}
+
+/// Download video ZIP from S3 and extract to media/videos/{mallId}/.
+/// Version comparison and metadata updates are handled by the frontend.
+#[tauri::command]
+fn sync_video_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -> Result<MediaDownloadResult, String> {
+    let media_root = get_media_dir()?;
+    let zip_path = media_root.join(format!("video-{}.zip", &mall_id));
+    let dest_dir = media_root.join("videos").join(&mall_id);
+    sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &mall_id)
+}
+
+/// Download assets ZIP from S3 and extract to media/assets/{mallId}/.
+#[tauri::command]
+fn sync_assets_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -> Result<MediaDownloadResult, String> {
+    let media_root = get_media_dir()?;
+    let zip_path = media_root.join(format!("assets-{}.zip", &mall_id));
+    let dest_dir = media_root.join("assets").join(&mall_id);
+    sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &format!("assets/{}", mall_id))
+}
+
+/// Download maps ZIP from S3 and extract to media/maps/{mallId}/{hostname}/.
+#[tauri::command]
+fn sync_maps_from_s3(app: tauri::AppHandle, mall_id: String, hostname: String, zip_url: String) -> Result<MediaDownloadResult, String> {
+    let media_root = get_media_dir()?;
+    let zip_path = media_root.join(format!("maps-{}-{}.zip", &mall_id, &hostname));
+    let dest_dir = media_root.join("maps").join(&mall_id).join(&hostname);
+    sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &format!("maps/{}/{}", mall_id, hostname))
 }
 
 /// Get media file path for a given mall and relative path.
@@ -950,14 +980,8 @@ fn get_media_file_path(mall_id: String, relative_path: String) -> Result<String,
 #[tauri::command]
 fn list_media_files(mall_id: String) -> Result<Vec<String>, String> {
     let media_root = get_media_base_dir()?;
-    let mall_dir = media_root.join(&mall_id);
+    let videos_dir = media_root.join("videos").join(&mall_id);
 
-    if !mall_dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    // Only list video files from videos/ subdirectory
-    let videos_dir = mall_dir.join("videos");
     if !videos_dir.exists() {
         return Ok(Vec::new());
     }
@@ -1480,6 +1504,8 @@ fn main() {
             get_shop_image,
             get_system_info,
             sync_video_from_s3,
+            sync_assets_from_s3,
+            sync_maps_from_s3,
             get_media_file_path,
             list_media_files,
             quit_app,

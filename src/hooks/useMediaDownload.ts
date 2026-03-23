@@ -58,7 +58,7 @@ async function fetchVideoVersionFromS3(mallId: string): Promise<{ zip: string | 
   }
 }
 
-const metaPath = (mallId: string) => `media/${mallId}/.media-meta.json`;
+const metaPath = (mallId: string) => `media/videos/${mallId}/.media-meta.json`;
 
 async function readVideoMeta(mallId: string): Promise<VideoMeta | null> {
   try {
@@ -74,7 +74,7 @@ async function readVideoMeta(mallId: string): Promise<VideoMeta | null> {
 
 async function writeVideoMeta(mallId: string, meta: VideoMeta): Promise<void> {
   try {
-    await mkdir(`media/${mallId}`, { baseDir: BaseDirectory.AppLocalData, recursive: true });
+    await mkdir(`media/videos/${mallId}`, { baseDir: BaseDirectory.AppLocalData, recursive: true });
     await writeTextFile(
       metaPath(mallId),
       JSON.stringify(meta),
