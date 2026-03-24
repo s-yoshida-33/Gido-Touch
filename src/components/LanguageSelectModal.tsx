@@ -1,5 +1,6 @@
 // src/components/LanguageSelectModal.tsx
 import React, { useRef, useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import selectLanguageBg from "../assets/lang/background.svg";
 import selectLanguageJp from "../assets/lang/ja.svg";
 import selectLanguageJpHighlight from "../assets/lang/ja-highlight.svg";
@@ -207,8 +208,11 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
       />
       
       {/* Modal */}
-      <div
+      <motion.div
         ref={modalRef}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
         style={{
           position: "fixed",
           top: `${position.top}px`,
@@ -300,7 +304,7 @@ export const LanguageSelectModal: React.FC<LanguageSelectModalProps> = ({
             draggable={false}
           />
         </div>
-      </div>
+      </motion.div>
     </>
   );
 };

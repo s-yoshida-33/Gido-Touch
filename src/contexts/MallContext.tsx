@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useMallAssets, MALL_IDS } from '../hooks/useMallAssets';
 import type { MallId, Language } from '../hooks/useMallAssets';
 import type { GenreSettings } from '../types/genreSettings';
@@ -103,8 +103,18 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const contextValue = useMemo(() => ({
+    mallId,
+    setMallId: handleSetMallId,
+    language,
+    setLanguage: handleSetLanguage,
+    assets,
+    isLoading,
+    genreSettings,
+  }), [mallId, handleSetMallId, language, handleSetLanguage, assets, isLoading, genreSettings]);
+
   return (
-    <MallContext.Provider value={{ mallId, setMallId: handleSetMallId, language, setLanguage: handleSetLanguage, assets, isLoading, genreSettings }}>
+    <MallContext.Provider value={contextValue}>
       {children}
     </MallContext.Provider>
   );
