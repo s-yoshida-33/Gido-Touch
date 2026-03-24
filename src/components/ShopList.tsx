@@ -1,5 +1,5 @@
 // src/components/ShopList.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import type { Shop } from "../types/shop";
 import {
   APP_CONFIG,
@@ -99,8 +99,9 @@ const ShopList: React.FC<ShopListProps> = ({
 
   // ---------------------------------------------------------------------------
   // Floor filtering (supports floors: FloorId[] + legacy floor/floors string)
+  // Memoized to avoid re-filtering on unrelated parent re-renders
   // ---------------------------------------------------------------------------
-  const floorShops = shops.filter((s) => {
+  const floorShops = useMemo(() => shops.filter((s) => {
     const tokens: string[] = [];
 
     // 1) Official field: floors: FloorId[]
@@ -131,7 +132,7 @@ const ShopList: React.FC<ShopListProps> = ({
 
     const normalizedTokens = tokens.map((v) => normalizeFloor(v));
     return normalizedTokens.includes(normalizedFloor);
-  });
+  }), [shops, normalizedFloor]);
 
   // ---------------------------------------------------------------------------
   // Normal layout rendering (wrapped in try/catch for fallback safety)
@@ -532,4 +533,4 @@ const ShopList: React.FC<ShopListProps> = ({
   );
 };
 
-export default ShopList;
+export default React.memo(ShopList);

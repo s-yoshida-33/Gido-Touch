@@ -1,5 +1,5 @@
 // src/screens/GidoApp.tsx
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 
 import ShopList from "../components/ShopList";
 import type { Shop } from "../types/shop";
@@ -374,6 +374,50 @@ const ShopPinsOverlay: React.FC<{
   const safeShops = shops || [];
   const positions = safeShopPositions.positions || {};
 
+  // Memoize the rendered shop pins to avoid recalculating on every render
+  const shopPins = useMemo(() => {
+    if (!shopPositions || !imageMetrics) return null;
+    return Object.entries(positions)
+      .filter(([shopId]) => {
+        if (selectedShopId) return shopId === selectedShopId;
+        return false;
+      })
+      .map(([shopId, position]) => {
+        if (!position || !position.floor || position.floor !== normalizedFloor) return null;
+        const shop = safeShops.find((s) => (s.shopId || s.number) === shopId);
+        if (!shop || !shop.name) return null;
+
+        const normalizedPosition = {
+          ...position,
+          x: position.x <= 1 ? position.x * 100 : position.x,
+          y: position.y <= 1 ? position.y * 100 : position.y,
+        };
+
+        const scaleRatio = imageMetrics.displayWidth / REFERENCE_MAP_WIDTH;
+        const basePinSize = normalizedPosition.size ?? DEFAULT_PIN_SIZE;
+        const renderPosition = { ...normalizedPosition, size: basePinSize * scaleRatio };
+
+        const xPercent = renderPosition.x / 100;
+        const yPercent = renderPosition.y / 100;
+        const pixelX = Math.round(imageMetrics.offsetX + xPercent * imageMetrics.displayWidth);
+        const pixelY = Math.round(imageMetrics.offsetY + yPercent * imageMetrics.displayHeight);
+
+        return (
+          <ShopPin
+            key={shopId}
+            position={renderPosition}
+            usePixelPosition={true}
+            pixelX={pixelX}
+            pixelY={pixelY}
+            shopName={shop.name}
+            isSelected={selectedShopId === shopId}
+            shopLogo={shop.shopLogo}
+            shopId={shop.shopId || shop.number}
+          />
+        );
+      });
+  }, [positions, selectedShopId, safeShops, imageMetrics, normalizedFloor]);
+
   // Check if we should show location icons
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>(propCurrentFloorSetting || "1F");
   
@@ -425,57 +469,7 @@ const ShopPinsOverlay: React.FC<{
 
       {showLocationIcons && <LocationIconsOverlay settings={locationIconSettings} imageMetrics={imageMetrics} />}
 
-      {shopPositions && imageMetrics && Object.entries(positions)
-        .filter(([shopId]) => {
-          if (selectedShopId) return shopId === selectedShopId;
-          return false;
-        })
-        .map(([shopId, position]) => {
-          if (!position || !position.floor || position.floor !== normalizedFloor) return null;
-          const shop = safeShops.find((s) => (s.shopId || s.number) === shopId);
-          if (!shop || !shop.name) return null;
-          
-          const normalizedPosition = {
-            ...position,
-            x: position.x <= 1 ? position.x * 100 : position.x,
-            y: position.y <= 1 ? position.y * 100 : position.y,
-          };
-
-          // --- Consistent Scaling Logic ---
-          // Scale pin size based on the map width ratio (Current / 1920)
-          const scaleRatio = imageMetrics.displayWidth / REFERENCE_MAP_WIDTH;
-          const basePinSize = normalizedPosition.size ?? DEFAULT_PIN_SIZE;
-          const scaledPinSize = basePinSize * scaleRatio;
-          
-          // Apply scaled size to the render position
-          const renderPosition = {
-            ...normalizedPosition,
-            size: scaledPinSize
-          };
-
-          // Calculate Pixel Coordinates directly mapped to image dimensions.
-          // Removed the containment logic that shifted pins inward.
-          // Now: 0% = Image Left Edge, 100% = Image Right Edge.
-          const xPercent = renderPosition.x / 100;
-          const yPercent = renderPosition.y / 100;
-
-          const pixelX = Math.round(imageMetrics.offsetX + (xPercent * imageMetrics.displayWidth));
-          const pixelY = Math.round(imageMetrics.offsetY + (yPercent * imageMetrics.displayHeight));
-
-          return (
-            <ShopPin
-              key={shopId}
-              position={renderPosition}
-              usePixelPosition={true}
-              pixelX={pixelX}
-              pixelY={pixelY}
-              shopName={shop.name}
-              isSelected={selectedShopId === shopId}
-              shopLogo={shop.shopLogo}
-              shopId={shop.shopId || shop.number}
-            />
-          );
-        })}
+      {shopPins}
     </div>
   );
 };
