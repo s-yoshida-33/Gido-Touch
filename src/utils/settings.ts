@@ -165,6 +165,10 @@ export async function saveGlobalSettings(settings: GlobalSettings): Promise<void
   logInfo('CONFIG', 'Global settings saved', { mallId: settings.mallId });
 }
 
+export async function cleanupOldHostnameMaps(mallId: string, currentHostname: string): Promise<void> {
+  await invoke('cleanup_old_hostname_maps', { mallId, currentHostname });
+}
+
 // ============================================================================
 // Per-mall settings ([mallId]-settings.json)
 // ============================================================================

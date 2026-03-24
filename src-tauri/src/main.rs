@@ -622,6 +622,39 @@ fn scan_assets_to_data_urls(
 }
 
 // ---------------------------------------------------------------------------
+// Cleanup old hostname map directories
+// ---------------------------------------------------------------------------
+
+/// Delete all subdirectories under maps/{mall_id}/ that do not match current_hostname.
+/// Called after a hostname change to remove stale map files from disk.
+#[tauri::command]
+fn cleanup_old_hostname_maps(mall_id: String, current_hostname: String) -> Result<(), String> {
+    if mall_id.is_empty() {
+        return Ok(());
+    }
+    let media_base = get_media_base_dir()?;
+    let maps_mall_dir = media_base.join("maps").join(&mall_id);
+    if !maps_mall_dir.exists() {
+        return Ok(());
+    }
+    let entries = fs::read_dir(&maps_mall_dir)
+        .map_err(|e| format!("Failed to read maps directory: {}", e))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+            if dir_name != current_hostname {
+                fs::remove_dir_all(&path)
+                    .map_err(|e| format!("Failed to remove old hostname dir {}: {}", path.display(), e))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Shop image command (reads arbitrary image path as data-URL)
 // ---------------------------------------------------------------------------
 
@@ -1506,6 +1539,7 @@ fn main() {
             sync_video_from_s3,
             sync_assets_from_s3,
             sync_maps_from_s3,
+            cleanup_old_hostname_maps,
             get_media_file_path,
             list_media_files,
             quit_app,

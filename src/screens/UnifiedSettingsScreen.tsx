@@ -25,7 +25,7 @@ import type { MallId } from "../hooks/useMallAssets";
 import { useMall } from '../contexts/MallContext';
 import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
 import type { SubFloorSettings } from "../types/global";
-import { loadGlobalSettings, saveGlobalSettings, loadMallSettings, saveMallSettings as saveMallSettingsToFile } from '../utils/settings';
+import { loadGlobalSettings, saveGlobalSettings, cleanupOldHostnameMaps, loadMallSettings, saveMallSettings as saveMallSettingsToFile } from '../utils/settings';
 import type { MallSettingsFile, GlobalSettings } from '../utils/settings';
 
 type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre" | "blackScreen";
@@ -92,6 +92,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // Hostname for S3 maps path
   const [hostname, setHostname] = useState<string>('');
+  const [initialHostname, setInitialHostname] = useState<string>('');
 
   // Tracks whether maps were fetched from S3 in this settings session.
   // On save, floorMaps are cleared so Path B (disk) becomes the sole map source.
@@ -313,7 +314,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       // Load hostname from global settings
       try {
         const globalSettings = await loadGlobalSettings();
-        setHostname(globalSettings.hostname ?? '');
+        const savedHostname = globalSettings.hostname ?? '';
+        setHostname(savedHostname);
+        setInitialHostname(savedHostname);
       } catch {}
 
       setFloor(initialFloor);
@@ -448,6 +451,13 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       // Save mallId and hostname to global settings so they persist across restarts
       const global = await loadGlobalSettings();
       await saveGlobalSettings({ ...global, mallId, hostname } as GlobalSettings);
+
+      // Remove stale map directories for previous hostname
+      if (mallId && hostname && hostname !== initialHostname) {
+        await cleanupOldHostnameMaps(mallId, hostname).catch((e) =>
+          console.warn('cleanup_old_hostname_maps failed:', e)
+        );
+      }
 
       // Clear the editing cache
       mallEditingCache.current.clear();
