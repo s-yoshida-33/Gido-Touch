@@ -843,6 +843,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               imageSettings={imageSettings}
               onChangeImageSettings={setImageSettings}
               onMapsFetchedFromS3={() => setMapsFetchedFromS3(true)}
+              hostname={hostname}
             />
           )}
           {activeTab === "shopPosition" && (

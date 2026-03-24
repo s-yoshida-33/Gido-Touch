@@ -9,6 +9,7 @@ export interface ImageSettingsTabProps {
   imageSettings: ImageSettings;
   onChangeImageSettings: (settings: ImageSettings) => void;
   onMapsFetchedFromS3: () => void;
+  hostname: string;
 }
 
 const FLOORS: FloorId[] = ["1F", "2F", "3F", "4F"];
@@ -19,6 +20,7 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
   imageSettings,
   onChangeImageSettings,
   onMapsFetchedFromS3,
+  hostname,
 }) => {
   const floorMapInputRef = useRef<HTMLInputElement>(null);
   const openTimeInputRef = useRef<HTMLInputElement>(null);
@@ -118,7 +120,7 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
 
   const handleFetchMapsFromS3 = async () => {
     resetFetch();
-    const floorMaps = await fetchMaps();
+    const floorMaps = await fetchMaps(hostname);
     if (!floorMaps) return;
 
     onChangeImageSettings({

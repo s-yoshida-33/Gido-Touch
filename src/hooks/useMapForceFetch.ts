@@ -82,13 +82,14 @@ export function useMapForceFetch() {
   });
   const isFetching = useRef(false);
 
-  const fetchMaps = async (): Promise<Partial<Record<FloorId, string>> | null> => {
+  const fetchMaps = async (hostnameOverride?: string): Promise<Partial<Record<FloorId, string>> | null> => {
     if (isFetching.current) return null;
     isFetching.current = true;
 
     try {
       const globalSettings = await loadGlobalSettings();
-      const { mallId, hostname } = globalSettings;
+      const { mallId } = globalSettings;
+      const hostname = hostnameOverride ?? globalSettings.hostname ?? '';
 
       if (!mallId) {
         setStatus({ status: 'error', progress: 0, message: 'モールIDが未設定です' });
