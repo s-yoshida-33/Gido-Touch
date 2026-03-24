@@ -140,27 +140,14 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
       </h2>
 
       {/* S3 Map Fetch */}
-      <div
-        style={{
-          marginBottom: 32,
-          padding: 16,
-          backgroundColor: "#1E2A3A",
-          borderRadius: 6,
-          border: "1px solid #2A3F55",
-        }}
-      >
-        <div style={{ marginBottom: 10, fontSize: 14, fontWeight: 500, color: "#E0E0E0" }}>
-          マップ画像の自動取得
-        </div>
-        <div style={{ marginBottom: 12, fontSize: 12, color: "#9E9E9E" }}>
-          S3から全フロア分の最新マップ画像を取得します。保存時に反映されます。
-        </div>
+      <div style={{ marginBottom: 32 }}>
         <button
           onClick={handleFetchMapsFromS3}
           disabled={isFetching}
           style={{
+            width: "100%",
             padding: "10px 16px",
-            backgroundColor: isFetching ? "#2A3F55" : "#1565C0",
+            backgroundColor: isFetching ? "#2E7D32" : "#388E3C",
             border: "none",
             borderRadius: 4,
             color: isFetching ? "#9E9E9E" : "#ffffff",
@@ -173,14 +160,14 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
         </button>
 
         {fetchStatus.status !== 'idle' && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 8 }}>
             {isFetching && (
               <div
                 style={{
                   height: 4,
                   backgroundColor: "#2A3F55",
                   borderRadius: 2,
-                  marginBottom: 8,
+                  marginBottom: 6,
                   overflow: "hidden",
                 }}
               >
