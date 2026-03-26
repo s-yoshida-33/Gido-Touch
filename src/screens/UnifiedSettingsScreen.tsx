@@ -86,7 +86,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // Mall settings
   // Mall settings
-  const { mallId: contextMallId, setMallId: setContextMallId } = useMall();
+  const { mallId: contextMallId, setMallId: setContextMallId, refreshAssets } = useMall();
   const [mallId, setMallIdLocal] = useState<MallId>(contextMallId);
   const [initialMallId, setInitialMallId] = useState<MallId>(contextMallId);
 
@@ -436,7 +436,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       // so Path B (disk files via list_mall_assets) becomes the sole map source.
       const currentSnapshot = captureCurrentSnapshot();
       const currentMallSettings = buildMallSettings(currentSnapshot);
-      if (mapsFetchedFromS3) {
+      const mapsWereFetchedFromS3 = mapsFetchedFromS3;
+      if (mapsWereFetchedFromS3) {
         const emptyFloorMaps = Object.fromEntries(
           Object.keys(currentMallSettings.imageSettings.floorMaps).map((k) => [k, '']),
         ) as Record<string, string>;
@@ -447,6 +448,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setMapsFetchedFromS3(false);
       }
       await saveMallSettingsToFile(mallId, currentMallSettings);
+
 
       // Save mallId and hostname to global settings so they persist across restarts
       const global = await loadGlobalSettings();
@@ -466,6 +468,13 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       setContextAudioSettings(currentMallSettings.audioSettings);
 
       onSave(currentMallSettings, mallId);
+
+      // S3からマップをダウンロードして保存した場合、MallContextのアセットを再読み込みする。
+      // これにより、ショップ詳細画面のマップも即座に最新データに更新される。
+      if (mapsWereFetchedFromS3) {
+        refreshAssets();
+      }
+
       onClose();
     } catch (error) {
       console.error('Failed to save settings:', error);

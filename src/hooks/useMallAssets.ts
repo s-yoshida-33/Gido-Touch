@@ -117,12 +117,12 @@ async function loadExternalMallAssets(mallId: string): Promise<Record<string, st
   }
 }
 
-export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
+export const useMallAssets = (mallId: MallId, language: Language = 'ja', refreshKey: number = 0) => {
   const [assets, setAssets] = useState<MallAssets | null>(null);
   const [rawAssets, setRawAssets] = useState<Record<string, string> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. MallID変更時にデータを取得
+  // 1. MallID変更時、またはリフレッシュ要求時にデータを取得
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
@@ -131,7 +131,7 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
     const loadRawAssets = async () => {
       try {
         const externalAssets = await loadExternalMallAssets(mallId);
-        
+
         if (isMounted) {
           setRawAssets(externalAssets);
         }
@@ -146,7 +146,7 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
     return () => {
       isMounted = false;
     };
-  }, [mallId]);
+  }, [mallId, refreshKey]);
 
   // 2. データまたは言語変更時にアセットオブジェクトを構築
   useEffect(() => {

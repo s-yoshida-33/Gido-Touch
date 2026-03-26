@@ -25,6 +25,8 @@ interface MallContextType {
   assets: ReturnType<typeof useMallAssets>['assets'];
   isLoading: boolean;
   genreSettings: GenreSettings;
+  /** S3からマップ/アセットをダウンロード後に呼び出すことでアセットを再読み込みする */
+  refreshAssets: () => void;
 }
 
 const MallContext = createContext<MallContextType>({
@@ -35,6 +37,7 @@ const MallContext = createContext<MallContextType>({
   assets: null,
   isLoading: true,
   genreSettings: DEFAULT_GENRE_SETTINGS,
+  refreshAssets: () => {},
 });
 
 export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -76,7 +79,10 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const { assets, isLoading } = useMallAssets(mallId, language);
+  const [assetRefreshKey, setAssetRefreshKey] = useState(0);
+  const refreshAssets = useCallback(() => setAssetRefreshKey(k => k + 1), []);
+
+  const { assets, isLoading } = useMallAssets(mallId, language, assetRefreshKey);
 
   // setMallIdのラッパー (Tauri設定にも保存する)
   const handleSetMallId = useCallback(async (id: MallId) => {
@@ -111,7 +117,8 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     assets,
     isLoading,
     genreSettings,
-  }), [mallId, handleSetMallId, language, handleSetLanguage, assets, isLoading, genreSettings]);
+    refreshAssets,
+  }), [mallId, handleSetMallId, language, handleSetLanguage, assets, isLoading, genreSettings, refreshAssets]);
 
   return (
     <MallContext.Provider value={contextValue}>
