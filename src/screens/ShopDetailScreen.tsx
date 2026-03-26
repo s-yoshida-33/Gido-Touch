@@ -194,10 +194,9 @@ const MapWithPinsComponent: React.FC<{
   shopName: string;
   shopLogo?: string;
   shopId?: string;
-  currentScale: number;
   currentFloorSetting: string;
   locationIconSettings: LocationIconSettingsPerFloor;
-}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentScale, currentFloorSetting, locationIconSettings }) => {
+}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentFloorSetting, locationIconSettings }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageMetrics, setImageMetrics] = useState<{ 
@@ -423,7 +422,6 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                   shopName={displayShopName}
                   shopLogo={shop.shopLogo}
                   shopId={shop.shopId || shop.number}
-                  currentScale={currentScale}
                   currentFloorSetting={currentFloorSetting}
                   locationIconSettings={locationIconSettings}
                 />
