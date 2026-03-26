@@ -303,7 +303,7 @@ const MapWithPinsComponent: React.FC<{
           shopName={shopName}
           shopLogo={shopLogo}
           shopId={shopId}
-          transformScale={currentScale}
+          transformScale={1}
           usePixelPosition={true}
           pixelX={pixelX}
           pixelY={pixelY}

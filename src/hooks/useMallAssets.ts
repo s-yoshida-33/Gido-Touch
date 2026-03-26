@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { loadGlobalSettings } from '../utils/settings';
 
@@ -121,12 +121,22 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja', refresh
   const [assets, setAssets] = useState<MallAssets | null>(null);
   const [rawAssets, setRawAssets] = useState<Record<string, string> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const prevMallIdRef = React.useRef(mallId);
 
   // 1. MallID変更時、またはリフレッシュ要求時にデータを取得
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
-    setRawAssets(null);
+
+    // mallId が変わった場合のみ isLoading をtrueにし既存アセットをクリアする。
+    // refreshKey のみの変化（S3ダウンロード後の再読み込み）では isLoading をtrueにしない。
+    // これにより、リフレッシュ中も画面が空白になったり SSE 接続が切れるのを防ぐ。
+    const isMallChanged = prevMallIdRef.current !== mallId;
+    prevMallIdRef.current = mallId;
+
+    if (isMallChanged) {
+      setIsLoading(true);
+      setRawAssets(null);
+    }
 
     const loadRawAssets = async () => {
       try {
