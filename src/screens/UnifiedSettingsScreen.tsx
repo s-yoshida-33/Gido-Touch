@@ -1,5 +1,5 @@
 // src/screens/UnifiedSettingsScreen.tsx
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import GidoApp from "./GidoApp";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
@@ -83,6 +83,15 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // Black screen settings
   const [blackScreenSettings, setBlackScreenSettings] = useState<BlackScreenSettings>(DEFAULT_BLACK_SCREEN_SETTINGS);
+
+  // 座標未設定ショップ数（全ショップ対象）
+  const unsetShopCount = useMemo(() => {
+    if (!shops) return 0;
+    return shops.filter(shop => {
+      const id = shop.shopId || shop.number;
+      return id && !shopPositions.positions[id];
+    }).length;
+  }, [shops, shopPositions]);
 
   // Mall settings
   // Mall settings
@@ -680,14 +689,14 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         >
           {/* Tabs */}
           <div style={{ flex: 1, padding: "16px 0" }}>
-            {[
-              { id: "image" as TabType, label: "画像" },
-              { id: "shopPosition" as TabType, label: "座標設定" },
-              { id: "floorSettings" as TabType, label: "フロア設定" },
-              { id: "localMedia" as TabType, label: "ローカルメディア設定" },
-              { id: "genre" as TabType, label: "ジャンルメモ設定" },
-              { id: "blackScreen" as TabType, label: "ブラックスクリーン" },
-            ].map((tab) => (
+            {([
+              { id: "image" as TabType, label: "画像", badge: 0 },
+              { id: "shopPosition" as TabType, label: "座標設定", badge: unsetShopCount },
+              { id: "floorSettings" as TabType, label: "フロア設定", badge: 0 },
+              { id: "localMedia" as TabType, label: "ローカルメディア設定", badge: 0 },
+              { id: "genre" as TabType, label: "ジャンルメモ設定", badge: 0 },
+              { id: "blackScreen" as TabType, label: "ブラックスクリーン", badge: 0 },
+            ] as const).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -702,9 +711,30 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                   textAlign: "left",
                   cursor: "pointer",
                   transition: "background-color 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
                 }}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                {tab.badge > 0 && (
+                  <span style={{
+                    backgroundColor: "#ff3b30",
+                    color: "#ffffff",
+                    borderRadius: 10,
+                    minWidth: 20,
+                    height: 20,
+                    padding: "0 5px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}>
+                    {tab.badge > 99 ? "99+" : tab.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>

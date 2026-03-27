@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import ShopListScreen from "./screens/ShopListScreen";
 import VersionInfoScreen from "./screens/VersionInfoScreen";
 import UnifiedSettingsScreen from "./screens/UnifiedSettingsScreen";
@@ -36,6 +36,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { useHeartbeat } from "./hooks/useHeartbeat";
 import { useWebViewPing } from "./hooks/useWebViewPing";
 import { useMall } from "./contexts/MallContext";
+import { useShopChangeDetection } from "./hooks/useShopChangeDetection";
 import MallSelectScreen from "./screens/MallSelectScreen";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
@@ -152,6 +153,14 @@ const App: React.FC = () => {
   const [imageSettings, setImageSettings] = useState<ImageSettings>(DEFAULT_IMAGE_SETTINGS);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings>({ positions: {} });
   const [shops, setShops] = useState<Shop[]>([]);
+
+  // ショップリストの変化（追加・削除）を検出して Slack 通知
+  const shopChangeItems = useMemo(
+    () => shops.map(s => ({ id: s.shopId || s.number || '', name: s.name })).filter(s => s.id),
+    [shops],
+  );
+  useShopChangeDetection(shopChangeItems, mallId);
+
   const [localMediaTextSettings, setLocalMediaTextSettings] = useState<LocalMediaTextSettings>({});
   const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>({ "1F-1": [], "1F-2": [] });
 
