@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { 
-  fetchShops, 
-  loadShopsFromCache, 
-  saveShopsToCache 
+import {
+  fetchShops,
+  loadShopsFromCache,
+  saveShopsToCache
 } from "../repositories/shopRepository";
 import { shopSseService } from "../services/SSEService";
-import { convertSseShopDataToShop } from "../utils/shopConverter";
 import { logInfo, logError } from "../logs/logging";
 import type { Shop } from "../types/shop";
 
@@ -104,43 +103,14 @@ export const useShops = (useCacheFirst: boolean = true) => {
     // Initial load
     loadData();
 
-    // Subscribe to SSE events for real-time updates
-    const unsubscribeShops = shopSseService.on('shops', (payload: any) => {
-      console.log('[useShops] SSE shops received', payload);
-      
-      let shopList: any[] = [];
-      
-      if (payload && !Array.isArray(payload) && 'data' in payload && Array.isArray((payload as any).data)) {
-        shopList = (payload as any).data;
-      } else if (Array.isArray(payload)) {
-        shopList = payload;
-      } else if (payload && typeof payload === 'object' && 'items' in payload && Array.isArray((payload as any).items)) {
-         shopList = (payload as any).items;
-      }
-
-      if (shopList.length > 0) {
-        try {
-          const newShops = shopList.map((item: any) => convertSseShopDataToShop(item));
-          const cleaned = cleanShops(newShops);
-
-          setShops(cleaned);
-          setError(null);
-          
-          // SSE更新時もキャッシュを更新しておく
-          saveShopsToCache(cleaned);
-
-          logInfo("DATA_SYNC", "Shop data updated via SSE", {
-            count: cleaned.length,
-          });
-        } catch (e) {
-          console.error('[useShops] Failed to process shops event', e);
-        }
-      }
+    // 分離パターン: SSEは更新通知のみ。データはREST経由で取得する。
+    const unsubscribeShops = shopSseService.on('shops', () => {
+      logInfo("DATA_SYNC", "Shop update signal received, fetching from REST");
+      loadData(true);
     });
 
-    // Fallback: If 'update' event is received (legacy behavior), reload shops via API
     const unsubscribeUpdate = shopSseService.on('update', () => {
-      console.log('[useShops] SSE update received, reloading shops...');
+      logInfo("DATA_SYNC", "Update signal received, fetching from REST");
       loadData(true);
     });
 
