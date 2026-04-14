@@ -316,15 +316,21 @@ export const ShopPin: React.FC<ShopPinProps> = ({
 
   // Build CSS animation class and variables (applied only after layout settles)
   const animClass = isReady ? getAnimationClass(animation) : "";
+  const isSpinAnim = !!animClass && (animation?.type === "spin-float" || animation?.type === "spin-loop");
   const animContainerStyle: React.CSSProperties = (animClass && animation)
     ? {
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
         "--anim-duration": `${animation.duration}s`,
         "--anim-amplitude": `-${fixedAmplitude}px`,
         ...(animation.type === "spin-float" && {
           "--anim-iteration": animation.spinRepeat === false ? "1" : "infinite",
+        }),
+        ...(isSpinAnim ? {
+          position: "relative",
+          transformStyle: "preserve-3d" as const,
+        } : {
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
         }),
       } as React.CSSProperties
     : {
@@ -342,9 +348,36 @@ export const ShopPin: React.FC<ShopPinProps> = ({
       transition={{ delay, type: "spring", stiffness: 300, damping: 20 }}
     >
       <div style={centeringStyle}>
-        <div className={animClass} style={animContainerStyle}>
-          {renderContent()}
-        </div>
+        {isSpinAnim ? (
+          // Two-face 3D flip: front face visible at 0°, back face (pre-rotated 180°) visible at 180°.
+          // Both use backface-visibility: hidden so only the correct face shows at each angle.
+          // perspective on wrapper establishes the 3D viewing frustum.
+          <div style={{ perspective: "600px" }}>
+            <div className={animClass} style={animContainerStyle}>
+              <div style={{ backfaceVisibility: "hidden" }}>
+                {renderContent()}
+              </div>
+              <div style={{
+                backfaceVisibility: "hidden",
+                transform: "rotateY(180deg)",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}>
+                {renderContent()}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className={animClass} style={animContainerStyle}>
+            {renderContent()}
+          </div>
+        )}
       </div>
     </motion.div>
   );
