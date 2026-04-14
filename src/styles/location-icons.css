@@ -65,17 +65,17 @@
   animation: bounce-animation var(--anim-duration, 2s) ease-out infinite;
 }
 
-/* Spin-float: rises while rotating 360°, lands back in sync with one full rotation */
+/* Spin-float: rises while flipping 360° on Y-axis (front→back→front), lands in sync */
 @keyframes spin-float-animation {
-  0%   { transform: translateY(0) rotate(0deg); }
-  50%  { transform: translateY(var(--anim-amplitude, -18px)) rotate(180deg); }
-  100% { transform: translateY(0) rotate(360deg); }
+  0%   { transform: perspective(600px) translateY(0) rotateY(0deg); }
+  50%  { transform: perspective(600px) translateY(var(--anim-amplitude, -18px)) rotateY(180deg); }
+  100% { transform: perspective(600px) translateY(0) rotateY(360deg); }
 }
 
-/* Spin-loop: continuous in-place rotation */
+/* Spin-loop: continuous in-place Y-axis flip */
 @keyframes spin-loop-animation {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from { transform: perspective(600px) rotateY(0deg); }
+  to   { transform: perspective(600px) rotateY(360deg); }
 }
 
 .anim-spin-float {
@@ -83,7 +83,6 @@
   animation-duration: var(--anim-duration, 3s);
   animation-timing-function: ease-in-out;
   animation-iteration-count: var(--anim-iteration, infinite);
-  backface-visibility: hidden;
 }
 
 .anim-spin-loop {
@@ -91,5 +90,4 @@
   animation-duration: var(--anim-duration, 3s);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
-  backface-visibility: hidden;
 }
