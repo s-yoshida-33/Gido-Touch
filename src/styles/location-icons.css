@@ -72,10 +72,23 @@
   100% { transform: perspective(600px) translateY(0) rotateY(360deg); }
 }
 
+/* Counter-rotation for inner content: keeps logo non-mirrored during Y-axis flip */
+@keyframes spin-float-inner-animation {
+  0%   { transform: rotateY(0deg); }
+  50%  { transform: rotateY(-180deg); }
+  100% { transform: rotateY(-360deg); }
+}
+
 /* Spin-loop: continuous in-place Y-axis flip */
 @keyframes spin-loop-animation {
   from { transform: perspective(600px) rotateY(0deg); }
   to   { transform: perspective(600px) rotateY(360deg); }
+}
+
+/* Counter-rotation for inner content */
+@keyframes spin-loop-inner-animation {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(-360deg); }
 }
 
 .anim-spin-float {
@@ -83,10 +96,26 @@
   animation-duration: var(--anim-duration, 3s);
   animation-timing-function: ease-in-out;
   animation-iteration-count: var(--anim-iteration, infinite);
+  transform-style: preserve-3d;
+}
+
+.anim-spin-float > * {
+  animation-name: spin-float-inner-animation;
+  animation-duration: var(--anim-duration, 3s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: var(--anim-iteration, infinite);
 }
 
 .anim-spin-loop {
   animation-name: spin-loop-animation;
+  animation-duration: var(--anim-duration, 3s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  transform-style: preserve-3d;
+}
+
+.anim-spin-loop > * {
+  animation-name: spin-loop-inner-animation;
   animation-duration: var(--anim-duration, 3s);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
