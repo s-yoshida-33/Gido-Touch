@@ -195,38 +195,57 @@ const IconConfigSection: React.FC<{
                   <option value="pulse" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>パルス</option>
                   <option value="bounce" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>バウンス</option>
                   <option value="blink" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>点滅・波紋</option>
+                  <option value="spin-float" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>スピン上昇</option>
+                  <option value="spin-loop" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>スピンループ</option>
                   <option value="none" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>なし</option>
                 </select>
               </div>
-              
+
               <div style={{ display: "flex", gap: 10 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>期間 (秒)</div>
-                    <input 
-                      type="number" 
-                      min={0.1} 
-                      step={0.1} 
-                      value={config.animation?.duration ?? 2.2} 
+                    <input
+                      type="number"
+                      min={0.1}
+                      step={0.1}
+                      value={config.animation?.duration ?? 2.2}
                       onChange={(e) => {
                         const currentAnim = config.animation ?? { enabled: true, type: "floating", duration: 2.2, amplitude: 18 };
                         update({ animation: { ...currentAnim, duration: Math.max(0.1, Number(e.target.value) || 2.2) } });
-                      }} 
-                      style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }} 
+                      }}
+                      style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
                     />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅</div>
-                    <input 
-                      type="number" 
-                      value={config.animation?.amplitude ?? 18} 
-                      onChange={(e) => {
-                        const currentAnim = config.animation ?? { enabled: true, type: "floating", duration: 2.2, amplitude: 18 };
-                        update({ animation: { ...currentAnim, amplitude: Number(e.target.value) || 0 } });
-                      }} 
-                      style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }} 
-                    />
-                  </div>
+                  {(["floating", "bounce", "spin-float"] as string[]).includes(config.animation?.type ?? "floating") && (
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅</div>
+                      <input
+                        type="number"
+                        value={config.animation?.amplitude ?? 18}
+                        onChange={(e) => {
+                          const currentAnim = config.animation ?? { enabled: true, type: "floating", duration: 2.2, amplitude: 18 };
+                          update({ animation: { ...currentAnim, amplitude: Number(e.target.value) || 0 } });
+                        }}
+                        style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
+                      />
+                    </div>
+                  )}
               </div>
+
+              {config.animation?.type === "spin-float" && (
+                <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={config.animation?.spinRepeat !== false}
+                    onChange={(e) => {
+                      const currentAnim = config.animation ?? { enabled: true, type: "spin-float", duration: 3, amplitude: 18 };
+                      update({ animation: { ...currentAnim, spinRepeat: e.target.checked } });
+                    }}
+                    style={{ width: 16, height: 16, accentColor: "#007aff" }}
+                  />
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.8)" }}>ループ (繰り返し)</span>
+                </label>
+              )}
 
               {config.animation?.type === "blink" && (
                 <>
@@ -558,20 +577,35 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
                         <option value="pulse" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>パルス</option>
                         <option value="bounce" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>バウンス</option>
                         <option value="blink" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>点滅・波紋</option>
+                        <option value="spin-float" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>スピン上昇</option>
+                        <option value="spin-loop" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>スピンループ</option>
                         <option value="none" style={{ backgroundColor: "#2C2C2C", color: "#ffffff" }}>なし</option>
                       </select>
                     </div>
-                    {/* Detailed animation settings (same as original logic) */}
+                    {/* Detailed animation settings */}
                     <div style={{ display: "flex", gap: 10 }}>
                        <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>期間 (秒)</div>
                           <input type="number" min={0.1} step={0.1} value={selectedShopPosition.animation?.duration ?? 2.2} onChange={(e) => updateAnimationField("duration", Math.max(0.1, Number(e.target.value) || 2.2))} style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }} />
                        </div>
-                       <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅</div>
-                          <input type="number" value={selectedShopPosition.animation?.amplitude ?? 18} onChange={(e) => updateAnimationField("amplitude", Number(e.target.value) || 0)} style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }} />
-                       </div>
+                       {(["floating", "bounce", "spin-float"] as string[]).includes(selectedShopPosition.animation?.type ?? "floating") && (
+                         <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅</div>
+                            <input type="number" value={selectedShopPosition.animation?.amplitude ?? 18} onChange={(e) => updateAnimationField("amplitude", Number(e.target.value) || 0)} style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }} />
+                         </div>
+                       )}
                     </div>
+                    {selectedShopPosition.animation?.type === "spin-float" && (
+                      <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedShopPosition.animation?.spinRepeat !== false}
+                          onChange={(e) => updateAnimationField("spinRepeat", e.target.checked)}
+                          style={{ width: 16, height: 16, accentColor: "#007aff" }}
+                        />
+                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.8)" }}>ループ (繰り返し)</span>
+                      </label>
+                    )}
                     {selectedShopPosition.animation?.type === "blink" && (
                       <>
                         <div>

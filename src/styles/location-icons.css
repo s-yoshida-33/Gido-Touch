@@ -64,3 +64,32 @@
 .anim-bounce {
   animation: bounce-animation var(--anim-duration, 2s) ease-out infinite;
 }
+
+/* Spin-float: rises while rotating 360°, lands back in sync with one full rotation */
+@keyframes spin-float-animation {
+  0%   { transform: translateY(0) rotate(0deg); }
+  50%  { transform: translateY(var(--anim-amplitude, -18px)) rotate(180deg); }
+  100% { transform: translateY(0) rotate(360deg); }
+}
+
+/* Spin-loop: continuous in-place rotation */
+@keyframes spin-loop-animation {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.anim-spin-float {
+  animation-name: spin-float-animation;
+  animation-duration: var(--anim-duration, 3s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: var(--anim-iteration, infinite);
+  backface-visibility: hidden;
+}
+
+.anim-spin-loop {
+  animation-name: spin-loop-animation;
+  animation-duration: var(--anim-duration, 3s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  backface-visibility: hidden;
+}
