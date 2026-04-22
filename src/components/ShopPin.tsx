@@ -332,7 +332,7 @@ export const ShopPin: React.FC<ShopPinProps> = ({
           justifyContent: "center",
           alignItems: "center",
         }),
-      } as React.CSSProperties
+      } as unknown as React.CSSProperties
     : {
         display: "flex",
         justifyContent: "center",
