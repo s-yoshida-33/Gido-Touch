@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import type { LocalMediaTextSettings } from '../types/global';
 import type { AudioSettings } from '../types/audioSettings';
 import type { Shop } from '../types/shop';
@@ -68,6 +69,16 @@ export const LocalMediaSettingsTab: React.FC<LocalMediaSettingsTabProps> = ({
   cmsSettings,
   onChangeCmsSettings,
 }) => {
+  const [soundFiles, setSoundFiles] = useState<string[]>([]);
+
+  useEffect(() => {
+    invoke<string[]>('list_sound_files')
+      .then(setSoundFiles)
+      .catch(() => setSoundFiles([]));
+  }, []);
+
+  const selectedFile = audioSettings.touchSoundFile ?? 'touch-sound-1.wav';
+
   return (
     <div style={{ color: "#ffffff" }}>
       <h2 style={{ marginTop: 0, marginBottom: 24, fontSize: 20, fontWeight: 600 }}>
@@ -118,6 +129,38 @@ export const LocalMediaSettingsTab: React.FC<LocalMediaSettingsTabProps> = ({
             label="タッチ音を有効にする"
           />
         </div>
+        {(audioSettings.touchSoundEnabled ?? false) && (
+          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <span style={{ fontSize: 12, color: '#aaa' }}>音声ファイルを選択</span>
+            {soundFiles.length === 0 ? (
+              <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
+                音声ファイルが見つかりません（medias/sounds/ を確認してください）
+              </p>
+            ) : (
+              soundFiles.map((file) => (
+                <div
+                  key={file}
+                  onClick={() => onChangeAudioSettings({ ...audioSettings, touchSoundFile: file })}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 16px',
+                    backgroundColor: file === selectedFile ? '#1a3a5c' : '#333',
+                    border: `1px solid ${file === selectedFile ? '#007aff' : '#555'}`,
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ fontSize: 13 }}>{file}</span>
+                  {file === selectedFile && (
+                    <span style={{ color: '#007aff', fontSize: 13, fontWeight: 600 }}>✓</span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
         <p style={{ color: "#aaa", fontSize: 12, marginTop: 8 }}>
           ※両方の音声を同時に有効にすることも可能です。
         </p>

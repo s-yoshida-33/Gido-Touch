@@ -488,6 +488,62 @@ fn read_image_file(file_path: String) -> Result<Vec<u8>, String> {
 }
 
 // ---------------------------------------------------------------------------
+// Sound file helpers
+// ---------------------------------------------------------------------------
+
+/// Resolve the sounds directory.
+/// Dev:  <cwd>/medias/sounds/
+/// Prod: <exe_dir>/sounds/  (tauri.conf.json resources dest "sounds/")
+fn get_sounds_dir() -> Result<PathBuf, String> {
+    let dev_path = std::env::current_dir()
+        .unwrap_or_default()
+        .join("medias")
+        .join("sounds");
+    write_to_log_file_direct("SOUND", &format!("Checking dev sounds path: {}", dev_path.display()));
+    if dev_path.exists() {
+        write_to_log_file_direct("SOUND", &format!("Using dev sounds path: {}", dev_path.display()));
+        return Ok(dev_path);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            let prod_path = exe_dir.join("sounds");
+            write_to_log_file_direct("SOUND", &format!("Checking prod sounds path: {}", prod_path.display()));
+            if prod_path.exists() {
+                write_to_log_file_direct("SOUND", &format!("Using prod sounds path: {}", prod_path.display()));
+                return Ok(prod_path);
+            }
+            write_to_log_file_direct("SOUND", &format!("Prod sounds path not found: {}", prod_path.display()));
+        }
+    }
+    Err("Sounds directory not found".to_string())
+}
+
+/// List all .wav files in the sounds directory, sorted alphabetically.
+#[tauri::command]
+fn list_sound_files() -> Result<Vec<String>, String> {
+    let dir = get_sounds_dir()?;
+    let mut files: Vec<String> = fs::read_dir(&dir)
+        .map_err(|e| format!("Failed to read sounds dir: {}", e))?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.to_lowercase().ends_with(".wav") { Some(name) } else { None }
+        })
+        .collect();
+    files.sort();
+    Ok(files)
+}
+
+/// Read a sound file by filename from the sounds directory and return its bytes.
+#[tauri::command]
+fn read_sound_file(filename: String) -> Result<Vec<u8>, String> {
+    let dir = get_sounds_dir()?;
+    let path = dir.join(&filename);
+    fs::read(&path)
+        .map_err(|e| format!("Failed to read sound file '{}': {}", path.display(), e))
+}
+
+// ---------------------------------------------------------------------------
 // Mall asset helpers
 // ---------------------------------------------------------------------------
 
@@ -1603,6 +1659,8 @@ fn main() {
             get_image_path,
             delete_image_file,
             read_image_file,
+            list_sound_files,
+            read_sound_file,
             read_mall_config,
             read_mall_asset,
             list_mall_assets,
