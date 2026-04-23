@@ -1,6 +1,27 @@
 import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
+const INTERACTIVE_SELECTOR =
+  'button, a, input, select, textarea, label, ' +
+  '[role="button"], [role="link"], [role="menuitem"], [role="option"], [role="tab"], ' +
+  '[tabindex]:not([tabindex="-1"])';
+
+function isTouchOnInteractiveElement(target: EventTarget | null): boolean {
+  if (!target || !(target instanceof Element)) return false;
+
+  // Standard interactive elements
+  if (target.closest(INTERACTIVE_SELECTOR)) return true;
+
+  // Custom onClick elements (div, span, etc.) identifiable by cursor: pointer
+  let el: Element | null = target;
+  while (el && el.tagName !== 'BODY') {
+    if (window.getComputedStyle(el).cursor === 'pointer') return true;
+    el = el.parentElement;
+  }
+
+  return false;
+}
+
 export function useTouchSound(enabled: boolean, soundFile: string = 'touch-sound-1.wav') {
   const ctxRef = useRef<AudioContext | null>(null);
   const bufferRef = useRef<AudioBuffer | null>(null);
@@ -24,7 +45,6 @@ export function useTouchSound(enabled: boolean, soundFile: string = 'touch-sound
           bufferRef.current = decoded;
         }
       } catch {
-        // File missing or decode failed — touch sound disabled silently
         bufferRef.current = null;
       }
     };
@@ -36,7 +56,9 @@ export function useTouchSound(enabled: boolean, soundFile: string = 'touch-sound
   useEffect(() => {
     if (!enabled) return;
 
-    const play = () => {
+    const play = (e: TouchEvent) => {
+      if (!isTouchOnInteractiveElement(e.target)) return;
+
       const ctx = ctxRef.current;
       const buffer = bufferRef.current;
       if (!ctx || !buffer) return;
