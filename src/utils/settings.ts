@@ -197,7 +197,7 @@ export async function loadMallSettings(mallId: string): Promise<MallSettingsFile
       genreSettings: raw.genreSettings ?? defaults.genreSettings,
       cmsSettings: raw.cmsSettings ?? defaults.cmsSettings,
       videoSettings: raw.videoSettings ?? defaults.videoSettings,
-      audioSettings: raw.audioSettings ?? defaults.audioSettings,
+      audioSettings: { ...defaults.audioSettings, ...raw.audioSettings },
       displayFloors: raw.displayFloors ?? defaults.displayFloors,
       currentFloorSetting: raw.currentFloorSetting ?? defaults.currentFloorSetting,
       localMediaTextSettings: raw.localMediaTextSettings ?? defaults.localMediaTextSettings,

@@ -112,6 +112,11 @@ export const LocalMediaSettingsTab: React.FC<LocalMediaSettingsTabProps> = ({
             onChange={(checked) => onChangeAudioSettings({ ...audioSettings, cmsMuted: !checked })}
             label="CMS配信の音声を有効にする"
           />
+          <ToggleSwitch
+            checked={audioSettings.touchSoundEnabled ?? false}
+            onChange={(checked) => onChangeAudioSettings({ ...audioSettings, touchSoundEnabled: checked })}
+            label="タッチ音を有効にする"
+          />
         </div>
         <p style={{ color: "#aaa", fontSize: 12, marginTop: 8 }}>
           ※両方の音声を同時に有効にすることも可能です。

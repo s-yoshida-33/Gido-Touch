@@ -37,6 +37,8 @@ import { useHeartbeat } from "./hooks/useHeartbeat";
 import { useWebViewPing } from "./hooks/useWebViewPing";
 import { useMall } from "./contexts/MallContext";
 import { useShopChangeDetection } from "./hooks/useShopChangeDetection";
+import { useAudioSettingsContext } from "./contexts/AudioSettingsContext";
+import { useTouchSound } from "./hooks/useTouchSound";
 import MallSelectScreen from "./screens/MallSelectScreen";
 
 type FloorId = "1F" | "2F" | "3F" | "4F";
@@ -106,6 +108,10 @@ const App: React.FC = () => {
 
   // WebView watchdog ping
   useWebViewPing();
+
+  // Touch sound
+  const { audioSettings } = useAudioSettingsContext();
+  useTouchSound(audioSettings.touchSoundEnabled);
 
   // MallContext for propagating mall changes to the entire app
   const { setMallId: setContextMallId } = useMall();

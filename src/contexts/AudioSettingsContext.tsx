@@ -57,9 +57,10 @@ export const AudioSettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [mallId]);
 
-  // When black screen is active, force all audio muted (runtime-only, not persisted)
+  // When black screen is active, force all audio muted (runtime-only, not persisted).
+  // touchSoundEnabled is preserved regardless of black screen state.
   const effectiveAudioSettings: AudioSettings = blackScreenActive
-    ? { cmsMuted: true, localMediaMuted: true }
+    ? { cmsMuted: true, localMediaMuted: true, touchSoundEnabled: audioSettings.touchSoundEnabled }
     : audioSettings;
 
   return (
