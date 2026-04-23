@@ -22,9 +22,15 @@ function isTouchOnInteractiveElement(target: EventTarget | null): boolean {
   return false;
 }
 
-export function useTouchSound(enabled: boolean, soundFile: string = 'touch-sound-1.wav') {
+export function useTouchSound(
+  enabled: boolean,
+  soundFile: string = 'touch-sound-1.wav',
+  volume: number = 100,
+) {
   const ctxRef = useRef<AudioContext | null>(null);
   const bufferRef = useRef<AudioBuffer | null>(null);
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
 
   // Reload AudioBuffer whenever the selected sound file changes
   useEffect(() => {
@@ -67,9 +73,13 @@ export function useTouchSound(enabled: boolean, soundFile: string = 'touch-sound
         ctx.resume();
       }
 
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = Math.max(0, Math.min(1, volumeRef.current / 100));
+
       const src = ctx.createBufferSource();
       src.buffer = buffer;
-      src.connect(ctx.destination);
+      src.connect(gainNode);
+      gainNode.connect(ctx.destination);
       src.start();
     };
 

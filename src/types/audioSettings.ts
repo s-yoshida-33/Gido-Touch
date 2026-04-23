@@ -3,6 +3,7 @@ export interface AudioSettings {
   localMediaMuted: boolean;
   touchSoundEnabled: boolean;
   touchSoundFile?: string;
+  touchSoundVolume?: number;
 }
 
 export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
@@ -10,6 +11,5 @@ export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   localMediaMuted: false,
   touchSoundEnabled: false,
   touchSoundFile: 'touch-sound-1.wav',
+  touchSoundVolume: 100,
 };
-
-

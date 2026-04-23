@@ -111,7 +111,7 @@ const App: React.FC = () => {
 
   // Touch sound
   const { audioSettings } = useAudioSettingsContext();
-  useTouchSound(audioSettings.touchSoundEnabled, audioSettings.touchSoundFile ?? 'touch-sound-1.wav');
+  useTouchSound(audioSettings.touchSoundEnabled, audioSettings.touchSoundFile ?? 'touch-sound-1.wav', audioSettings.touchSoundVolume ?? 100);
 
   // MallContext for propagating mall changes to the entire app
   const { setMallId: setContextMallId } = useMall();

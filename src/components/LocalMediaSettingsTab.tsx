@@ -131,6 +131,25 @@ export const LocalMediaSettingsTab: React.FC<LocalMediaSettingsTabProps> = ({
         </div>
         {(audioSettings.touchSoundEnabled ?? false) && (
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, color: '#aaa' }}>音量</span>
+              <span style={{ fontSize: 12, color: '#aaa' }}>{audioSettings.touchSoundVolume ?? 100}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={audioSettings.touchSoundVolume ?? 100}
+              onChange={(e) =>
+                onChangeAudioSettings({ ...audioSettings, touchSoundVolume: Number(e.target.value) })
+              }
+              style={{ width: '100%', accentColor: '#007aff' }}
+            />
+          </div>
+        )}
+        {(audioSettings.touchSoundEnabled ?? false) && (
+          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <span style={{ fontSize: 12, color: '#aaa' }}>音声ファイルを選択</span>
             {soundFiles.length === 0 ? (
               <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
