@@ -1919,8 +1919,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
               {/* Top Row: Sweets, Alcohol */}
               <div style={{ height: "242.5px", width: "100%", display: "flex", flexDirection: "row", marginBottom: "30px" }}>
                 {/* Takeout Button (Top-Left) */}
-                <div 
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-start", position: "relative", height: "242.5px" }}
+                <div
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-start", position: "relative", height: "242.5px", cursor: "pointer" }}
                   onClick={() => handleCategorySelect('sweets')}
                 >
                    <img 
@@ -1945,8 +1945,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
                 </div>
 
                 {/* Alcohol Button (Top-Right) */}
-                <div 
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", position: "relative", height: "242.5px" }}
+                <div
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", position: "relative", height: "242.5px", cursor: "pointer" }}
                   onClick={() => handleCategorySelect('alcohol')}
                 >
                    <img 
@@ -1975,8 +1975,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
               {/* Bottom Row: Kids, Takeout */}
               <div style={{ height: "242.5px", width: "100%", display: "flex", flexDirection: "row" }}>
                 {/* Kids Button (Bottom-Left) */}
-                <div 
-                  style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "flex-start", position: "relative", height: "242.5px" }}
+                <div
+                  style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "flex-start", position: "relative", height: "242.5px", cursor: "pointer" }}
                   onClick={() => handleCategorySelect('kids')}
                 >
                    <img 
@@ -2001,8 +2001,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
                 </div>
 
                 {/* Takeout Button (Bottom-Right) */}
-                <div 
-                  style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", position: "relative", height: "242.5px" }}
+                <div
+                  style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", position: "relative", height: "242.5px", cursor: "pointer" }}
                   onClick={() => handleCategorySelect('takeout')}
                 >
                    <img 
