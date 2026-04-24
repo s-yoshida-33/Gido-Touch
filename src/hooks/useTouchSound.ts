@@ -6,8 +6,10 @@ const INTERACTIVE_SELECTOR =
   '[role="button"], [role="link"], [role="menuitem"], [role="option"], [role="tab"], ' +
   '[tabindex]:not([tabindex="-1"])';
 
-const MOVE_THRESHOLD = 10; // px — movement beyond this cancels the pending sound
-const PLAY_DELAY_MS = 60;  // ms — wait to detect scroll before playing
+// Tap is recognized when displacement is within threshold and duration is short.
+// This reliably excludes scrolls and long-presses on any sensitivity monitor.
+const TAP_DISTANCE_THRESHOLD = 10; // px
+const TAP_DURATION_MAX = 500;       // ms
 
 function isTouchOnInteractiveElement(target: EventTarget | null): boolean {
   if (!target || !(target instanceof Element)) return false;
@@ -62,17 +64,10 @@ export function useTouchSound(
   useEffect(() => {
     if (!enabled) return;
 
+    let startTarget: EventTarget | null = null;
     let startX = 0;
     let startY = 0;
-    let isSingleTouch = false;
-    let pendingPlay: ReturnType<typeof setTimeout> | null = null;
-
-    const clearPending = () => {
-      if (pendingPlay !== null) {
-        clearTimeout(pendingPlay);
-        pendingPlay = null;
-      }
-    };
+    let startTime = 0;
 
     const playSound = () => {
       const ctx = ctxRef.current;
@@ -94,48 +89,45 @@ export function useTouchSound(
     };
 
     const onTouchStart = (e: TouchEvent) => {
-      clearPending();
-
-      // Multi-touch (pinch/zoom) — never play
+      // Multi-touch (pinch/zoom) — clear state, never play
       if (e.touches.length !== 1) {
-        isSingleTouch = false;
+        startTarget = null;
         return;
       }
-
-      if (!isTouchOnInteractiveElement(e.target)) return;
-
-      isSingleTouch = true;
+      startTarget = e.target;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
-
-      pendingPlay = setTimeout(() => {
-        pendingPlay = null;
-        playSound();
-      }, PLAY_DELAY_MS);
+      startTime = Date.now();
     };
 
-    const onTouchMove = (e: TouchEvent) => {
-      if (!isSingleTouch || pendingPlay === null) return;
-      const dx = e.touches[0].clientX - startX;
-      const dy = e.touches[0].clientY - startY;
-      if (dx * dx + dy * dy > MOVE_THRESHOLD * MOVE_THRESHOLD) {
-        clearPending();
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!startTarget || e.changedTouches.length === 0) return;
+
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const duration = Date.now() - startTime;
+
+      if (distance <= TAP_DISTANCE_THRESHOLD && duration <= TAP_DURATION_MAX) {
+        if (isTouchOnInteractiveElement(startTarget)) {
+          playSound();
+        }
       }
+
+      startTarget = null;
     };
 
     const onTouchCancel = () => {
-      clearPending();
-      isSingleTouch = false;
+      startTarget = null;
     };
 
     document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchmove', onTouchMove, { passive: true });
+    document.addEventListener('touchend', onTouchEnd, { passive: true });
     document.addEventListener('touchcancel', onTouchCancel, { passive: true });
 
     return () => {
-      clearPending();
       document.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
       document.removeEventListener('touchcancel', onTouchCancel);
     };
   }, [enabled]);
