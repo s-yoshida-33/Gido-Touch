@@ -6,13 +6,14 @@ const INTERACTIVE_SELECTOR =
   '[role="button"], [role="link"], [role="menuitem"], [role="option"], [role="tab"], ' +
   '[tabindex]:not([tabindex="-1"])';
 
+const MOVE_THRESHOLD = 10; // px — movement beyond this cancels the pending sound
+const PLAY_DELAY_MS = 60;  // ms — wait to detect scroll before playing
+
 function isTouchOnInteractiveElement(target: EventTarget | null): boolean {
   if (!target || !(target instanceof Element)) return false;
 
-  // Standard interactive elements
   if (target.closest(INTERACTIVE_SELECTOR)) return true;
 
-  // Custom onClick elements (div, span, etc.) identifiable by cursor: pointer
   let el: Element | null = target;
   while (el && el.tagName !== 'BODY') {
     if (window.getComputedStyle(el).cursor === 'pointer') return true;
@@ -32,7 +33,6 @@ export function useTouchSound(
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
 
-  // Reload AudioBuffer whenever the selected sound file changes
   useEffect(() => {
     let cancelled = false;
 
@@ -62,9 +62,19 @@ export function useTouchSound(
   useEffect(() => {
     if (!enabled) return;
 
-    const play = (e: TouchEvent) => {
-      if (!isTouchOnInteractiveElement(e.target)) return;
+    let startX = 0;
+    let startY = 0;
+    let isSingleTouch = false;
+    let pendingPlay: ReturnType<typeof setTimeout> | null = null;
 
+    const clearPending = () => {
+      if (pendingPlay !== null) {
+        clearTimeout(pendingPlay);
+        pendingPlay = null;
+      }
+    };
+
+    const playSound = () => {
       const ctx = ctxRef.current;
       const buffer = bufferRef.current;
       if (!ctx || !buffer) return;
@@ -83,9 +93,50 @@ export function useTouchSound(
       src.start();
     };
 
-    document.addEventListener('touchstart', play, { passive: true });
+    const onTouchStart = (e: TouchEvent) => {
+      clearPending();
+
+      // Multi-touch (pinch/zoom) — never play
+      if (e.touches.length !== 1) {
+        isSingleTouch = false;
+        return;
+      }
+
+      if (!isTouchOnInteractiveElement(e.target)) return;
+
+      isSingleTouch = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+
+      pendingPlay = setTimeout(() => {
+        pendingPlay = null;
+        playSound();
+      }, PLAY_DELAY_MS);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isSingleTouch || pendingPlay === null) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (dx * dx + dy * dy > MOVE_THRESHOLD * MOVE_THRESHOLD) {
+        clearPending();
+      }
+    };
+
+    const onTouchCancel = () => {
+      clearPending();
+      isSingleTouch = false;
+    };
+
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: true });
+    document.addEventListener('touchcancel', onTouchCancel, { passive: true });
+
     return () => {
-      document.removeEventListener('touchstart', play);
+      clearPending();
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchcancel', onTouchCancel);
     };
   }, [enabled]);
 }
