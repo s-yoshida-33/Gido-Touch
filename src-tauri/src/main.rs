@@ -499,20 +499,20 @@ fn get_sounds_dir() -> Result<PathBuf, String> {
         .unwrap_or_default()
         .join("medias")
         .join("sounds");
-    write_to_log_file_direct("SOUND", &format!("Checking dev sounds path: {}", dev_path.display()));
+    write_to_log_file_at_level("INFO", "SOUND", &format!("Checking dev sounds path: {}", dev_path.display()));
     if dev_path.exists() {
-        write_to_log_file_direct("SOUND", &format!("Using dev sounds path: {}", dev_path.display()));
+        write_to_log_file_at_level("INFO", "SOUND", &format!("Using dev sounds path: {}", dev_path.display()));
         return Ok(dev_path);
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
             let prod_path = exe_dir.join("sounds");
-            write_to_log_file_direct("SOUND", &format!("Checking prod sounds path: {}", prod_path.display()));
+            write_to_log_file_at_level("INFO", "SOUND", &format!("Checking prod sounds path: {}", prod_path.display()));
             if prod_path.exists() {
-                write_to_log_file_direct("SOUND", &format!("Using prod sounds path: {}", prod_path.display()));
+                write_to_log_file_at_level("INFO", "SOUND", &format!("Using prod sounds path: {}", prod_path.display()));
                 return Ok(prod_path);
             }
-            write_to_log_file_direct("SOUND", &format!("Prod sounds path not found: {}", prod_path.display()));
+            write_to_log_file_at_level("WARN", "SOUND", &format!("Prod sounds path not found: {}", prod_path.display()));
         }
     }
     Err("Sounds directory not found".to_string())
@@ -1539,9 +1539,13 @@ mod focus_guard {
 /// Write a critical message directly to the log file (bypasses frontend IPC).
 /// Used by panic hook and watchdog where the frontend may be unavailable.
 fn write_to_log_file_direct(tag: &str, message: &str) {
+    write_to_log_file_at_level("FATAL", tag, message);
+}
+
+fn write_to_log_file_at_level(level: &str, tag: &str, message: &str) {
     if let Ok(path) = get_log_file_path() {
         let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f").to_string();
-        let entry = format!("[{}] [FATAL] [{}] {}\n", timestamp, tag, message);
+        let entry = format!("[{}] [{}] [{}] {}\n", timestamp, level, tag, message);
         if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
             let _ = file.write_all(entry.as_bytes());
         }

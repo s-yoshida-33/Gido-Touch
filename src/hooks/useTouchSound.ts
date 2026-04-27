@@ -6,8 +6,6 @@ const INTERACTIVE_SELECTOR =
   '[role="button"], [role="link"], [role="menuitem"], [role="option"], [role="tab"], ' +
   '[tabindex]:not([tabindex="-1"])';
 
-// Tap is recognized when displacement is within threshold and duration is short.
-// This reliably excludes scrolls and long-presses on any sensitivity monitor.
 const TAP_DISTANCE_THRESHOLD = 10; // px
 const TAP_DURATION_MAX = 500;       // ms
 
@@ -64,7 +62,11 @@ export function useTouchSound(
   useEffect(() => {
     if (!enabled) return;
 
-    let startTarget: EventTarget | null = null;
+    // isInteractive is evaluated at touchstart while the element is still in the DOM.
+    // Evaluating at touchend is too late: modals that close on touchend remove their
+    // elements before the document-level listener fires, causing getComputedStyle to
+    // return default values on the detached node.
+    let isInteractive = false;
     let startX = 0;
     let startY = 0;
     let startTime = 0;
@@ -89,19 +91,18 @@ export function useTouchSound(
     };
 
     const onTouchStart = (e: TouchEvent) => {
-      // Multi-touch (pinch/zoom) — clear state, never play
       if (e.touches.length !== 1) {
-        startTarget = null;
+        isInteractive = false;
         return;
       }
-      startTarget = e.target;
+      isInteractive = isTouchOnInteractiveElement(e.target);
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       startTime = Date.now();
     };
 
     const onTouchEnd = (e: TouchEvent) => {
-      if (!startTarget || e.changedTouches.length === 0) return;
+      if (!isInteractive || e.changedTouches.length === 0) return;
 
       const dx = e.changedTouches[0].clientX - startX;
       const dy = e.changedTouches[0].clientY - startY;
@@ -109,16 +110,14 @@ export function useTouchSound(
       const duration = Date.now() - startTime;
 
       if (distance <= TAP_DISTANCE_THRESHOLD && duration <= TAP_DURATION_MAX) {
-        if (isTouchOnInteractiveElement(startTarget)) {
-          playSound();
-        }
+        playSound();
       }
 
-      startTarget = null;
+      isInteractive = false;
     };
 
     const onTouchCancel = () => {
-      startTarget = null;
+      isInteractive = false;
     };
 
     document.addEventListener('touchstart', onTouchStart, { passive: true });
