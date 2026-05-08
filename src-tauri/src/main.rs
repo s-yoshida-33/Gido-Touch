@@ -256,6 +256,11 @@ fn write_log(
     })
 }
 
+#[tauri::command]
+fn get_log_directory() -> Result<String, String> {
+    get_log_dir().map(|p| p.to_string_lossy().to_string())
+}
+
 // ---------------------------------------------------------------------------
 // HTTP proxy (CORS bypass for Bridge API / WSP CMS)
 // ---------------------------------------------------------------------------
@@ -1653,6 +1658,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             write_log,
+            get_log_directory,
             fetch_proxy,
             get_settings,
             save_settings,

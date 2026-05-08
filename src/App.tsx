@@ -35,6 +35,7 @@ import { DEFAULT_CATEGORY_MAPPINGS, DEFAULT_IGNORED_GENRE_KEYWORDS } from "./uti
 import { getVersion } from "@tauri-apps/api/app";
 import { useHeartbeat } from "./hooks/useHeartbeat";
 import { useWebViewPing } from "./hooks/useWebViewPing";
+import { useBridgeRegistration } from "./hooks/useBridgeRegistration";
 import { useMall } from "./contexts/MallContext";
 import { useShopChangeDetection } from "./hooks/useShopChangeDetection";
 import { useAudioSettingsContext } from "./contexts/AudioSettingsContext";
@@ -109,6 +110,9 @@ const App: React.FC = () => {
   // WebView watchdog ping
   useWebViewPing();
 
+  // Bridge-Ground app registration & heartbeat
+  useBridgeRegistration(mallId, hostname, setupCompleted);
+
   // Touch sound
   const { audioSettings } = useAudioSettingsContext();
   useTouchSound(audioSettings.touchSoundEnabled, audioSettings.touchSoundFile ?? 'touch-sound-1.wav', audioSettings.touchSoundVolume ?? 100);
@@ -149,6 +153,7 @@ const App: React.FC = () => {
 
   // Mall ID state
   const [mallId, setMallId] = useState<string>("suzaka");
+  const [hostname, setHostname] = useState<string>("");
 
   // API Status State
   const [sseStatus, setSseStatus] = useState<SseConnectionStatus>('disconnected');
@@ -456,6 +461,7 @@ const App: React.FC = () => {
         setSetupCompleted(true);
         const currentMallId = global.mallId ?? "suzaka";
         setMallId(currentMallId);
+        setHostname(global.hostname ?? '');
         setFloor(global.floor as FloorId);
 
         // 4. Ensure per-mall settings file, then load
