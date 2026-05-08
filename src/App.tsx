@@ -110,9 +110,6 @@ const App: React.FC = () => {
   // WebView watchdog ping
   useWebViewPing();
 
-  // Bridge-Ground app registration & heartbeat
-  useBridgeRegistration(mallId, hostname, setupCompleted);
-
   // Touch sound
   const { audioSettings } = useAudioSettingsContext();
   useTouchSound(audioSettings.touchSoundEnabled, audioSettings.touchSoundFile ?? 'touch-sound-1.wav', audioSettings.touchSoundVolume ?? 100);
@@ -154,6 +151,9 @@ const App: React.FC = () => {
   // Mall ID state
   const [mallId, setMallId] = useState<string>("suzaka");
   const [hostname, setHostname] = useState<string>("");
+
+  // Bridge-Ground app registration & heartbeat
+  useBridgeRegistration(mallId, hostname, setupCompleted);
 
   // API Status State
   const [sseStatus, setSseStatus] = useState<SseConnectionStatus>('disconnected');
