@@ -74,7 +74,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     if (iframeActive) return;
     const src = nextAsset?.src;
     if (isExternalLinkUrl(src)) {
-      setIframeSrc(prev => (prev === src ? prev : src));
+      setIframeSrc(prev => (prev === src ? prev : src as string));
     }
   }, [nextAsset?.src, iframeActive]);
 
