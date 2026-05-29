@@ -14,10 +14,6 @@ const FREEZE_TIMEOUT_MS = 30000;
 const HEALTH_CHECK_INTERVAL_MS = 60000;
 const MAX_RECREATE_COUNT = 3;
 
-// Expected dimensions of link content pages (portrait 9:16)
-const LINK_CONTENT_W = 1080;
-const LINK_CONTENT_H = 1920;
-
 // Returns true for external URLs (http or https) while excluding localhost
 // and loopback addresses used to serve local video files.
 const isExternalLinkUrl = (src: string | undefined): boolean =>
@@ -25,6 +21,18 @@ const isExternalLinkUrl = (src: string | undefined): boolean =>
   /^https?:\/\//i.test(src) &&
   !/^https?:\/\/localhost(:\d+)?/i.test(src) &&
   !/^https?:\/\/127\./i.test(src);
+
+const isImageAsset = (asset: any): boolean => 
+  !!asset && (asset.mediaType === 'image' || (!!asset.src && /\.(jpg|jpeg|png|gif|bmp|webp|svg)([\?#].*)?$/i.test(asset.src)));
+
+const isVideoAsset = (asset: any): boolean => 
+  !!asset && (asset.mediaType === 'video' || (!!asset.src && /\.(mp4|webm|ogg|mov)([\?#].*)?$/i.test(asset.src)));
+
+const isLinkAsset = (asset: any): boolean => 
+  !!asset && (
+    asset.mediaType === 'link' || 
+    (isExternalLinkUrl(asset.src) && !isImageAsset(asset) && !isVideoAsset(asset))
+  );
 
 const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }) => {
   const { asset, nextAsset, isLoading, isScheduleRecalculating } = useCurrentAsset();
@@ -64,42 +72,48 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
 
   // Iframe state: src while preloading or active, flag for when it is the visible content
   const [iframeSrc, setIframeSrc] = React.useState<string | null>(null);
+  const [iframeAssetId, setIframeAssetId] = React.useState<string | null>(null);
   const [iframeActive, setIframeActive] = React.useState(false);
 
-  // Begin preloading as soon as the next asset is known to be an external URL.
-  // Guard with iframeActive so this effect never fires while a link is displayed —
-  // otherwise it would overwrite the active iframeSrc with a local video URL.
+  // 1. Begin preloading as soon as the next asset is known to be an external URL.
+  // Generates a fresh timestamp token to reset frozen web timers/clocks on every loop.
   React.useEffect(() => {
-    if (iframeActive) return;
-    const src = nextAsset?.src;
-    if (isExternalLinkUrl(src)) {
-      setIframeSrc(prev => (prev === src ? prev : src as string));
+    if (isLinkAsset(asset)) return;
+    if (nextAsset && isLinkAsset(nextAsset)) {
+      if (iframeAssetId !== nextAsset.id || !iframeSrc) {
+        const ts = Date.now();
+        const targetSrc = nextAsset.src as string;
+        const srcWithTs = targetSrc.includes('?') ? `${targetSrc}&_ts=${ts}` : `${targetSrc}?_ts=${ts}`;
+        setIframeSrc(srcWithTs);
+        setIframeAssetId(nextAsset.id);
+      }
     }
-  }, [nextAsset?.src, iframeActive]);
+  }, [asset?.id, asset?.src, nextAsset?.id, nextAsset?.src, iframeAssetId, iframeSrc]);
 
-  // Activate/deactivate the iframe synchronously — before the browser paints.
-  // Deps include both asset.id AND asset.mediaType so the effect fires even
-  // when the same schedule slot transitions between mediaTypes (e.g. video→link
-  // with an identical asset id).
+  // 2. Activate/deactivate the iframe synchronously — before the browser paints.
   React.useLayoutEffect(() => {
     if (!asset) { setIframeActive(false); return; }
-    if (asset.mediaType === 'link') {
-      setIframeSrc(prev => (prev === asset.src ? prev : asset.src));
+    if (isLinkAsset(asset)) {
+      if (iframeAssetId !== asset.id || !iframeSrc) {
+        const ts = Date.now();
+        const srcWithTs = asset.src.includes('?') ? `${asset.src}&_ts=${ts}` : `${asset.src}?_ts=${ts}`;
+        setIframeSrc(srcWithTs);
+        setIframeAssetId(asset.id);
+      }
       setIframeActive(true);
     } else {
       setIframeActive(false);
     }
-  }, [asset?.id, asset?.mediaType]);
+  }, [asset?.id, asset?.mediaType, asset?.src, iframeAssetId, iframeSrc]);
 
-  // Release the iframe element when it is no longer active and the next asset
-  // is not an external URL (no reason to keep it in the DOM consuming memory)
+  // 3. Reset iframe states as soon as we move away from a link asset.
+  // This guarantees that when the same link appears again in the schedule, it triggers a clean remount.
   React.useEffect(() => {
-    if (!iframeActive) {
-      if (!isExternalLinkUrl(nextAsset?.src)) {
-        setIframeSrc(null);
-      }
+    if (!isLinkAsset(asset) && !isLinkAsset(nextAsset)) {
+      setIframeSrc(null);
+      setIframeAssetId(null);
     }
-  }, [iframeActive, nextAsset?.src]);
+  }, [asset?.id, asset?.src, nextAsset?.id, nextAsset?.src]);
 
   // Cleanup video resources and timers on unmount to prevent memory leaks
   React.useEffect(() => {
@@ -152,8 +166,8 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   React.useEffect(() => {
     const video = videoRef.current;
     if (!video || !asset) return;
-    const isImage = asset.mediaType === 'image' || (asset.src && /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(asset.src));
-    const isLink = asset.mediaType === 'link';
+    const isImage = isImageAsset(asset);
+    const isLink = isLinkAsset(asset);
     if (isImage || isLink) return;
 
     if (isScheduleRecalculating) {
@@ -176,8 +190,8 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   // Freeze detection & health check
   React.useEffect(() => {
     if (!asset) return;
-    const isImage = asset.mediaType === 'image' || (asset.src && /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(asset.src));
-    const isLink = asset.mediaType === 'link';
+    const isImage = isImageAsset(asset);
+    const isLink = isLinkAsset(asset);
     if (isImage || isLink) return;
 
     freezeTimerRef.current = window.setInterval(() => {
@@ -250,7 +264,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       if (isAssetChanged) { logWarn('CMS_DELIVERY', 'Asset has empty src, skipping media load', { assetId: asset.id }); prevAssetIdRef.current = asset.id; }
       return;
     }
-    const isLink = asset.mediaType === 'link';
+    const isLink = isLinkAsset(asset);
     if (isLink) {
       if (isAssetChanged) prevAssetIdRef.current = asset.id;
       return;
@@ -308,19 +322,21 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [asset, isLoading]);
 
-  // Compute CSS transform to scale link content (1080x1920) into the container
+  // Compute CSS transform to scale link content into the container
+  const isLandscape = containerSize.width > containerSize.height;
+  const targetW = isLandscape ? 1920 : 1080;
+  const targetH = isLandscape ? 1080 : 1920;
+
   let iframeTransform: string | undefined;
   if (containerSize.width > 0 && containerSize.height > 0) {
-    const scale = Math.min(containerSize.width / LINK_CONTENT_W, containerSize.height / LINK_CONTENT_H);
-    const tx = (containerSize.width - LINK_CONTENT_W * scale) / 2;
-    const ty = (containerSize.height - LINK_CONTENT_H * scale) / 2;
+    const scale = Math.min(containerSize.width / targetW, containerSize.height / targetH);
+    const tx = (containerSize.width - targetW * scale) / 2;
+    const ty = (containerSize.height - targetH * scale) / 2;
     iframeTransform = `translate(${tx}px, ${ty}px) scale(${scale})`;
   }
 
-  const isImage = asset && (
-    asset.mediaType === 'image' || (asset.src && /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(asset.src))
-  );
-  const isLink = asset?.mediaType === 'link';
+  const isImage = isImageAsset(asset);
+  const isLink = isLinkAsset(asset);
 
   const renderOverlay = () => {
     if (!errorMsg) return null;
@@ -353,7 +369,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
           src={iframeSrc}
           style={{
             position: 'absolute', top: 0, left: 0,
-            width: `${LINK_CONTENT_W}px`, height: `${LINK_CONTENT_H}px`,
+            width: `${targetW}px`, height: `${targetH}px`,
             border: 'none', transformOrigin: 'top left',
             transform: iframeTransform,
             zIndex: iframeActive ? 2 : 0,
