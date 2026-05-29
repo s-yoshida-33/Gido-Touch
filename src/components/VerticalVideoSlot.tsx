@@ -76,7 +76,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   const [iframeActive, setIframeActive] = React.useState(false);
 
   // 1. Begin preloading as soon as the next asset is known to be an external URL.
-  // Generates a fresh timestamp token to reset frozen web timers/clocks on every loop.
   React.useEffect(() => {
     if (isLinkAsset(asset)) return;
     if (nextAsset && isLinkAsset(nextAsset)) {
@@ -107,7 +106,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   }, [asset?.id, asset?.mediaType, asset?.src, iframeAssetId, iframeSrc]);
 
   // 3. Reset iframe states as soon as we move away from a link asset.
-  // This guarantees that when the same link appears again in the schedule, it triggers a clean remount.
   React.useEffect(() => {
     if (!isLinkAsset(asset) && !isLinkAsset(nextAsset)) {
       setIframeSrc(null);
@@ -237,13 +235,23 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       recreateCountRef.current = 0;
       lastTimeUpdateRef.current = Date.now();
       logDebug('VIDEO', 'Force reload triggered in VerticalVideoSlot', { forceReload });
+      
       if (videoRef.current) {
         videoRef.current.load();
         videoRef.current.play().catch(e => logError('VIDEO', 'Failed to play video after force reload', { error: e.message }));
       }
+      
       if (imgRef.current && asset) {
         logDebug('VIDEO', 'Refreshing image with cache', { src: asset.src });
         imgRef.current.src = asset.src;
+      }
+      
+      if (asset && asset.src && isLinkAsset(asset)) {
+        logDebug('CMS_DELIVERY', 'Force reloading link content to resync timers', { src: asset.src });
+        const ts = Date.now();
+        const targetSrc = asset.src as string;
+        const srcWithTs = targetSrc.includes('?') ? `${targetSrc}&_ts=${ts}` : `${targetSrc}?_ts=${ts}`;
+        setIframeSrc(srcWithTs);
       }
     }
   }, [forceReload, asset]);
@@ -305,11 +313,6 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [asset]);
 
-  // CMS preload disabled: on systems without hardware video acceleration,
-  // Chromium allocates a full software decode pipeline for any video element
-  // with buffered data, causing PIPELINE_ERROR_DECODE when multiple pipelines
-  // compete for CPU. CMS assets are local files that load quickly on demand.
-
   // Handle audio settings updates dynamically
   React.useEffect(() => {
     if (videoRef.current) videoRef.current.muted = audioSettings.cmsMuted;
@@ -323,6 +326,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   }, [asset, isLoading]);
 
   // Compute CSS transform to scale link content into the container
+  // 枠の形状（横長か縦長か）を検知し、基準となる解像度（1920x1080 または 1080x1920）を動的に切り替えます
   const isLandscape = containerSize.width > containerSize.height;
   const targetW = isLandscape ? 1920 : 1080;
   const targetH = isLandscape ? 1080 : 1920;
