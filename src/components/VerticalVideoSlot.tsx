@@ -75,11 +75,22 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
   const [iframeAssetId, setIframeAssetId] = React.useState<string | null>(null);
   const [iframeActive, setIframeActive] = React.useState(false);
 
-  // 1. Begin preloading as soon as the next asset is known to be an external URL.
+  // プリロードの重複実行を防ぐための「スロット記憶用Ref」
+  const lastPreloadedSlotRef = React.useRef<string>('');
+
+  // 1. 次のアセットがURLだと判明した瞬間に裏側で事前読み込みを開始する
   React.useEffect(() => {
     if (isLinkAsset(asset)) return;
+    
     if (nextAsset && isLinkAsset(nextAsset)) {
-      if (iframeAssetId !== nextAsset.id || !iframeSrc) {
+      // 💡重要：assetの startTime をキーに含めることで、「同じURLのループ」であっても
+      // 毎回異なるスロット（新しい順番）として認識させ、確実に裏側でリロードさせる
+      const slotKey = `${asset?.id || 'null'}-${asset?.startTime || 'null'}-${nextAsset.id}`;
+      
+      if (lastPreloadedSlotRef.current !== slotKey) {
+        lastPreloadedSlotRef.current = slotKey;
+        logDebug('CMS_DELIVERY', 'Preloading link content for upcoming slot', { slotKey, src: nextAsset.src });
+        
         const ts = Date.now();
         const targetSrc = nextAsset.src as string;
         const srcWithTs = targetSrc.includes('?') ? `${targetSrc}&_ts=${ts}` : `${targetSrc}?_ts=${ts}`;
@@ -87,12 +98,14 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         setIframeAssetId(nextAsset.id);
       }
     }
-  }, [asset?.id, asset?.src, nextAsset?.id, nextAsset?.src, iframeAssetId, iframeSrc]);
+  // asset.startTime を依存配列に追加し、新しい順番が来るたびに評価させる
+  }, [asset?.id, asset?.startTime, nextAsset?.id, nextAsset?.src]);
 
-  // 2. Activate/deactivate the iframe synchronously — before the browser paints.
+  // 2. ブラウザが描画する直前に、iframeを前面（アクティブ）に切り替える
   React.useLayoutEffect(() => {
     if (!asset) { setIframeActive(false); return; }
     if (isLinkAsset(asset)) {
+      // 事前読み込みが間に合わなかった（連続URLなど）場合はここで直接タイムスタンプを付与して表示
       if (iframeAssetId !== asset.id || !iframeSrc) {
         const ts = Date.now();
         const srcWithTs = asset.src.includes('?') ? `${asset.src}&_ts=${ts}` : `${asset.src}?_ts=${ts}`;
@@ -105,7 +118,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [asset?.id, asset?.mediaType, asset?.src, iframeAssetId, iframeSrc]);
 
-  // 3. Reset iframe states as soon as we move away from a link asset.
+  // 3. 今のコンテンツも次のコンテンツもURLでなくなった場合、速やかにiframeを破棄してメモリを空ける
   React.useEffect(() => {
     if (!isLinkAsset(asset) && !isLinkAsset(nextAsset)) {
       setIframeSrc(null);
@@ -113,7 +126,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [asset?.id, asset?.src, nextAsset?.id, nextAsset?.src]);
 
-  // Cleanup video resources and timers on unmount to prevent memory leaks
+  // アンマウント時のクリーンアップ処理
   React.useEffect(() => {
     return () => {
       if (videoRef.current) {
@@ -128,7 +141,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     };
   }, []);
 
-  // Reset error and retry count when asset changes
+  // アセット切り替え時にエラー状態やリトライ回数をリセット
   React.useEffect(() => {
     setErrorMsg(null);
     retryCountRef.current = 0;
@@ -137,7 +150,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     if (retryTimerRef.current !== undefined) { window.clearTimeout(retryTimerRef.current); retryTimerRef.current = undefined; }
   }, [asset?.id, asset?.src]);
 
-  // Recovery logic
+  // エラー発生時のリカバリーロジック
   const attemptRecovery = React.useCallback(() => {
     if (retryCountRef.current < MAX_RETRY_COUNT) {
       retryCountRef.current += 1;
@@ -160,7 +173,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [asset?.id]);
 
-  // Pause video on last frame during CMS schedule recalculation
+  // スケジュール再計算中の動画一時停止・再開処理
   React.useEffect(() => {
     const video = videoRef.current;
     if (!video || !asset) return;
@@ -185,7 +198,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [isScheduleRecalculating, asset?.id]);
 
-  // Freeze detection & health check
+  // 動画フリーズ検知＆ヘルスチェック
   React.useEffect(() => {
     if (!asset) return;
     const isImage = isImageAsset(asset);
@@ -227,7 +240,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     };
   }, [asset?.id, asset?.src, attemptRecovery]);
 
-  // Handle force reload
+  // タッチ操作終了時の強制リロード（Gido-Touch特有の復帰処理）
   React.useEffect(() => {
     if (forceReload > 0) {
       setErrorMsg(null);
@@ -264,7 +277,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     return mediaAspectRatio > containerAspectRatio ? 'contain' : 'cover';
   };
 
-  // Reset media element and ensure playback when asset changes
+  // メディア要素のリセットと再生制御
   React.useEffect(() => {
     if (!asset) return;
     const isAssetChanged = asset.id !== prevAssetIdRef.current;
@@ -313,20 +326,19 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [asset]);
 
-  // Handle audio settings updates dynamically
+  // オーディオ設定の同期
   React.useEffect(() => {
     if (videoRef.current) videoRef.current.muted = audioSettings.cmsMuted;
   }, [audioSettings.cmsMuted]);
 
-  // Log when no asset
+  // アセットが存在しない場合のログ出力
   React.useEffect(() => {
     if (!asset && !isLoading) {
       logWarn('CMS_DELIVERY', 'No video asset available for VerticalVideoSlot', { isLoading, currentAssetId: null });
     }
   }, [asset, isLoading]);
 
-  // Compute CSS transform to scale link content into the container
-  // 枠の形状（横長か縦長か）を検知し、基準となる解像度（1920x1080 または 1080x1920）を動的に切り替えます
+  // URLコンテンツの縦横自動スケーリングと中央寄せ（Gido側と完全同一の仕様）
   const isLandscape = containerSize.width > containerSize.height;
   const targetW = isLandscape ? 1920 : 1080;
   const targetH = isLandscape ? 1080 : 1920;
@@ -363,10 +375,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
       ref={outerContainerRef}
       style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#000' }}
     >
-      {/* Link content iframe.
-          While the current video/image plays, the iframe loads silently at z-index 0.
-          useLayoutEffect flips iframeActive before the browser paints, instantly
-          promoting it to z-index 2 — no black frame is ever visible. */}
+      {/* URL（Link）コンテンツの描画レイヤー */}
       {iframeSrc && (
         <iframe
           key={`iframe-${iframeSrc}`}
@@ -385,9 +394,7 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
         />
       )}
 
-      {/* Non-link content at z-index 1 — covers the preloading iframe.
-          Never renders video/image for link-type assets to prevent a broken
-          media element from briefly showing during state transitions. */}
+      {/* 動画・画像の描画レイヤー（Linkコンテンツの場合は非表示） */}
       {!iframeActive && !isLink && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: '#000' }}>
           {!asset ? (
