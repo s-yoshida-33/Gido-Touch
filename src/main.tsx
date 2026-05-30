@@ -16,6 +16,16 @@ import { AudioSettingsProvider } from './contexts/AudioSettingsContext';
 // even if React component mounting fails.
 invoke('webview_ping').catch(() => {});
 
+// Suppress known react-zoom-pan-pinch library error: thrown when a pinch
+// gesture fires with two touches at the same point (distance = 0). The error
+// originates inside a touch event handler so React Error Boundaries cannot
+// catch it — the only reliable interception point is the global error event.
+window.addEventListener('error', (event) => {
+  if (event.message?.includes('Pinch touches distance was not provided')) {
+    event.preventDefault();
+  }
+});
+
 // Simple Error Boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: React.ReactNode }) {
