@@ -1,6 +1,7 @@
 // src/screens/UnifiedSettingsScreen.tsx
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { TransformComponent } from "react-zoom-pan-pinch";
+import { PinchSafeTransformWrapper } from "../components/PinchSafeTransformWrapper";
 import GidoApp from "./GidoApp";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import { getLocationIconSettingsForFloor, DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR } from "../config";
@@ -757,7 +758,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               overflow: "visible",
             }}
           >
-            <TransformWrapper
+            <PinchSafeTransformWrapper
               initialScale={1}
               minScale={1}
               maxScale={4}
@@ -804,7 +805,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 />
               )}
             </TransformComponent>
-          </TransformWrapper>
+          </PinchSafeTransformWrapper>
           </div>
 
           {/* Zoom Controls */}
