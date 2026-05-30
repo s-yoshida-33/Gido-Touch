@@ -1,6 +1,7 @@
 // src/screens/ShopDetailScreen.tsx
 import React, { useRef, useState, useEffect, useCallback, useLayoutEffect } from "react";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { TransformComponent } from "react-zoom-pan-pinch";
+import { PinchSafeTransformWrapper } from "../components/PinchSafeTransformWrapper";
 
 import { useMall } from "../contexts/MallContext";
 
@@ -399,7 +400,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                  </div>
                )}
             </div>
-            <TransformWrapper
+            <PinchSafeTransformWrapper
               initialScale={1}
               minScale={1}
               maxScale={4}
@@ -426,7 +427,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                   locationIconSettings={locationIconSettings}
                 />
               </TransformComponent>
-            </TransformWrapper>
+            </PinchSafeTransformWrapper>
             <div style={{ position: "absolute", bottom: "30px", left: "30px", zIndex: 10, display: "flex", flexDirection: "column", gap: "0px", borderRadius: "50px", overflow: "hidden", boxShadow: "0 0px 12px rgba(0, 0, 0, 0.3)" }}>
               {/* Zoom In Button */}
               <div
