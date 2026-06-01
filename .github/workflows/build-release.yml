@@ -51,7 +51,7 @@ jobs:
           S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
         run: |
           mkdir -p medias/sounds
-          aws s3 sync "s3://${S3_BUCKET}/assets/gido-touch/sounds/" medias/sounds/
+          aws s3 sync "s3://${S3_BUCKET}/public/gido-touch/medias/sounds/" medias/sounds/
           echo "Sound files downloaded:"
           ls medias/sounds/
 
