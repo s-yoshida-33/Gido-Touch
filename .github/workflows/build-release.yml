@@ -42,6 +42,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Create placeholder sounds for build
+        run: |
+          New-Item -ItemType Directory -Force -Path medias/sounds
+          # Minimal valid silent WAV: PCM, mono, 44100 Hz, 16-bit, 100 samples
+          $header  = [byte[]]@(82,73,70,70,236,0,0,0,87,65,86,69,102,109,116,32,16,0,0,0,1,0,1,0,68,172,0,0,136,88,1,0,2,0,16,0,100,97,116,97,200,0,0,0)
+          $silence = New-Object byte[] 200
+          [System.IO.File]::WriteAllBytes("$PWD/medias/sounds/touch-sound-1.wav", ($header + $silence))
+          Write-Output "Created placeholder medias/sounds/touch-sound-1.wav"
+
       - name: Build signed release
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
