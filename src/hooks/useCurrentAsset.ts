@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { cmsSseService } from '../services/SSEService';
 import type { CurrentAsset } from '../types/wsp';
-import { logInfo, logWarn, logDebug, logError } from '../logs/logging';
+import { logInfo, logWarn, logDebug } from '../logs/logging';
 
 const LOG_TAG = 'CMS_DELIVERY' as const;
 
@@ -88,7 +88,7 @@ function mapCmsEventToNextAsset(event: CmsTimelineEvent): CurrentAsset | null {
   };
 }
 
-const NULL_GRACE_PERIOD_MS = 5000;
+const NULL_GRACE_PERIOD_MS = 30000;
 
 /**
  * Receives real-time content updates from CMS Timeline API via SSE.
@@ -97,9 +97,9 @@ const NULL_GRACE_PERIOD_MS = 5000;
  * Returns the current asset and the next asset (for preloading).
  *
  * When receiving an item_changed with null current_media (schedule recalculation),
- * the hook keeps the current asset and enters a 5-second grace period.
- * If a valid event arrives within 5s, playback resumes seamlessly.
- * If the grace period expires, it is treated as an error and asset is cleared.
+ * the hook keeps the current asset and enters a 30-second grace period.
+ * If a valid event arrives within 30s, playback resumes seamlessly.
+ * If the grace period expires, the asset is cleared.
  *
  * @param enabled Whether CMS integration is enabled (from cmsSettings)
  */
@@ -139,7 +139,7 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
       if (isNullEvent) {
         // Schedule recalculation: CMS sends null during hourly recalc.
         // Keep the current asset displayed (video paused on last frame)
-        // and wait up to 5 seconds for a valid event.
+        // and wait up to 30 seconds for a valid event.
         if (nullGraceTimerRef.current !== null) {
           logDebug(LOG_TAG, 'Null grace period already active, ignoring duplicate null event');
           return;
@@ -154,7 +154,7 @@ export function useCurrentAsset(enabled: boolean = true): UseCurrentAssetResult 
 
         nullGraceTimerRef.current = setTimeout(() => {
           nullGraceTimerRef.current = null;
-          logError(LOG_TAG, 'Null grace period expired without valid event — treating as error', {
+          logWarn(LOG_TAG, 'Null grace period expired without valid event — treating as no asset', {
             gracePeriodMs: NULL_GRACE_PERIOD_MS,
           });
           setIsScheduleRecalculating(false);
