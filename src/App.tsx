@@ -395,7 +395,9 @@ const App: React.FC = () => {
       }
     });
 
-    const unsubscribeUpdate = shopSseService.on('update', () => {
+    const unsubscribeUpdate = shopSseService.on('update', (payload: any) => {
+      // BG の同期進捗通知はデータ更新ではないため無視する
+      if (payload?.type === 'sync_progress') return;
       addDebug("App: Received 'update' event, reloading...");
       loadData(false);
     });
