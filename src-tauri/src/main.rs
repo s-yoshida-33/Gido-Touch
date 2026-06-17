@@ -1007,57 +1007,84 @@ fn sync_zip_to_dir(
         message: "ダウンロード完了。展開中…".to_string(),
     });
 
-    // Purge existing dest dir so removed files don't linger
+    // Build a temp dir next to dest_dir for atomic extraction
+    let tmp_dir = {
+        let name = dest_dir
+            .file_name()
+            .map(|n| format!("{}_tmp", n.to_string_lossy()))
+            .unwrap_or_else(|| "_tmp".to_string());
+        dest_dir.parent()
+            .map(|p| p.join(&name))
+            .unwrap_or_else(|| PathBuf::from(&name))
+    };
+
+    // Remove any stale temp dir from a previous failed attempt
+    if tmp_dir.exists() {
+        let _ = fs::remove_dir_all(&tmp_dir);
+    }
+    fs::create_dir_all(&tmp_dir)
+        .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+
+    let extract_result = (|| -> Result<(), String> {
+        let zip_file = fs::File::open(zip_path)
+            .map_err(|e| format!("Failed to open zip file: {}", e))?;
+        let mut archive = zip::ZipArchive::new(zip_file)
+            .map_err(|e| format!("Failed to read zip archive: {}", e))?;
+
+        let total_entries = archive.len();
+        for i in 0..total_entries {
+            let mut entry = archive.by_index(i)
+                .map_err(|e| format!("Failed to read zip entry: {}", e))?;
+
+            let out_path = match entry.enclosed_name() {
+                Some(path) => tmp_dir.join(path),
+                None => continue,
+            };
+
+            if entry.is_dir() {
+                fs::create_dir_all(&out_path)
+                    .map_err(|e| format!("Failed to create directory: {}", e))?;
+            } else {
+                if let Some(parent) = out_path.parent() {
+                    fs::create_dir_all(parent)
+                        .map_err(|e| format!("Failed to create parent directory: {}", e))?;
+                }
+                let mut outfile = fs::File::create(&out_path)
+                    .map_err(|e| format!("Failed to create file: {}", e))?;
+                let mut buf = Vec::new();
+                entry.read_to_end(&mut buf)
+                    .map_err(|e| format!("Failed to read zip entry data: {}", e))?;
+                outfile.write_all(&buf)
+                    .map_err(|e| format!("Failed to write extracted file: {}", e))?;
+            }
+
+            if total_entries > 0 && (i % 10 == 0 || i == total_entries - 1) {
+                let extract_percent = ((i + 1) as f64 / total_entries as f64) * 100.0;
+                let _ = app.emit("media-download-progress", MediaProgressPayload {
+                    phase: "extract".to_string(),
+                    percent: extract_percent,
+                    downloaded_bytes: downloaded,
+                    total_bytes: total_size,
+                    message: format!("展開中… {}/{} ファイル", i + 1, total_entries),
+                });
+            }
+        }
+        Ok(())
+    })();
+
+    if let Err(e) = extract_result {
+        let _ = fs::remove_dir_all(&tmp_dir);
+        let _ = fs::remove_file(zip_path);
+        return Err(e);
+    }
+
+    // Atomic swap: remove old dest_dir, rename tmp into place
     if dest_dir.exists() {
         fs::remove_dir_all(dest_dir)
-            .map_err(|e| format!("Failed to clean existing directory: {}", e))?;
+            .map_err(|e| format!("Failed to remove existing directory: {}", e))?;
     }
-    fs::create_dir_all(dest_dir)
-        .map_err(|e| format!("Failed to create directory: {}", e))?;
-
-    let zip_file = fs::File::open(zip_path)
-        .map_err(|e| format!("Failed to open zip file: {}", e))?;
-    let mut archive = zip::ZipArchive::new(zip_file)
-        .map_err(|e| format!("Failed to read zip archive: {}", e))?;
-
-    let total_entries = archive.len();
-    for i in 0..total_entries {
-        let mut entry = archive.by_index(i)
-            .map_err(|e| format!("Failed to read zip entry: {}", e))?;
-
-        let out_path = match entry.enclosed_name() {
-            Some(path) => dest_dir.join(path),
-            None => continue,
-        };
-
-        if entry.is_dir() {
-            fs::create_dir_all(&out_path)
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
-        } else {
-            if let Some(parent) = out_path.parent() {
-                fs::create_dir_all(parent)
-                    .map_err(|e| format!("Failed to create parent directory: {}", e))?;
-            }
-            let mut outfile = fs::File::create(&out_path)
-                .map_err(|e| format!("Failed to create file: {}", e))?;
-            let mut buf = Vec::new();
-            entry.read_to_end(&mut buf)
-                .map_err(|e| format!("Failed to read zip entry data: {}", e))?;
-            outfile.write_all(&buf)
-                .map_err(|e| format!("Failed to write extracted file: {}", e))?;
-        }
-
-        if total_entries > 0 && (i % 10 == 0 || i == total_entries - 1) {
-            let extract_percent = ((i + 1) as f64 / total_entries as f64) * 100.0;
-            let _ = app.emit("media-download-progress", MediaProgressPayload {
-                phase: "extract".to_string(),
-                percent: extract_percent,
-                downloaded_bytes: downloaded,
-                total_bytes: total_size,
-                message: format!("展開中… {}/{} ファイル", i + 1, total_entries),
-            });
-        }
-    }
+    fs::rename(&tmp_dir, dest_dir)
+        .map_err(|e| format!("Failed to rename temp directory: {}", e))?;
 
     let _ = fs::remove_file(zip_path);
 
