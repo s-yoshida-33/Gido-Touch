@@ -9,18 +9,18 @@ import { loadGlobalSettings } from '../utils/settings';
 
 import bundledOpenTime from '../assets/malls/halong/open-times/en.svg';
 
-import bundledGenreAll          from '../assets/malls/halong/genres/en/all.svg';
-import bundledGenreAllHighlight from '../assets/malls/halong/genres/en/all-hilight.svg';
-import bundledGenreFashion          from '../assets/malls/halong/genres/en/fashion.svg';
-import bundledGenreFashionHighlight from '../assets/malls/halong/genres/en/fashion-hilight.svg';
-import bundledGenreGoods            from '../assets/malls/halong/genres/en/goods.svg';
-import bundledGenreGoodsHighlight   from '../assets/malls/halong/genres/en/goods-hilight.svg';
-import bundledGenreGourmet          from '../assets/malls/halong/genres/en/gourmet.svg';
-import bundledGenreGourmetHighlight from '../assets/malls/halong/genres/en/gourmet-hilight.svg';
-import bundledGenreService          from '../assets/malls/halong/genres/en/service.svg';
-import bundledGenreServiceHighlight from '../assets/malls/halong/genres/en/service-hilight.svg';
-import bundledGenreNext from '../assets/malls/halong/genres/next.svg';
-import bundledGenrePrev from '../assets/malls/halong/genres/prev.svg';
+import bundledGenreAll          from '../assets/malls/halong/buttons/genres/en/all.svg';
+import bundledGenreAllHighlight from '../assets/malls/halong/buttons/genres/en/all-hilight.svg';
+import bundledGenreFashion          from '../assets/malls/halong/buttons/genres/en/fashion.svg';
+import bundledGenreFashionHighlight from '../assets/malls/halong/buttons/genres/en/fashion-hilight.svg';
+import bundledGenreGoods            from '../assets/malls/halong/buttons/genres/en/goods.svg';
+import bundledGenreGoodsHighlight   from '../assets/malls/halong/buttons/genres/en/goods-hilight.svg';
+import bundledGenreGourmet          from '../assets/malls/halong/buttons/genres/en/gourmet.svg';
+import bundledGenreGourmetHighlight from '../assets/malls/halong/buttons/genres/en/gourmet-hilight.svg';
+import bundledGenreService          from '../assets/malls/halong/buttons/genres/en/service.svg';
+import bundledGenreServiceHighlight from '../assets/malls/halong/buttons/genres/en/service-hilight.svg';
+import bundledGenreNext from '../assets/malls/halong/buttons/genres/next.svg';
+import bundledGenrePrev from '../assets/malls/halong/buttons/genres/prev.svg';
 
 import bundledHint from '../assets/malls/halong/hint/hint.svg';
 
@@ -148,18 +148,18 @@ export function useHalongAssets(): HalongAssets {
         setAssets({
           openTime: r('open-times/en.svg', BUNDLED.openTime),
           genres: {
-            all:             r('genres/en/all.svg',            BUNDLED.genres.all),
-            allHighlight:    r('genres/en/all-hilight.svg',    BUNDLED.genres.allHighlight),
-            fashion:         r('genres/en/fashion.svg',        BUNDLED.genres.fashion),
-            fashionHighlight: r('genres/en/fashion-hilight.svg', BUNDLED.genres.fashionHighlight),
-            goods:           r('genres/en/goods.svg',          BUNDLED.genres.goods),
-            goodsHighlight:  r('genres/en/goods-hilight.svg',  BUNDLED.genres.goodsHighlight),
-            gourmet:         r('genres/en/gourmet.svg',        BUNDLED.genres.gourmet),
-            gourmetHighlight: r('genres/en/gourmet-hilight.svg', BUNDLED.genres.gourmetHighlight),
-            service:         r('genres/en/service.svg',        BUNDLED.genres.service),
-            serviceHighlight: r('genres/en/service-hilight.svg', BUNDLED.genres.serviceHighlight),
-            next:            r('genres/next.svg',              BUNDLED.genres.next),
-            prev:            r('genres/prev.svg',              BUNDLED.genres.prev),
+            all:             r('buttons/genres/en/all.svg',            BUNDLED.genres.all),
+            allHighlight:    r('buttons/genres/en/all-hilight.svg',    BUNDLED.genres.allHighlight),
+            fashion:         r('buttons/genres/en/fashion.svg',        BUNDLED.genres.fashion),
+            fashionHighlight: r('buttons/genres/en/fashion-hilight.svg', BUNDLED.genres.fashionHighlight),
+            goods:           r('buttons/genres/en/goods.svg',          BUNDLED.genres.goods),
+            goodsHighlight:  r('buttons/genres/en/goods-hilight.svg',  BUNDLED.genres.goodsHighlight),
+            gourmet:         r('buttons/genres/en/gourmet.svg',        BUNDLED.genres.gourmet),
+            gourmetHighlight: r('buttons/genres/en/gourmet-hilight.svg', BUNDLED.genres.gourmetHighlight),
+            service:         r('buttons/genres/en/service.svg',        BUNDLED.genres.service),
+            serviceHighlight: r('buttons/genres/en/service-hilight.svg', BUNDLED.genres.serviceHighlight),
+            next:            r('buttons/genres/next.svg',              BUNDLED.genres.next),
+            prev:            r('buttons/genres/prev.svg',              BUNDLED.genres.prev),
           },
           hint: r('hint/hint.svg', BUNDLED.hint),
           floorLabels: {
