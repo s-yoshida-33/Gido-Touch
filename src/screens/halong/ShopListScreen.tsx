@@ -4,13 +4,17 @@
 import { useState } from 'react';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 
-export default function HalongShopListScreen() {
+interface Props {
+  defaultFloor?: '1F' | '2F' | '3F' | null;
+}
+
+export default function HalongShopListScreen({ defaultFloor = null }: Props) {
   const assets = useHalongAssets();
-  const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
+  const [currentFloor, setCurrentFloor] = useState<string | null>(defaultFloor);
   const [selectedPicto, setSelectedPicto] = useState<string | null>(null);
 
   function handleFloorSelect(floor: string) {
-    setSelectedFloor(prev => (prev === floor ? null : floor));
+    setCurrentFloor(prev => (prev === floor ? null : floor));
   }
 
   function handlePictoSelect(picto: string) {
@@ -152,7 +156,7 @@ export default function HalongShopListScreen() {
                   style={{ width: "555px", height: "174px", display: "block" }} />
                 <img src={assets.floorButtons['3F'].highlight} alt="" draggable={false}
                   style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
-                    opacity: selectedFloor === '3F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+                    opacity: currentFloor === '3F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
               {/* 2F */}
               <div
@@ -163,7 +167,7 @@ export default function HalongShopListScreen() {
                   style={{ width: "555px", height: "174px", display: "block" }} />
                 <img src={assets.floorButtons['2F'].highlight} alt="" draggable={false}
                   style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
-                    opacity: selectedFloor === '2F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+                    opacity: currentFloor === '2F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
               {/* 1F（下） */}
               <div
@@ -174,7 +178,7 @@ export default function HalongShopListScreen() {
                   style={{ width: "555px", height: "174px", display: "block" }} />
                 <img src={assets.floorButtons['1F'].highlight} alt="" draggable={false}
                   style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
-                    opacity: selectedFloor === '1F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+                    opacity: currentFloor === '1F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
             </div>
           </div>
