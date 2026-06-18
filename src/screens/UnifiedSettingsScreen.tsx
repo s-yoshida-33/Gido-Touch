@@ -85,6 +85,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   // Black screen settings
   const [blackScreenSettings, setBlackScreenSettings] = useState<BlackScreenSettings>(DEFAULT_BLACK_SCREEN_SETTINGS);
 
+  // Shop data mode
+  const [shopDataMode, setShopDataMode] = useState<'api' | 'local'>('api');
+
   // 座標未設定ショップ数（全ショップ対象）
   const unsetShopCount = useMemo(() => {
     if (!shops) return 0;
@@ -148,6 +151,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     currentAudioSettings: any;
     currentCmsSettings: any;
     blackScreenSettings: BlackScreenSettings;
+    shopDataMode: 'api' | 'local';
   };
   const mallEditingCache = useRef<Map<MallId, MallEditingSnapshot>>(new Map());
 
@@ -165,7 +169,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     currentAudioSettings,
     currentCmsSettings,
     blackScreenSettings,
-  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings]);
+    shopDataMode,
+  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings, shopDataMode]);
 
   // Apply a snapshot to all editing state
   const applySnapshot = useCallback((snap: MallEditingSnapshot) => {
@@ -181,6 +186,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentAudioSettings(snap.currentAudioSettings);
     setCurrentCmsSettings(snap.currentCmsSettings);
     setBlackScreenSettings(snap.blackScreenSettings);
+    setShopDataMode(snap.shopDataMode);
   }, []);
 
   // Apply MallSettingsFile loaded from disk to all editing state
@@ -196,6 +202,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentAudioSettings(mallSettings.audioSettings);
     setCurrentCmsSettings(mallSettings.cmsSettings);
     setBlackScreenSettings(mallSettings.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
+    setShopDataMode(mallSettings.shopDataMode ?? 'api');
 
     // Genre settings with fallback
     const gs = mallSettings.genreSettings;
@@ -400,6 +407,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentCmsSettings(cmsSettings);
     setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
     setBlackScreenSettings(DEFAULT_BLACK_SCREEN_SETTINGS);
+    setShopDataMode('api');
     setErrors({});
 
     // Reset transform
@@ -431,6 +439,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         subFloorSettings: snap.subFloorSettings,
         floorLayout: snap.floorLayout,
         blackScreenSettings: snap.blackScreenSettings,
+        shopDataMode: snap.shopDataMode ?? 'api',
       });
 
       // Save cached malls first (other malls that were edited during this session)

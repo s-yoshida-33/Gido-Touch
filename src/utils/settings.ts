@@ -70,6 +70,7 @@ interface LegacySettings {
   subFloorSettings?: SubFloorSettings;
   floorLayout?: Record<string, FloorLayoutPerFloor>;
   blackScreenSettings?: BlackScreenSettings;
+  shopDataMode?: 'api' | 'local';
 }
 
 const DEFAULT_SHOP_POSITIONS: ShopPositionSettings = { positions: {} };
