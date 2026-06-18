@@ -19,7 +19,7 @@ import { logInfo, logError } from '../logs/logging';
 // Type definitions
 // ============================================================================
 
-export type MallId = 'suzaka' | 'sendaikamisugi';
+export type MallId = 'suzaka' | 'sendaikamisugi' | 'halong';
 
 /**
  * Global app settings stored in settings.json.
