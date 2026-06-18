@@ -471,8 +471,34 @@ export default function HalongShopListScreen() {
                   backgroundColor: "#ffffff",
                   flexShrink: 0,
                   filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
+                  position: "relative",
                 }}
-              />
+              >
+                {/* ロゴエリア 120×120 */}
+                <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px" }} />
+
+                {/* フロアラベル 56×30 黒 */}
+                <div style={{ position: "absolute", left: "120px", top: 0, width: "56px", height: "30px", backgroundColor: "#000000" }} />
+
+                {/* 区画番号ラベル 84×30 グレー */}
+                <div style={{ position: "absolute", left: "176px", top: 0, width: "84px", height: "30px", backgroundColor: "#888888" }} />
+
+                {/* ショップ名（ロゴから20px右、縦中央） */}
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "140px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    fontSize: "24px",
+                    fontWeight: "bold",
+                    color: "#000000",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  SHOP NAME
+                </div>
+              </div>
             ))}
           </div>
           {/* インナーシャドウオーバーレイ */}
