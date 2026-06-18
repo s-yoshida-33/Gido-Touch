@@ -120,6 +120,19 @@ export default function HalongShopListScreen() {
             display: "block",
           }}
         />
+
+        {/* 言語選択ボタン */}
+        <img
+          src={assets.langButtons.en}
+          alt=""
+          style={{
+            width: "658px",
+            height: "75px",
+            marginTop: "25px",
+            flexShrink: 0,
+            display: "block",
+          }}
+        />
       </div>
     </div>
   );
