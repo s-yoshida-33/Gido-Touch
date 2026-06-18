@@ -284,7 +284,6 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             height: "150px",
             borderRadius: "20px",
             backgroundColor: "#ffffff",
-            boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
             flexShrink: 0,
             position: "relative",
           }}
@@ -397,6 +396,18 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
                 style={{ width: "33px", height: "74px", display: "block" }} />
             </div>
           )}
+
+          {/* インナーシャドウオーバーレイ */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "20px",
+              boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
+              pointerEvents: "none",
+              zIndex: 20,
+            }}
+          />
         </div>
 
         {/* ショップリストコンテナ */}
@@ -406,11 +417,22 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             height: "1365px",
             borderRadius: "20px",
             backgroundColor: "#ffffff",
-            boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
             marginTop: "25px",
             flexShrink: 0,
+            position: "relative",
           }}
-        />
+        >
+          {/* インナーシャドウオーバーレイ */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "20px",
+              boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
+              pointerEvents: "none",
+            }}
+          />
+        </div>
 
         {/* 営業時間 */}
         <img
