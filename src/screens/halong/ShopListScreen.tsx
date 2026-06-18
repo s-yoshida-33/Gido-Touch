@@ -1,7 +1,7 @@
 // src/screens/halong/ShopListScreen.tsx
 // Screen size: 3840×2160 (16:9 landscape)
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 
 interface Props {
@@ -13,6 +13,15 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
   const [currentFloor, setCurrentFloor] = useState<string | null>(defaultFloor);
   const [selectedPicto, setSelectedPicto] = useState<string | null>(null);
   const [pressedGenreNav, setPressedGenreNav] = useState<'prev' | 'next' | null>(null);
+  const [selectedGenre, setSelectedGenre] = useState<string>('all');
+  const genreScrollRef = useRef<HTMLDivElement>(null);
+
+  function scrollGenre(direction: 'prev' | 'next') {
+    if (!genreScrollRef.current) return;
+    const amount = 3 * (120 + 15);
+    const target = genreScrollRef.current.scrollLeft + (direction === 'next' ? amount : -amount);
+    genreScrollRef.current.scrollTo({ left: target, behavior: 'smooth' });
+  }
 
   function handleFloorSelect(floor: string) {
     setCurrentFloor(prev => (prev === floor ? null : floor));
@@ -280,7 +289,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
               opacity: pressedGenreNav === 'prev' ? 0.6 : 1,
               transition: "opacity 0.1s ease-in-out",
             }}
-            onClick={() => { /* TODO: ジャンルスクロール */ }}
+            onClick={() => scrollGenre('prev')}
             onMouseDown={() => setPressedGenreNav('prev')}
             onMouseUp={() => setPressedGenreNav(null)}
             onMouseLeave={() => setPressedGenreNav(null)}
@@ -289,6 +298,54 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
           >
             <img src={assets.genres.prev} alt="prev" draggable={false}
               style={{ width: "33px", height: "74px", display: "block" }} />
+          </div>
+
+          {/* ジャンルスクロールエリア */}
+          <div
+            ref={genreScrollRef}
+            style={{
+              position: "absolute",
+              left: "33px",
+              right: "33px",
+              top: 0,
+              bottom: 0,
+              overflowX: "hidden",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <div style={{ display: "flex", gap: "15px", padding: "0 15px", flexShrink: 0 }}>
+              {([ 'all', 'fashion', 'goods', 'gourmet', 'service' ] as const).map(genre => (
+                <div
+                  key={genre}
+                  style={{ position: "relative", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                  onClick={() => setSelectedGenre(genre)}
+                >
+                  <img
+                    src={assets.genres[genre]}
+                    alt={genre}
+                    draggable={false}
+                    style={{ width: "120px", height: "120px", display: "block" }}
+                  />
+                  <img
+                    src={assets.genres[`${genre}Highlight` as keyof typeof assets.genres]}
+                    alt=""
+                    draggable={false}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "120px",
+                      height: "120px",
+                      display: "block",
+                      opacity: selectedGenre === genre ? 1 : 0,
+                      transition: "opacity 0.3s ease-in-out",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* nextボタン */}
@@ -308,7 +365,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
               opacity: pressedGenreNav === 'next' ? 0.6 : 1,
               transition: "opacity 0.1s ease-in-out",
             }}
-            onClick={() => { /* TODO: ジャンルスクロール */ }}
+            onClick={() => scrollGenre('next')}
             onMouseDown={() => setPressedGenreNav('next')}
             onMouseUp={() => setPressedGenreNav(null)}
             onMouseLeave={() => setPressedGenreNav(null)}
