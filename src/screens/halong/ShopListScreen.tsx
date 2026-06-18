@@ -86,6 +86,7 @@ export default function HalongShopListScreen() {
             width: "650px",
             height: "150px",
             borderRadius: "20px",
+            backgroundColor: "#ffffff",
             boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
             flexShrink: 0,
           }}
@@ -97,6 +98,7 @@ export default function HalongShopListScreen() {
             width: "650px",
             height: "1365px",
             borderRadius: "20px",
+            backgroundColor: "#ffffff",
             boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
             marginTop: "25px",
             flexShrink: 0,
