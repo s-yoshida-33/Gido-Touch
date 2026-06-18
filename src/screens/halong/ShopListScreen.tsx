@@ -99,6 +99,43 @@ export default function HalongShopListScreen() {
               </div>
             </div>
 
+            {/* ピクトボタン行2（コインロッカー・ATM・エレベーター） */}
+            <div style={{ display: "flex", flexDirection: "row", gap: "18px", alignSelf: "flex-start", flexShrink: 0, marginTop: "18px" }}>
+              {/* lockers */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                onClick={() => handlePictoSelect('lockers')}
+              >
+                <img src={assets.pictos.lockers.default} alt="lockers" draggable={false}
+                  style={{ width: "173px", height: "173px", display: "block" }} />
+                <img src={assets.pictos.lockers.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                    opacity: selectedPicto === 'lockers' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+              {/* atm */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                onClick={() => handlePictoSelect('atm')}
+              >
+                <img src={assets.pictos.atm.default} alt="atm" draggable={false}
+                  style={{ width: "173px", height: "173px", display: "block" }} />
+                <img src={assets.pictos.atm.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                    opacity: selectedPicto === 'atm' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+              {/* elevator */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                onClick={() => handlePictoSelect('elevator')}
+              >
+                <img src={assets.pictos.elevator.default} alt="elevator" draggable={false}
+                  style={{ width: "173px", height: "173px", display: "block" }} />
+                <img src={assets.pictos.elevator.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                    opacity: selectedPicto === 'elevator' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+            </div>
+
             {/* スペーサー */}
             <div style={{ flex: 1 }} />
 
