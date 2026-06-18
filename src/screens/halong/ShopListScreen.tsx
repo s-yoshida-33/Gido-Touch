@@ -1,10 +1,16 @@
 // src/screens/halong/ShopListScreen.tsx
 // Screen size: 3840×2160 (16:9 landscape)
 
+import { useState } from 'react';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 
 export default function HalongShopListScreen() {
   const assets = useHalongAssets();
+  const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
+
+  function handleFloorSelect(floor: string) {
+    setSelectedFloor(prev => (prev === floor ? null : floor));
+  }
   return (
     <div
       style={{
@@ -55,23 +61,38 @@ export default function HalongShopListScreen() {
             }}
           >
             {/* 3F（上） */}
-            <img
-              src={assets.floorButtons['3F'].default}
-              alt="3F"
-              style={{ width: "555px", height: "174px", flexShrink: 0, display: "block", order: 1 }}
-            />
+            <div
+              style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+              onClick={() => handleFloorSelect('3F')}
+            >
+              <img src={assets.floorButtons['3F'].default} alt="3F" draggable={false}
+                style={{ width: "555px", height: "174px", display: "block" }} />
+              <img src={assets.floorButtons['3F'].highlight} alt="" draggable={false}
+                style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
+                  opacity: selectedFloor === '3F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+            </div>
             {/* 2F */}
-            <img
-              src={assets.floorButtons['2F'].default}
-              alt="2F"
-              style={{ width: "555px", height: "174px", flexShrink: 0, display: "block", order: 2 }}
-            />
+            <div
+              style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+              onClick={() => handleFloorSelect('2F')}
+            >
+              <img src={assets.floorButtons['2F'].default} alt="2F" draggable={false}
+                style={{ width: "555px", height: "174px", display: "block" }} />
+              <img src={assets.floorButtons['2F'].highlight} alt="" draggable={false}
+                style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
+                  opacity: selectedFloor === '2F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+            </div>
             {/* 1F（下） */}
-            <img
-              src={assets.floorButtons['1F'].default}
-              alt="1F"
-              style={{ width: "555px", height: "174px", flexShrink: 0, display: "block", order: 3 }}
-            />
+            <div
+              style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+              onClick={() => handleFloorSelect('1F')}
+            >
+              <img src={assets.floorButtons['1F'].default} alt="1F" draggable={false}
+                style={{ width: "555px", height: "174px", display: "block" }} />
+              <img src={assets.floorButtons['1F'].highlight} alt="" draggable={false}
+                style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
+                  opacity: selectedFloor === '1F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+            </div>
           </div>
 
           {/* マップコンテナ */}
