@@ -1,7 +1,10 @@
 // src/screens/halong/ShopListScreen.tsx
 // Screen size: 3840×2160 (16:9 landscape)
 
+import { useHalongAssets } from '../../hooks/useHalongAssets';
+
 export default function HalongShopListScreen() {
+  const assets = useHalongAssets();
   return (
     <div
       style={{
@@ -102,6 +105,19 @@ export default function HalongShopListScreen() {
             boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
             marginTop: "25px",
             flexShrink: 0,
+          }}
+        />
+
+        {/* 営業時間 */}
+        <img
+          src={assets.openTime}
+          alt=""
+          style={{
+            width: "650px",
+            height: "453px",
+            marginTop: "25px",
+            flexShrink: 0,
+            display: "block",
           }}
         />
       </div>
