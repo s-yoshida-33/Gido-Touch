@@ -63,7 +63,7 @@ export default function HalongShopListScreen() {
             }}
           >
             {/* ピクトボタン行（左上） */}
-            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0 }}>
+            <div style={{ display: "flex", flexDirection: "row", gap: "26px", alignSelf: "flex-start", flexShrink: 0 }}>
               {/* info */}
               <div
                 style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
