@@ -189,8 +189,40 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
               flex: 1,
               height: "2060px",
               backgroundColor: "#F2F2F2",
+              position: "relative",
             }}
-          />
+          >
+            {/* フロアラベル (x:50, y:50) */}
+            {currentFloor && (
+              <img
+                src={assets.floorLabels[currentFloor as '1F' | '2F' | '3F']}
+                alt={currentFloor}
+                draggable={false}
+                style={{
+                  position: "absolute",
+                  left: "50px",
+                  top: "50px",
+                  width: "250px",
+                  height: "166px",
+                  display: "block",
+                }}
+              />
+            )}
+            {/* ヒント (x:400, y:35) */}
+            <img
+              src={assets.hint}
+              alt=""
+              draggable={false}
+              style={{
+                position: "absolute",
+                left: "400px",
+                top: "35px",
+                width: "654px",
+                height: "96px",
+                display: "block",
+              }}
+            />
+          </div>
 
           {/* インナーシャドウオーバーレイ */}
           <div
