@@ -25,7 +25,6 @@ interface BgShopEntry {
   floor: string;
   number: string;
   genre: string;
-  shopLogoThumb640x640LocalPath?: string;
   closeFlg?: string;
   webStatus?: string;
 }
@@ -59,14 +58,11 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
   return Promise.all(
     entries.map(async (s): Promise<HalongShop> => {
       let logoDataUrl: string | null = null;
-      if (s.shopLogoThumb640x640LocalPath) {
-        try {
-          logoDataUrl = await invoke<string | null>('get_shop_image', {
-            filePath: s.shopLogoThumb640x640LocalPath,
-          });
-        } catch {
-          // ロゴ取得失敗 → 空欄表示
-        }
+      try {
+        // パスはRust側で %LOCALAPPDATA%\com.gido-touch\data\files\shops\{id}\thumbW640_logo.webp に解決
+        logoDataUrl = await invoke<string | null>('get_local_shop_logo', { shopId: s.shopId });
+      } catch {
+        // ロゴ取得失敗 → 空欄表示
       }
       return {
         id: parseInt(s.shopId, 10),
