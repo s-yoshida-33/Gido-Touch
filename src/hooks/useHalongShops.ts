@@ -1,8 +1,12 @@
 // src/hooks/useHalongShops.ts
-// Shop data loaded from medias/shops/halong.json, logos resolved via get_shop_image.
+// shopDataMode: 'api'   → BG SSE からのリアルタイムデータ（未実装・将来対応）
+// shopDataMode: 'local' → %LOCALAPPDATA%\com.gido-touch\data\json\shoplist.json を参照
 
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { loadMallSettings } from '../utils/settings';
+
+// ── 型定義 ──────────────────────────────────────────────────────────────────
 
 export interface HalongShop {
   id: number;
@@ -13,14 +17,70 @@ export interface HalongShop {
   logoDataUrl: string | null;
 }
 
-interface RawShop {
-  id: number;
-  name: string;
+/** BG shops.json の1エントリ（必要フィールドのみ） */
+interface BgShopEntry {
+  shopId: string;
+  shopName: string;
+  shopNameEnglish?: string;
   floor: string;
-  section: string;
+  number: string;
   genre: string;
-  logoPath?: string;
+  shopLogoThumb640x640LocalPath?: string;
+  closeFlg?: string;
+  webStatus?: string;
 }
+
+// ── ジャンルマッピング（BG日本語 → 内部キー） ─────────────────────────────
+
+const GENRE_MAP: Record<string, string> = {
+  'グルメ':     'gourmet',
+  'ファッション': 'fashion',
+  'グッズ':     'goods',
+  'サービス':   'service',
+  'gourmet':   'gourmet',
+  'fashion':   'fashion',
+  'goods':     'goods',
+  'service':   'service',
+};
+
+function mapGenre(raw: string): string {
+  return GENRE_MAP[raw.trim()] ?? 'goods';
+}
+
+// ── BGフォーマットのパース ────────────────────────────────────────────────
+
+async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
+  if (!Array.isArray(raw)) return [];
+
+  const entries = (raw as BgShopEntry[]).filter(
+    s => s.closeFlg !== '1' && s.webStatus !== '0'
+  );
+
+  return Promise.all(
+    entries.map(async (s): Promise<HalongShop> => {
+      let logoDataUrl: string | null = null;
+      if (s.shopLogoThumb640x640LocalPath) {
+        try {
+          logoDataUrl = await invoke<string | null>('get_shop_image', {
+            filePath: s.shopLogoThumb640x640LocalPath,
+          });
+        } catch {
+          // ロゴ取得失敗 → 空欄表示
+        }
+      }
+      return {
+        id: parseInt(s.shopId, 10),
+        name: s.shopNameEnglish?.trim() || s.shopName,
+        floor: s.floor,
+        section: s.number,
+        genre: mapGenre(s.genre),
+        logoDataUrl,
+      };
+    })
+  );
+}
+
+// ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useHalongShops(): HalongShop[] {
   const [shops, setShops] = useState<HalongShop[]>([]);
@@ -28,26 +88,19 @@ export function useHalongShops(): HalongShop[] {
   useEffect(() => {
     async function load() {
       try {
-        const raw = await invoke<{ shops: RawShop[] } | null>('load_shop_data', { mallId: 'halong' });
-        if (!raw || !raw.shops) return;
+        const mallSettings = await loadMallSettings('halong');
 
-        const resolved = await Promise.all(
-          raw.shops.map(async (s): Promise<HalongShop> => {
-            let logoDataUrl: string | null = null;
-            if (s.logoPath) {
-              try {
-                logoDataUrl = await invoke<string | null>('get_shop_image', { filePath: s.logoPath });
-              } catch {
-                // logo unavailable — show empty area
-              }
-            }
-            return { id: s.id, name: s.name, floor: s.floor, section: s.section, genre: s.genre, logoDataUrl };
-          })
-        );
-
-        setShops(resolved);
+        if (mallSettings.shopDataMode === 'local') {
+          // ローカルモード: %LOCALAPPDATA%\com.gido-touch\data\json\shoplist.json
+          const raw = await invoke<unknown>('load_local_shoplist');
+          if (raw == null) return;
+          setShops(await parseBgShops(raw));
+        } else {
+          // APIモード: BG SSE によるリアルタイムデータ（将来実装）
+          // TODO: BG SSE 連携実装後にここで受け取ったデータを parseBgShops に渡す
+        }
       } catch {
-        // Tauri unavailable (browser dev) or file missing — leave shops empty
+        // Tauri 未使用（ブラウザ開発環境）またはロード失敗 → 空リスト維持
       }
     }
 

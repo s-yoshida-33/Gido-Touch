@@ -50,6 +50,7 @@ export interface MallSettingsFile {
   subFloorSettings: SubFloorSettings;
   floorLayout: Record<string, { columns: number; rowsPerCol: number; perColumnRows?: number[]; perColumnPadding?: { top?: number; right?: number; bottom?: number; left?: number; }[] }>;
   blackScreenSettings: BlackScreenSettings;
+  shopDataMode: 'api' | 'local';
 }
 
 /** Legacy settings structure for migration */
@@ -134,6 +135,7 @@ export function getDefaultMallSettingsFile(): MallSettingsFile {
       "4F": { columns: 2, rowsPerCol: 18 },
     },
     blackScreenSettings: DEFAULT_BLACK_SCREEN_SETTINGS,
+    shopDataMode: 'api',
   };
 }
 
@@ -204,6 +206,7 @@ export async function loadMallSettings(mallId: string): Promise<MallSettingsFile
       subFloorSettings: raw.subFloorSettings ?? defaults.subFloorSettings,
       floorLayout: raw.floorLayout ?? defaults.floorLayout,
       blackScreenSettings: raw.blackScreenSettings ?? defaults.blackScreenSettings,
+      shopDataMode: (raw.shopDataMode ?? 'api') as 'api' | 'local',
     };
   } catch (error) {
     logError('CONFIG', 'Failed to load mall settings', {
@@ -278,6 +281,7 @@ export async function migrateFromLegacyIfNeeded(): Promise<boolean> {
       subFloorSettings: raw.subFloorSettings ?? defaults.subFloorSettings,
       floorLayout: raw.floorLayout ?? defaults.floorLayout,
       blackScreenSettings: raw.blackScreenSettings ?? defaults.blackScreenSettings,
+      shopDataMode: (raw.shopDataMode ?? 'api') as 'api' | 'local',
     };
 
     await saveMallSettings(normalizedGlobalMallId, settings);

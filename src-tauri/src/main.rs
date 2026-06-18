@@ -726,6 +726,28 @@ fn scan_assets_to_data_urls(
     Ok(())
 }
 
+/// Load shoplist.json placed by BG or manually under %LOCALAPPDATA%\com.gido-touch\data\json\.
+/// Returns None if the file does not exist (e.g. first boot, local mode not yet set up).
+#[tauri::command]
+fn load_local_shoplist() -> Result<Option<serde_json::Value>, String> {
+    let path = dirs::data_local_dir()
+        .ok_or_else(|| "Failed to get local data directory".to_string())?
+        .join("com.gido-touch")
+        .join("data")
+        .join("json")
+        .join("shoplist.json");
+
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read shoplist.json: {}", e))?;
+    let value: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Invalid JSON in shoplist.json: {}", e))?;
+    Ok(Some(value))
+}
+
 /// List map files for a specific mall and hostname.
 /// Scans media_base/maps/{mall_id}/{hostname}/ and returns filename → data-URL.
 #[tauri::command]
@@ -1750,6 +1772,7 @@ fn main() {
             minimize_window,
             list_mall_maps,
             load_shop_data,
+            load_local_shoplist,
         ]);
 
     let app = builder
