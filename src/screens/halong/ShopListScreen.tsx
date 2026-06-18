@@ -131,7 +131,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             </div>
 
             {/* ピクトボタン行2（コインロッカー・ATM・エレベーター） */}
-            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0, marginTop: "18px" }}>
+            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0, marginTop: "30px" }}>
               {/* lockers */}
               <div
                 style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
