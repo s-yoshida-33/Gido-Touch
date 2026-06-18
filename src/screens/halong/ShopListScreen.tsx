@@ -74,8 +74,35 @@ export default function HalongShopListScreen() {
           height: "2160px",
           backgroundColor: "#555555",
           flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          paddingTop: "25px",
         }}
-      />
+      >
+        {/* ジャンルコンテナ */}
+        <div
+          style={{
+            width: "650px",
+            height: "150px",
+            borderRadius: "20px",
+            boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
+            flexShrink: 0,
+          }}
+        />
+
+        {/* ショップリストコンテナ */}
+        <div
+          style={{
+            width: "650px",
+            height: "1365px",
+            borderRadius: "20px",
+            boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
+            marginTop: "25px",
+            flexShrink: 0,
+          }}
+        />
+      </div>
     </div>
   );
 }
