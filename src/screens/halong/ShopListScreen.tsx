@@ -1,7 +1,7 @@
 // src/screens/halong/ShopListScreen.tsx
 // Screen size: 3840×2160 (16:9 landscape)
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 
 interface Props {
@@ -14,7 +14,24 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
   const [selectedPicto, setSelectedPicto] = useState<string | null>(null);
   const [pressedGenreNav, setPressedGenreNav] = useState<'prev' | 'next' | null>(null);
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
+
+  function updateGenreScrollability() {
+    const el = genreScrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+  }
+
+  useEffect(() => {
+    updateGenreScrollability();
+    const el = genreScrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateGenreScrollability);
+    return () => el.removeEventListener('scroll', updateGenreScrollability);
+  }, []);
 
   function scrollGenre(direction: 'prev' | 'next') {
     if (!genreScrollRef.current) return;
@@ -272,41 +289,13 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             position: "relative",
           }}
         >
-          {/* prevボタン */}
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              width: "33px",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              touchAction: "none",
-              zIndex: 10,
-              opacity: pressedGenreNav === 'prev' ? 0.6 : 1,
-              transition: "opacity 0.1s ease-in-out",
-            }}
-            onClick={() => scrollGenre('prev')}
-            onMouseDown={() => setPressedGenreNav('prev')}
-            onMouseUp={() => setPressedGenreNav(null)}
-            onMouseLeave={() => setPressedGenreNav(null)}
-            onTouchStart={() => setPressedGenreNav('prev')}
-            onTouchEnd={() => setPressedGenreNav(null)}
-          >
-            <img src={assets.genres.prev} alt="prev" draggable={false}
-              style={{ width: "33px", height: "74px", display: "block" }} />
-          </div>
-
-          {/* ジャンルスクロールエリア */}
+          {/* ジャンルスクロールエリア（フル幅、prevとnextの下レイヤー） */}
           <div
             ref={genreScrollRef}
             style={{
               position: "absolute",
-              left: "33px",
-              right: "33px",
+              left: 0,
+              right: 0,
               top: 0,
               bottom: 0,
               overflowX: "hidden",
@@ -349,33 +338,65 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             </div>
           </div>
 
-          {/* nextボタン */}
-          <div
-            style={{
-              position: "absolute",
-              right: 0,
-              top: 0,
-              width: "33px",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              touchAction: "none",
-              zIndex: 10,
-              opacity: pressedGenreNav === 'next' ? 0.6 : 1,
-              transition: "opacity 0.1s ease-in-out",
-            }}
-            onClick={() => scrollGenre('next')}
-            onMouseDown={() => setPressedGenreNav('next')}
-            onMouseUp={() => setPressedGenreNav(null)}
-            onMouseLeave={() => setPressedGenreNav(null)}
-            onTouchStart={() => setPressedGenreNav('next')}
-            onTouchEnd={() => setPressedGenreNav(null)}
-          >
-            <img src={assets.genres.next} alt="next" draggable={false}
-              style={{ width: "33px", height: "74px", display: "block" }} />
-          </div>
+          {/* prevボタン（スクロール可能な場合のみ表示、アイコンに重なる） */}
+          {canScrollLeft && (
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                width: "33px",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                touchAction: "none",
+                zIndex: 10,
+                opacity: pressedGenreNav === 'prev' ? 0.6 : 1,
+                transition: "opacity 0.1s ease-in-out",
+              }}
+              onClick={() => scrollGenre('prev')}
+              onMouseDown={() => setPressedGenreNav('prev')}
+              onMouseUp={() => setPressedGenreNav(null)}
+              onMouseLeave={() => setPressedGenreNav(null)}
+              onTouchStart={() => setPressedGenreNav('prev')}
+              onTouchEnd={() => setPressedGenreNav(null)}
+            >
+              <img src={assets.genres.prev} alt="prev" draggable={false}
+                style={{ width: "33px", height: "74px", display: "block" }} />
+            </div>
+          )}
+
+          {/* nextボタン（スクロール可能な場合のみ表示、アイコンに重なる） */}
+          {canScrollRight && (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 0,
+                width: "33px",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                touchAction: "none",
+                zIndex: 10,
+                opacity: pressedGenreNav === 'next' ? 0.6 : 1,
+                transition: "opacity 0.1s ease-in-out",
+              }}
+              onClick={() => scrollGenre('next')}
+              onMouseDown={() => setPressedGenreNav('next')}
+              onMouseUp={() => setPressedGenreNav(null)}
+              onMouseLeave={() => setPressedGenreNav(null)}
+              onTouchStart={() => setPressedGenreNav('next')}
+              onTouchEnd={() => setPressedGenreNav(null)}
+            >
+              <img src={assets.genres.next} alt="next" draggable={false}
+                style={{ width: "33px", height: "74px", display: "block" }} />
+            </div>
+          )}
         </div>
 
         {/* ショップリストコンテナ */}
