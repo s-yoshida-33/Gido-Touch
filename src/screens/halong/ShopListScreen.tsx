@@ -232,9 +232,9 @@ export default function HalongShopListScreen() {
                 objectFit: "cover",
               }}
             />
-            {/* フロアラベル (x:50, y:50) — B1/4F はラベルSVGなし */}
-            {['1F', '2F', '3F'].includes(currentFloor) && <img
-              src={assets.floorLabels[currentFloor as '1F' | '2F' | '3F']}
+            {/* フロアラベル (x:50, y:50) */}
+            <img
+              src={assets.floorLabels[currentFloor as 'B1' | '1F' | '2F' | '3F' | '4F']}
               alt={currentFloor}
               draggable={false}
               style={{
