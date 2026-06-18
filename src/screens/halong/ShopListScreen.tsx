@@ -216,7 +216,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
               style={{
                 position: "absolute",
                 left: "400px",
-                top: "35px",
+                top: "85px",
                 width: "654px",
                 height: "96px",
                 display: "block",
