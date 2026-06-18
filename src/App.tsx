@@ -420,6 +420,17 @@ const App: React.FC = () => {
     const init = async () => {
       addDebug("App: Initializing...");
 
+      // Dev override: VITE_DEV_MALL_ID 指定時はモール選択をスキップ
+      if (import.meta.env.DEV && import.meta.env.VITE_DEV_MALL_ID) {
+        const devMallId = import.meta.env.VITE_DEV_MALL_ID;
+        addDebug(`[DEV] Mall override: ${devMallId}`);
+        setMallId(devMallId);
+        setContextMallId(devMallId as any);
+        setSetupCompleted(true);
+        setIsInitializing(false);
+        return;
+      }
+
       // 1. App Version
       try {
         const v = await getVersion();

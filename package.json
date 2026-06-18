@@ -13,6 +13,9 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:halong": "vite --mode dev-halong",
+    "dev:suzaka": "vite --mode dev-suzaka",
+    "dev:sendaikamisugi": "vite --mode dev-sendaikamisugi",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
