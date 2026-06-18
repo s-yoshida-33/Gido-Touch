@@ -97,7 +97,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             <div style={{ display: "flex", flexDirection: "row", gap: "18px", alignSelf: "flex-start", flexShrink: 0 }}>
               {/* info */}
               <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handlePictoSelect('info')}
               >
                 <img src={assets.pictos.info.default} alt="info" draggable={false}
@@ -108,7 +108,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
               </div>
               {/* restroom */}
               <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handlePictoSelect('restroom')}
               >
                 <img src={assets.pictos.restroom.default} alt="restroom" draggable={false}
@@ -119,7 +119,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
               </div>
               {/* smoking */}
               <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handlePictoSelect('smoking')}
               >
                 <img src={assets.pictos.smoking.default} alt="smoking" draggable={false}
@@ -134,7 +134,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             <div style={{ display: "flex", flexDirection: "row", gap: "18px", alignSelf: "flex-start", flexShrink: 0, marginTop: "18px" }}>
               {/* lockers */}
               <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handlePictoSelect('lockers')}
               >
                 <img src={assets.pictos.lockers.default} alt="lockers" draggable={false}
@@ -145,7 +145,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
               </div>
               {/* atm */}
               <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handlePictoSelect('atm')}
               >
                 <img src={assets.pictos.atm.default} alt="atm" draggable={false}
@@ -156,7 +156,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
               </div>
               {/* elevator */}
               <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handlePictoSelect('elevator')}
               >
                 <img src={assets.pictos.elevator.default} alt="elevator" draggable={false}
@@ -176,7 +176,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             >
               {/* 3F（上） */}
               <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handleFloorSelect('3F')}
               >
                 <img src={assets.floorButtons['3F'].default} alt="3F" draggable={false}
@@ -187,7 +187,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
               </div>
               {/* 2F */}
               <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handleFloorSelect('2F')}
               >
                 <img src={assets.floorButtons['2F'].default} alt="2F" draggable={false}
@@ -198,7 +198,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
               </div>
               {/* 1F（下） */}
               <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handleFloorSelect('1F')}
               >
                 <img src={assets.floorButtons['1F'].default} alt="1F" draggable={false}
@@ -457,6 +457,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             marginTop: "25px",
             flexShrink: 0,
             display: "block",
+            filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))",
           }}
         />
       </div>
