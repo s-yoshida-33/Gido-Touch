@@ -3,6 +3,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
+import { useHalongMaps } from '../../hooks/useHalongMaps';
 
 interface Props {
   defaultFloor?: '1F' | '2F' | '3F' | null;
@@ -10,6 +11,7 @@ interface Props {
 
 export default function HalongShopListScreen({ defaultFloor = null }: Props) {
   const assets = useHalongAssets();
+  const maps = useHalongMaps();
   const [currentFloor, setCurrentFloor] = useState<string | null>(defaultFloor);
   const [selectedPicto, setSelectedPicto] = useState<string | null>(null);
   const [pressedGenreNav, setPressedGenreNav] = useState<'prev' | 'next' | null>(null);
@@ -215,10 +217,26 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             style={{
               flex: 1,
               height: "2060px",
-              backgroundColor: "#F2F2F2",
               position: "relative",
+              overflow: "hidden",
             }}
           >
+            {/* マップ画像 */}
+            {currentFloor && (
+              <img
+                src={maps[currentFloor as '1F' | '2F' | '3F']}
+                alt={`${currentFloor} map`}
+                draggable={false}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  objectFit: "cover",
+                }}
+              />
+            )}
             {/* フロアラベル (x:50, y:50) */}
             {currentFloor && (
               <img
