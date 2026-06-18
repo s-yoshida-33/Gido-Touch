@@ -25,10 +25,10 @@ export default function HalongShopListScreen() {
         {/* メインコンテナ */}
         <div
           style={{
+            position: "relative",
             width: "3040px",
             height: "2060px",
             borderRadius: "40px",
-            boxShadow: "inset 10px 10px 30px rgba(0, 0, 0, 0.4)",
             overflow: "hidden",
             boxSizing: "border-box",
             display: "flex",
@@ -51,6 +51,17 @@ export default function HalongShopListScreen() {
               flex: 1,
               height: "2060px",
               backgroundColor: "#F2F2F2",
+            }}
+          />
+
+          {/* インナーシャドウオーバーレイ */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "40px",
+              boxShadow: "inset 10px 10px 30px rgba(0, 0, 0, 0.4)",
+              pointerEvents: "none",
             }}
           />
         </div>
