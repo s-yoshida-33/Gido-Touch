@@ -31,8 +31,29 @@ export default function HalongShopListScreen() {
             boxShadow: "inset 10px 10px 30px rgba(0, 0, 0, 0.4)",
             overflow: "hidden",
             boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "row",
           }}
-        />
+        >
+          {/* オペレーションコンテナ */}
+          <div
+            style={{
+              width: "665px",
+              height: "2060px",
+              backgroundColor: "#DDDDDD",
+              flexShrink: 0,
+            }}
+          />
+
+          {/* マップコンテナ */}
+          <div
+            style={{
+              flex: 1,
+              height: "2060px",
+              backgroundColor: "#F2F2F2",
+            }}
+          />
+        </div>
       </div>
 
       {/* インフォコンテナ */}
