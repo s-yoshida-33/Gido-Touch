@@ -445,8 +445,36 @@ export default function HalongShopListScreen() {
             marginTop: "25px",
             flexShrink: 0,
             position: "relative",
+            overflow: "hidden",
           }}
         >
+          {/* ショップカードリスト */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              overflowY: "auto",
+              padding: "25px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "25px",
+              boxSizing: "border-box",
+            }}
+          >
+            {Array.from({ length: 9 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: "600px",
+                  height: "120px",
+                  borderRadius: "10px",
+                  backgroundColor: "#ffffff",
+                  flexShrink: 0,
+                  filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
+                }}
+              />
+            ))}
+          </div>
           {/* インナーシャドウオーバーレイ */}
           <div
             style={{
