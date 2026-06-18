@@ -7,9 +7,14 @@ import { useHalongAssets } from '../../hooks/useHalongAssets';
 export default function HalongShopListScreen() {
   const assets = useHalongAssets();
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
+  const [selectedPicto, setSelectedPicto] = useState<string | null>(null);
 
   function handleFloorSelect(floor: string) {
     setSelectedFloor(prev => (prev === floor ? null : floor));
+  }
+
+  function handlePictoSelect(picto: string) {
+    setSelectedPicto(prev => (prev === picto ? null : picto));
   }
   return (
     <div
@@ -53,45 +58,62 @@ export default function HalongShopListScreen() {
               flexShrink: 0,
               display: "flex",
               flexDirection: "column",
-              justifyContent: "flex-end",
-              alignItems: "center",
               padding: "50px",
               boxSizing: "border-box",
-              gap: "50px",
             }}
           >
-            {/* 3F（上） */}
+            {/* infoピクトボタン（左上） */}
             <div
-              style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
-              onClick={() => handleFloorSelect('3F')}
+              style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", alignSelf: "flex-start", flexShrink: 0 }}
+              onClick={() => handlePictoSelect('info')}
             >
-              <img src={assets.floorButtons['3F'].default} alt="3F" draggable={false}
-                style={{ width: "555px", height: "174px", display: "block" }} />
-              <img src={assets.floorButtons['3F'].highlight} alt="" draggable={false}
-                style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
-                  opacity: selectedFloor === '3F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              <img src={assets.pictos.info.default} alt="info" draggable={false}
+                style={{ width: "173px", height: "173px", display: "block" }} />
+              <img src={assets.pictos.info.highlight} alt="" draggable={false}
+                style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                  opacity: selectedPicto === 'info' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
             </div>
-            {/* 2F */}
+
+            {/* スペーサー */}
+            <div style={{ flex: 1 }} />
+
+            {/* フロアボタン（下・中央） */}
             <div
-              style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
-              onClick={() => handleFloorSelect('2F')}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "50px", flexShrink: 0 }}
             >
-              <img src={assets.floorButtons['2F'].default} alt="2F" draggable={false}
-                style={{ width: "555px", height: "174px", display: "block" }} />
-              <img src={assets.floorButtons['2F'].highlight} alt="" draggable={false}
-                style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
-                  opacity: selectedFloor === '2F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-            </div>
-            {/* 1F（下） */}
-            <div
-              style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
-              onClick={() => handleFloorSelect('1F')}
-            >
-              <img src={assets.floorButtons['1F'].default} alt="1F" draggable={false}
-                style={{ width: "555px", height: "174px", display: "block" }} />
-              <img src={assets.floorButtons['1F'].highlight} alt="" draggable={false}
-                style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
-                  opacity: selectedFloor === '1F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              {/* 3F（上） */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                onClick={() => handleFloorSelect('3F')}
+              >
+                <img src={assets.floorButtons['3F'].default} alt="3F" draggable={false}
+                  style={{ width: "555px", height: "174px", display: "block" }} />
+                <img src={assets.floorButtons['3F'].highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
+                    opacity: selectedFloor === '3F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+              {/* 2F */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                onClick={() => handleFloorSelect('2F')}
+              >
+                <img src={assets.floorButtons['2F'].default} alt="2F" draggable={false}
+                  style={{ width: "555px", height: "174px", display: "block" }} />
+                <img src={assets.floorButtons['2F'].highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
+                    opacity: selectedFloor === '2F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+              {/* 1F（下） */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                onClick={() => handleFloorSelect('1F')}
+              >
+                <img src={assets.floorButtons['1F'].default} alt="1F" draggable={false}
+                  style={{ width: "555px", height: "174px", display: "block" }} />
+                <img src={assets.floorButtons['1F'].highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
+                    opacity: selectedFloor === '1F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
             </div>
           </div>
 
