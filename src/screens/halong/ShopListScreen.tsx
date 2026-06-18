@@ -10,7 +10,23 @@ export default function HalongShopListScreen() {
         backgroundColor: "#ffffff",
         overflow: "hidden",
         boxSizing: "border-box",
+        padding: "50px",
+        display: "flex",
+        justifyContent: "flex-start",
+        alignItems: "flex-start",
       }}
-    />
+    >
+      {/* メインコンテナ */}
+      <div
+        style={{
+          width: "3040px",
+          height: "2060px",
+          borderRadius: "40px",
+          boxShadow: "inset 10px 10px 30px rgba(0, 0, 0, 0.4)",
+          overflow: "hidden",
+          boxSizing: "border-box",
+        }}
+      />
+    </div>
   );
 }
