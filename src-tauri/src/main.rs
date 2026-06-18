@@ -727,13 +727,11 @@ fn scan_assets_to_data_urls(
 }
 
 /// Load shoplist.json placed by BG or manually under
-/// %LOCALAPPDATA%\com.gido-touch\data\{mall_id}\json\shoplist.json.
+/// %LOCALAPPDATA%\com.tti.gido-touch\data\{mall_id}\json\shoplist.json.
 /// Returns None if the file does not exist (e.g. first boot, local mode not yet set up).
 #[tauri::command]
 fn load_local_shoplist(mall_id: String) -> Result<Option<serde_json::Value>, String> {
-    let path = dirs::data_local_dir()
-        .ok_or_else(|| "Failed to get local data directory".to_string())?
-        .join("com.gido-touch")
+    let path = get_app_data_dir()?
         .join("data")
         .join(&mall_id)
         .join("json")
@@ -751,13 +749,11 @@ fn load_local_shoplist(mall_id: String) -> Result<Option<serde_json::Value>, Str
 }
 
 /// Load a shop logo from the fixed convention path:
-/// %LOCALAPPDATA%\com.gido-touch\data\{mall_id}\files\shops\{shopId}\thumbW640_logo.webp
+/// %LOCALAPPDATA%\com.tti.gido-touch\data\{mall_id}\files\shops\{shopId}\thumbW640_logo.webp
 /// Returns the file as a data-URL, or None if the file does not exist.
 #[tauri::command]
 fn get_local_shop_logo(mall_id: String, shop_id: String) -> Result<Option<String>, String> {
-    let path = dirs::data_local_dir()
-        .ok_or_else(|| "Failed to get local data directory".to_string())?
-        .join("com.gido-touch")
+    let path = get_app_data_dir()?
         .join("data")
         .join(&mall_id)
         .join("files")
