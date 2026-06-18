@@ -17,7 +17,7 @@ export interface HalongShop {
   logoDataUrl: string | null;
 }
 
-/** BG shops.json の1エントリ（必要フィールドのみ） */
+/** BG shoplist.json の1エントリ（Ha Long フォーマット） */
 interface BgShopEntry {
   shopId: string;
   shopName: string;
@@ -25,26 +25,46 @@ interface BgShopEntry {
   floor: string;
   number: string;
   genre: string;
-  shopLogoThumb640x640LocalPath?: string;
+  genreEnglish?: string;
   closeFlg?: string;
   webStatus?: string;
 }
 
-// ── ジャンルマッピング（BG日本語 → 内部キー） ─────────────────────────────
+// ── ジャンルマッピング ────────────────────────────────────────────────────
+// Ha Long: 飲食 / ファッション＆スポーツ / 日用品＆テクノロジー /
+//          アクセサリー＆シューズ / エンターテインメント＆サービス
 
 const GENRE_MAP: Record<string, string> = {
+  // Ha Long 日本語
+  '飲食':                       'gourmet',
+  'ファッション＆スポーツ':       'fashion',
+  '日用品＆テクノロジー':         'goods',
+  'アクセサリー＆シューズ':       'goods',
+  'エンターテインメント＆サービス': 'service',
+  // Ha Long 英語（genreEnglish）
+  'Foods & Beverage':           'gourmet',
+  'Fashion & Sports':           'fashion',
+  'Commodities & Technology':   'goods',
+  'Accessories & Shoes':        'goods',
+  'Entertainment & Services':   'service',
+  // 旧フォーマット（他モール互換）
   'グルメ':     'gourmet',
   'ファッション': 'fashion',
   'グッズ':     'goods',
   'サービス':   'service',
-  'gourmet':   'gourmet',
-  'fashion':   'fashion',
-  'goods':     'goods',
-  'service':   'service',
+  // 英語キー直接渡し
+  'gourmet': 'gourmet',
+  'fashion': 'fashion',
+  'goods':   'goods',
+  'service': 'service',
 };
 
-function mapGenre(raw: string): string {
-  return GENRE_MAP[raw.trim()] ?? 'goods';
+function mapGenre(genre: string, genreEnglish?: string): string {
+  if (genreEnglish) {
+    const mapped = GENRE_MAP[genreEnglish.trim()];
+    if (mapped) return mapped;
+  }
+  return GENRE_MAP[genre.trim()] ?? 'goods';
 }
 
 // ── BGフォーマットのパース ────────────────────────────────────────────────
@@ -59,21 +79,18 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
   return Promise.all(
     entries.map(async (s): Promise<HalongShop> => {
       let logoDataUrl: string | null = null;
-      if (s.shopLogoThumb640x640LocalPath) {
-        try {
-          logoDataUrl = await invoke<string | null>('get_shop_image', {
-            filePath: s.shopLogoThumb640x640LocalPath,
-          });
-        } catch {
-          // ロゴ取得失敗 → 空欄表示
-        }
+      try {
+        // %LOCALAPPDATA%\com.gido-touch\data\files\shops\{shopId}\thumbW640_logo.webp
+        logoDataUrl = await invoke<string | null>('get_local_shop_logo', { shopId: s.shopId });
+      } catch {
+        // ロゴ取得失敗 → 空欄表示
       }
       return {
         id: parseInt(s.shopId, 10),
         name: s.shopNameEnglish?.trim() || s.shopName,
         floor: s.floor,
-        section: s.number,
-        genre: mapGenre(s.genre),
+        section: s.number ?? '',
+        genre: mapGenre(s.genre, s.genreEnglish),
         logoDataUrl,
       };
     })

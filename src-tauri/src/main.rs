@@ -748,6 +748,23 @@ fn load_local_shoplist() -> Result<Option<serde_json::Value>, String> {
     Ok(Some(value))
 }
 
+/// Load a shop logo from the fixed convention path:
+/// %LOCALAPPDATA%\com.gido-touch\data\files\shops\{shopId}\thumbW640_logo.webp
+/// Returns the file as a data-URL, or None if the file does not exist.
+#[tauri::command]
+fn get_local_shop_logo(shop_id: String) -> Result<Option<String>, String> {
+    let path = dirs::data_local_dir()
+        .ok_or_else(|| "Failed to get local data directory".to_string())?
+        .join("com.gido-touch")
+        .join("data")
+        .join("files")
+        .join("shops")
+        .join(&shop_id)
+        .join("thumbW640_logo.webp");
+
+    Ok(file_to_data_url(&path))
+}
+
 /// List map files for a specific mall and hostname.
 /// Scans media_base/maps/{mall_id}/{hostname}/ and returns filename → data-URL.
 #[tauri::command]
@@ -1773,6 +1790,7 @@ fn main() {
             list_mall_maps,
             load_shop_data,
             load_local_shoplist,
+            get_local_shop_logo,
         ]);
 
     let app = builder

@@ -494,11 +494,13 @@ export default function HalongShopListScreen() {
                   <span style={{ fontSize: "14px", fontWeight: "bold", color: "#ffffff" }}>{shop.floor}</span>
                 </div>
 
-                {/* 区画番号ラベル 84×30 グレー */}
-                <div style={{ position: "absolute", left: "176px", top: 0, width: "84px", height: "30px", backgroundColor: "#888888",
-                  display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: "14px", color: "#ffffff" }}>{shop.section}</span>
-                </div>
+                {/* 区画番号ラベル 84×30 グレー（number が空の場合は非表示） */}
+                {shop.section && (
+                  <div style={{ position: "absolute", left: "176px", top: 0, width: "84px", height: "30px", backgroundColor: "#888888",
+                    display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: "14px", color: "#ffffff" }}>{shop.section}</span>
+                  </div>
+                )}
 
                 {/* ショップ名（ロゴから20px右、縦中央） */}
                 <div
