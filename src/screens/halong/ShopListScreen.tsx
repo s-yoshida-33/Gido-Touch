@@ -45,8 +45,34 @@ export default function HalongShopListScreen() {
               height: "2060px",
               backgroundColor: "#DDDDDD",
               flexShrink: 0,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              padding: "50px",
+              boxSizing: "border-box",
+              gap: "50px",
             }}
-          />
+          >
+            {/* 3F（上） */}
+            <img
+              src={assets.floorButtons['3F'].default}
+              alt="3F"
+              style={{ width: "555px", height: "174px", flexShrink: 0, display: "block", order: 1 }}
+            />
+            {/* 2F */}
+            <img
+              src={assets.floorButtons['2F'].default}
+              alt="2F"
+              style={{ width: "555px", height: "174px", flexShrink: 0, display: "block", order: 2 }}
+            />
+            {/* 1F（下） */}
+            <img
+              src={assets.floorButtons['1F'].default}
+              alt="1F"
+              style={{ width: "555px", height: "174px", flexShrink: 0, display: "block", order: 3 }}
+            />
+          </div>
 
           {/* マップコンテナ */}
           <div
