@@ -4,11 +4,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 import { useHalongMaps } from '../../hooks/useHalongMaps';
+import { useHalongShops } from '../../hooks/useHalongShops';
 import { loadMallSettings } from '../../utils/settings';
 
 export default function HalongShopListScreen() {
   const assets = useHalongAssets();
   const maps = useHalongMaps();
+  const allShops = useHalongShops();
   const [currentFloor, setCurrentFloor] = useState<string>('1F');
   const [selectedPicto, setSelectedPicto] = useState<string | null>(null);
   const [pressedGenreNav, setPressedGenreNav] = useState<'prev' | 'next' | null>(null);
@@ -16,6 +18,10 @@ export default function HalongShopListScreen() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
+
+  const filteredShops = allShops.filter(
+    s => s.floor === currentFloor && (selectedGenre === 'all' || s.genre === selectedGenre)
+  );
 
   useEffect(() => {
     async function loadFloorSetting() {
@@ -461,9 +467,9 @@ export default function HalongShopListScreen() {
               boxSizing: "border-box",
             }}
           >
-            {Array.from({ length: 9 }).map((_, i) => (
+            {filteredShops.map(shop => (
               <div
-                key={i}
+                key={shop.id}
                 style={{
                   width: "600px",
                   height: "120px",
@@ -475,13 +481,24 @@ export default function HalongShopListScreen() {
                 }}
               >
                 {/* ロゴエリア 120×120 */}
-                <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px" }} />
+                <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden" }}>
+                  {shop.logoDataUrl && (
+                    <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  )}
+                </div>
 
                 {/* フロアラベル 56×30 黒 */}
-                <div style={{ position: "absolute", left: "120px", top: 0, width: "56px", height: "30px", backgroundColor: "#000000" }} />
+                <div style={{ position: "absolute", left: "120px", top: 0, width: "56px", height: "30px", backgroundColor: "#000000",
+                  display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: "14px", fontWeight: "bold", color: "#ffffff" }}>{shop.floor}</span>
+                </div>
 
                 {/* 区画番号ラベル 84×30 グレー */}
-                <div style={{ position: "absolute", left: "176px", top: 0, width: "84px", height: "30px", backgroundColor: "#888888" }} />
+                <div style={{ position: "absolute", left: "176px", top: 0, width: "84px", height: "30px", backgroundColor: "#888888",
+                  display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: "14px", color: "#ffffff" }}>{shop.section}</span>
+                </div>
 
                 {/* ショップ名（ロゴから20px右、縦中央） */}
                 <div
@@ -494,9 +511,12 @@ export default function HalongShopListScreen() {
                     fontWeight: "bold",
                     color: "#000000",
                     whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    maxWidth: "440px",
                   }}
                 >
-                  SHOP NAME
+                  {shop.name}
                 </div>
               </div>
             ))}

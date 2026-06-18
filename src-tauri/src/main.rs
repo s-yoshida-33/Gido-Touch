@@ -726,6 +726,39 @@ fn scan_assets_to_data_urls(
     Ok(())
 }
 
+/// List map files for a specific mall and hostname.
+/// Scans media_base/maps/{mall_id}/{hostname}/ and returns filename → data-URL.
+#[tauri::command]
+fn list_mall_maps(mall_id: String, hostname: String) -> Result<Option<HashMap<String, String>>, String> {
+    if hostname.is_empty() || hostname == "unknown" {
+        return Ok(None);
+    }
+    let media_base = get_media_base_dir()?;
+    let maps_dir = media_base.join("maps").join(&mall_id).join(&hostname);
+    if !maps_dir.exists() {
+        return Ok(None);
+    }
+    let mut result = HashMap::new();
+    scan_assets_to_data_urls(&maps_dir, &maps_dir, &mut result)?;
+    Ok(Some(result))
+}
+
+/// Load shop data JSON from media_base/shops/{mall_id}.json.
+/// Returns null if the file does not exist.
+#[tauri::command]
+fn load_shop_data(mall_id: String) -> Result<Option<serde_json::Value>, String> {
+    let media_base = get_media_base_dir()?;
+    let shops_path = media_base.join("shops").join(format!("{}.json", mall_id));
+    if !shops_path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&shops_path)
+        .map_err(|e| format!("Failed to read shop data: {}", e))?;
+    let value: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Invalid JSON in shop data: {}", e))?;
+    Ok(Some(value))
+}
+
 // ---------------------------------------------------------------------------
 // Cleanup old hostname map directories
 // ---------------------------------------------------------------------------
@@ -1715,6 +1748,8 @@ fn main() {
             resume_watchdog,
             notify_shop_change,
             minimize_window,
+            list_mall_maps,
+            load_shop_data,
         ]);
 
     let app = builder
