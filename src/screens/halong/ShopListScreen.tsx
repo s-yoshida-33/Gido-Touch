@@ -38,7 +38,7 @@ export default function HalongShopListScreen() {
           {/* オペレーションコンテナ */}
           <div
             style={{
-              width: "665px",
+              width: "655px",
               height: "2060px",
               backgroundColor: "#DDDDDD",
               flexShrink: 0,
