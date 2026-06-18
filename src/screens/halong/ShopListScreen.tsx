@@ -189,43 +189,23 @@ export default function HalongShopListScreen() {
             {/* スペーサー */}
             <div style={{ flex: 1 }} />
 
-            {/* フロアボタン（下・中央） */}
+            {/* フロアボタン（下・中央）上から 4F→3F→2F→1F→B1 */}
             <div
               style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "50px", flexShrink: 0 }}
             >
-              {/* 3F（上） */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handleFloorSelect('3F')}
-              >
-                <img src={assets.floorButtons['3F'].default} alt="3F" draggable={false}
-                  style={{ width: "555px", height: "174px", display: "block" }} />
-                <img src={assets.floorButtons['3F'].highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
-                    opacity: currentFloor === '3F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-              {/* 2F */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handleFloorSelect('2F')}
-              >
-                <img src={assets.floorButtons['2F'].default} alt="2F" draggable={false}
-                  style={{ width: "555px", height: "174px", display: "block" }} />
-                <img src={assets.floorButtons['2F'].highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
-                    opacity: currentFloor === '2F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-              {/* 1F（下） */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handleFloorSelect('1F')}
-              >
-                <img src={assets.floorButtons['1F'].default} alt="1F" draggable={false}
-                  style={{ width: "555px", height: "174px", display: "block" }} />
-                <img src={assets.floorButtons['1F'].highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
-                    opacity: currentFloor === '1F' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
+              {((['4F', '3F', '2F', '1F', 'B1'] as const)).map(floor => (
+                <div
+                  key={floor}
+                  style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
+                  onClick={() => handleFloorSelect(floor)}
+                >
+                  <img src={assets.floorButtons[floor].default} alt={floor} draggable={false}
+                    style={{ width: "555px", height: "174px", display: "block" }} />
+                  <img src={assets.floorButtons[floor].highlight} alt="" draggable={false}
+                    style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
+                      opacity: currentFloor === floor ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -240,7 +220,7 @@ export default function HalongShopListScreen() {
           >
             {/* マップ画像 */}
             <img
-              src={maps[currentFloor as '1F' | '2F' | '3F'] ?? maps['1F']}
+              src={maps[currentFloor as 'B1' | '1F' | '2F' | '3F' | '4F'] ?? maps['1F']}
               alt={`${currentFloor} map`}
               draggable={false}
               style={{
@@ -252,9 +232,9 @@ export default function HalongShopListScreen() {
                 objectFit: "cover",
               }}
             />
-            {/* フロアラベル (x:50, y:50) */}
-            <img
-              src={assets.floorLabels[currentFloor as '1F' | '2F' | '3F'] ?? assets.floorLabels['1F']}
+            {/* フロアラベル (x:50, y:50) — B1/4F はラベルSVGなし */}
+            {['1F', '2F', '3F'].includes(currentFloor) && <img
+              src={assets.floorLabels[currentFloor as '1F' | '2F' | '3F']}
               alt={currentFloor}
               draggable={false}
               style={{
