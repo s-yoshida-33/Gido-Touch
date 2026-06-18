@@ -1,6 +1,7 @@
 // src/App.tsx
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import ShopListScreen from "./screens/ShopListScreen";
+import { ShopListScreen as HalongShopListScreen } from "./screens/halong";
 import VersionInfoScreen from "./screens/VersionInfoScreen";
 import UnifiedSettingsScreen from "./screens/UnifiedSettingsScreen";
 import { ContextMenu } from "./components/ContextMenu";
@@ -673,16 +674,20 @@ const App: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenVersionInfo={() => setIsVersionInfoOpen(true)}
       >
-        <ShopListScreen
-          currentFloorSetting={currentFloorSetting}
-          locationIconSettings={locationSettings}
-          shops={shops}
-          shopPositions={shopPositions}
-          displayFloors={displayFloors}
-          floorLayout={floorLayout}
-          subFloorSettings={subFloorSettings}
-          cmsSettings={cmsSettings}
-        />
+        {mallId === "halong" ? (
+          <HalongShopListScreen />
+        ) : (
+          <ShopListScreen
+            currentFloorSetting={currentFloorSetting}
+            locationIconSettings={locationSettings}
+            shops={shops}
+            shopPositions={shopPositions}
+            displayFloors={displayFloors}
+            floorLayout={floorLayout}
+            subFloorSettings={subFloorSettings}
+            cmsSettings={cmsSettings}
+          />
+        )}
       </ContextMenu>
       <UnifiedSettingsScreen
         visible={isSettingsOpen}
