@@ -341,6 +341,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
                       opacity: selectedGenre === genre ? 1 : 0,
                       transition: "opacity 0.3s ease-in-out",
                       pointerEvents: "none",
+                      filter: "drop-shadow(0px 0px 6px rgba(0, 0, 0, 0.4))",
                     }}
                   />
                 </div>
