@@ -62,16 +62,41 @@ export default function HalongShopListScreen() {
               boxSizing: "border-box",
             }}
           >
-            {/* infoピクトボタン（左上） */}
-            <div
-              style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", alignSelf: "flex-start", flexShrink: 0 }}
-              onClick={() => handlePictoSelect('info')}
-            >
-              <img src={assets.pictos.info.default} alt="info" draggable={false}
-                style={{ width: "173px", height: "173px", display: "block" }} />
-              <img src={assets.pictos.info.highlight} alt="" draggable={false}
-                style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
-                  opacity: selectedPicto === 'info' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+            {/* ピクトボタン行（左上） */}
+            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0 }}>
+              {/* info */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                onClick={() => handlePictoSelect('info')}
+              >
+                <img src={assets.pictos.info.default} alt="info" draggable={false}
+                  style={{ width: "173px", height: "173px", display: "block" }} />
+                <img src={assets.pictos.info.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                    opacity: selectedPicto === 'info' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+              {/* restroom */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                onClick={() => handlePictoSelect('restroom')}
+              >
+                <img src={assets.pictos.restroom.default} alt="restroom" draggable={false}
+                  style={{ width: "173px", height: "173px", display: "block" }} />
+                <img src={assets.pictos.restroom.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                    opacity: selectedPicto === 'restroom' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+              {/* smoking */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
+                onClick={() => handlePictoSelect('smoking')}
+              >
+                <img src={assets.pictos.smoking.default} alt="smoking" draggable={false}
+                  style={{ width: "173px", height: "173px", display: "block" }} />
+                <img src={assets.pictos.smoking.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                    opacity: selectedPicto === 'smoking' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
             </div>
 
             {/* スペーサー */}
