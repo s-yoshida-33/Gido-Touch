@@ -94,16 +94,16 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             }}
           >
             {/* ピクトボタン行（左上） */}
-            <div style={{ display: "flex", flexDirection: "row", gap: "18px", alignSelf: "flex-start", flexShrink: 0 }}>
+            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0 }}>
               {/* info */}
               <div
                 style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handlePictoSelect('info')}
               >
                 <img src={assets.pictos.info.default} alt="info" draggable={false}
-                  style={{ width: "173px", height: "173px", display: "block" }} />
+                  style={{ width: "165px", height: "165px", display: "block" }} />
                 <img src={assets.pictos.info.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
                     opacity: selectedPicto === 'info' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
               {/* restroom */}
@@ -112,9 +112,9 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
                 onClick={() => handlePictoSelect('restroom')}
               >
                 <img src={assets.pictos.restroom.default} alt="restroom" draggable={false}
-                  style={{ width: "173px", height: "173px", display: "block" }} />
+                  style={{ width: "165px", height: "165px", display: "block" }} />
                 <img src={assets.pictos.restroom.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
                     opacity: selectedPicto === 'restroom' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
               {/* smoking */}
@@ -123,24 +123,24 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
                 onClick={() => handlePictoSelect('smoking')}
               >
                 <img src={assets.pictos.smoking.default} alt="smoking" draggable={false}
-                  style={{ width: "173px", height: "173px", display: "block" }} />
+                  style={{ width: "165px", height: "165px", display: "block" }} />
                 <img src={assets.pictos.smoking.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
                     opacity: selectedPicto === 'smoking' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
             </div>
 
             {/* ピクトボタン行2（コインロッカー・ATM・エレベーター） */}
-            <div style={{ display: "flex", flexDirection: "row", gap: "18px", alignSelf: "flex-start", flexShrink: 0, marginTop: "18px" }}>
+            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0, marginTop: "18px" }}>
               {/* lockers */}
               <div
                 style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handlePictoSelect('lockers')}
               >
                 <img src={assets.pictos.lockers.default} alt="lockers" draggable={false}
-                  style={{ width: "173px", height: "173px", display: "block" }} />
+                  style={{ width: "165px", height: "165px", display: "block" }} />
                 <img src={assets.pictos.lockers.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
                     opacity: selectedPicto === 'lockers' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
               {/* atm */}
@@ -149,9 +149,9 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
                 onClick={() => handlePictoSelect('atm')}
               >
                 <img src={assets.pictos.atm.default} alt="atm" draggable={false}
-                  style={{ width: "173px", height: "173px", display: "block" }} />
+                  style={{ width: "165px", height: "165px", display: "block" }} />
                 <img src={assets.pictos.atm.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
                     opacity: selectedPicto === 'atm' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
               {/* elevator */}
@@ -160,9 +160,9 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
                 onClick={() => handlePictoSelect('elevator')}
               >
                 <img src={assets.pictos.elevator.default} alt="elevator" draggable={false}
-                  style={{ width: "173px", height: "173px", display: "block" }} />
+                  style={{ width: "165px", height: "165px", display: "block" }} />
                 <img src={assets.pictos.elevator.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "173px", height: "173px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
                     opacity: selectedPicto === 'elevator' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
             </div>
