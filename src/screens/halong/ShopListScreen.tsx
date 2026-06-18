@@ -4,21 +4,32 @@
 import { useState, useRef, useEffect } from 'react';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 import { useHalongMaps } from '../../hooks/useHalongMaps';
+import { loadMallSettings } from '../../utils/settings';
 
-interface Props {
-  defaultFloor?: '1F' | '2F' | '3F' | null;
-}
-
-export default function HalongShopListScreen({ defaultFloor = null }: Props) {
+export default function HalongShopListScreen() {
   const assets = useHalongAssets();
   const maps = useHalongMaps();
-  const [currentFloor, setCurrentFloor] = useState<string | null>(defaultFloor);
+  const [currentFloor, setCurrentFloor] = useState<string>('1F');
   const [selectedPicto, setSelectedPicto] = useState<string | null>(null);
   const [pressedGenreNav, setPressedGenreNav] = useState<'prev' | 'next' | null>(null);
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function loadFloorSetting() {
+      try {
+        const mallSettings = await loadMallSettings('halong');
+        if (mallSettings.currentFloorSetting) {
+          setCurrentFloor(mallSettings.currentFloorSetting);
+        }
+      } catch {
+        // 設定未保存またはTauri未使用 → デフォルト1Fのまま
+      }
+    }
+    loadFloorSetting();
+  }, []);
 
   function updateGenreScrollability() {
     const el = genreScrollRef.current;
@@ -43,7 +54,7 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
   }
 
   function handleFloorSelect(floor: string) {
-    setCurrentFloor(prev => (prev === floor ? null : floor));
+    setCurrentFloor(floor);
   }
 
   function handlePictoSelect(picto: string) {
@@ -222,37 +233,33 @@ export default function HalongShopListScreen({ defaultFloor = null }: Props) {
             }}
           >
             {/* マップ画像 */}
-            {currentFloor && (
-              <img
-                src={maps[currentFloor as '1F' | '2F' | '3F']}
-                alt={`${currentFloor} map`}
-                draggable={false}
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  display: "block",
-                  objectFit: "cover",
-                }}
-              />
-            )}
+            <img
+              src={maps[currentFloor as '1F' | '2F' | '3F'] ?? maps['1F']}
+              alt={`${currentFloor} map`}
+              draggable={false}
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                display: "block",
+                objectFit: "cover",
+              }}
+            />
             {/* フロアラベル (x:50, y:50) */}
-            {currentFloor && (
-              <img
-                src={assets.floorLabels[currentFloor as '1F' | '2F' | '3F']}
-                alt={currentFloor}
-                draggable={false}
-                style={{
-                  position: "absolute",
-                  left: "50px",
-                  top: "50px",
-                  width: "250px",
-                  height: "166px",
-                  display: "block",
-                }}
-              />
-            )}
+            <img
+              src={assets.floorLabels[currentFloor as '1F' | '2F' | '3F'] ?? assets.floorLabels['1F']}
+              alt={currentFloor}
+              draggable={false}
+              style={{
+                position: "absolute",
+                left: "50px",
+                top: "50px",
+                width: "250px",
+                height: "166px",
+                display: "block",
+              }}
+            />
             {/* ヒント (x:400, y:35) */}
             <img
               src={assets.hint}
