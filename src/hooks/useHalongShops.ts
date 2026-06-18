@@ -80,8 +80,8 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
     entries.map(async (s): Promise<HalongShop> => {
       let logoDataUrl: string | null = null;
       try {
-        // %LOCALAPPDATA%\com.gido-touch\data\files\shops\{shopId}\thumbW640_logo.webp
-        logoDataUrl = await invoke<string | null>('get_local_shop_logo', { shopId: s.shopId });
+        // %LOCALAPPDATA%\com.gido-touch\data\halong\files\shops\{shopId}\thumbW640_logo.webp
+        logoDataUrl = await invoke<string | null>('get_local_shop_logo', { mallId: 'halong', shopId: s.shopId });
       } catch {
         // ロゴ取得失敗 → 空欄表示
       }
@@ -108,8 +108,8 @@ export function useHalongShops(): HalongShop[] {
         const mallSettings = await loadMallSettings('halong');
 
         if (mallSettings.shopDataMode === 'local') {
-          // ローカルモード: %LOCALAPPDATA%\com.gido-touch\data\json\shoplist.json
-          const raw = await invoke<unknown>('load_local_shoplist');
+          // ローカルモード: %LOCALAPPDATA%\com.gido-touch\data\halong\json\shoplist.json
+          const raw = await invoke<unknown>('load_local_shoplist', { mallId: 'halong' });
           if (raw == null) return;
           setShops(await parseBgShops(raw));
         } else {
