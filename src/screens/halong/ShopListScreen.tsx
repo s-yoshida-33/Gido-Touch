@@ -546,7 +546,7 @@ export default function HalongShopListScreen() {
               style={{
                 position: "absolute",
                 bottom: "calc(100% + 10px)",
-                left: 0,
+                left: "29px",
                 width: "600px",
                 zIndex: 100,
               }}
