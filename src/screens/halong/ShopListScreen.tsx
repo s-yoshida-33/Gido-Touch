@@ -497,14 +497,14 @@ export default function HalongShopListScreen() {
                 {/* フロアラベル 56×30 黒 */}
                 <div style={{ position: "absolute", left: "120px", top: 0, width: "56px", height: "30px", backgroundColor: "#000000",
                   display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: "14px", fontWeight: "bold", color: "#ffffff" }}>{shop.floor}</span>
+                  <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{shop.floor}</span>
                 </div>
 
                 {/* 区画番号ラベル 84×30 グレー（number が空の場合は非表示） */}
                 {shop.section && (
                   <div style={{ position: "absolute", left: "176px", top: 0, width: "84px", height: "30px", backgroundColor: "#888888",
                     display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: "14px", color: "#ffffff" }}>{shop.section}</span>
+                    <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{shop.section}</span>
                   </div>
                 )}
 
