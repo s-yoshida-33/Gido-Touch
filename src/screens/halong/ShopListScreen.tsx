@@ -1,7 +1,7 @@
 // src/screens/halong/ShopListScreen.tsx
 // Screen size: 3840×2160 (16:9 landscape)
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 import { useHalongMaps } from '../../hooks/useHalongMaps';
 import { useHalongShops } from '../../hooks/useHalongShops';
@@ -21,9 +21,33 @@ export default function HalongShopListScreen() {
   const [canScrollRight, setCanScrollRight] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
 
-  const filteredShops = allShops.filter(
-    s => s.floor === currentFloor && (selectedGenre === 'all' || s.genre === selectedGenre)
-  );
+  const FLOOR_ORDER = ['B1', '1F', '2F', '3F', '4F'];
+
+  const filteredShops = useMemo(() => {
+    let result = allShops;
+
+    // ジャンルフィルタリング（ショップ数が変化するのはここのみ）
+    if (selectedGenre !== 'all') {
+      result = result.filter(s => s.genre === selectedGenre);
+    }
+
+    // 区画番号が空のショップを除外
+    result = result.filter(s => s.section && s.section.trim() !== '');
+
+    // ソート: 選択フロア優先 → フロア昇順 → 区画番号昇順
+    return [...result].sort((a, b) => {
+      const aOnFloor = a.floor === currentFloor;
+      const bOnFloor = b.floor === currentFloor;
+      if (aOnFloor && !bOnFloor) return -1;
+      if (!aOnFloor && bOnFloor) return 1;
+
+      const fA = FLOOR_ORDER.indexOf(a.floor);
+      const fB = FLOOR_ORDER.indexOf(b.floor);
+      if (fA !== fB) return fA - fB;
+
+      return (a.section || '').localeCompare(b.section || '', 'ja', { numeric: true });
+    });
+  }, [allShops, currentFloor, selectedGenre]);
 
   useEffect(() => {
     async function loadFloorSetting() {
