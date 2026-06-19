@@ -86,13 +86,13 @@ export default function HalongShopListScreen() {
     result = result.filter(s => s.section && s.section.trim() !== '');
 
     return [...result].sort((a, b) => {
-      const aOnFloor = a.floor === currentFloor;
-      const bOnFloor = b.floor === currentFloor;
+      const aOnFloor = a.floorKey === currentFloor;
+      const bOnFloor = b.floorKey === currentFloor;
       if (aOnFloor && !bOnFloor) return -1;
       if (!aOnFloor && bOnFloor) return 1;
 
-      const fA = FLOOR_ORDER.indexOf(a.floor);
-      const fB = FLOOR_ORDER.indexOf(b.floor);
+      const fA = FLOOR_ORDER.indexOf(a.floorKey);
+      const fB = FLOOR_ORDER.indexOf(b.floorKey);
       if (fA !== fB) return fA - fB;
 
       return (a.section || '').localeCompare(b.section || '', 'ja', { numeric: true });

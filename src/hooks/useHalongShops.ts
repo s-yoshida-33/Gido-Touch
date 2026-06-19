@@ -14,7 +14,8 @@ export interface HalongShop {
   nameJa: string;    // shopNameJapan（空なら name にフォールバック）
   nameEn: string;    // shopNameEnglish（空なら name にフォールバック）
   nameVn: string;    // shopNameVietnam（空なら name にフォールバック）
-  floor: string;     // floor（現地語ベース）
+  floor: string;     // floor（現地語ベース、表示用）
+  floorKey: string;  // フロア識別キー（常に "1F"/"2F"/"3F"/"4F" 形式、比較・ソート用）
   floorJa: string;   // floorJapan（空なら floor にフォールバック）
   floorEn: string;   // floorEnglish（空なら floor にフォールバック）
   floorVn: string;   // floorVietnam（空なら floor にフォールバック）
@@ -60,19 +61,28 @@ interface BgShopEntry {
 //          アクセサリー＆シューズ / エンターテインメント＆サービス
 
 const GENRE_MAP: Record<string, string> = {
-  // Ha Long 日本語
+  // Ha Long ベトナム語（genre フィールド）
+  'Ẩm Thực':   'gourmet',
+  'Tạp Hóa':   'goods',
+  'Thời Trang': 'fashion',
+  'Dịch Vụ':   'service',
+  // Ha Long 英語・単語形式（genreEnglish フィールド）
+  'Gourmet': 'gourmet',
+  'Goods':   'goods',
+  'Fashion': 'fashion',
+  'Service': 'service',
+  // Ha Long 英語・複合形式（旧フォーマット互換）
+  'Foods & Beverage':         'gourmet',
+  'Fashion & Sports':         'fashion',
+  'Commodities & Technology': 'goods',
+  'Accessories & Shoes':      'goods',
+  'Entertainment & Services': 'service',
+  // 日本語（旧フォーマット互換）
   '飲食':                       'gourmet',
   'ファッション＆スポーツ':       'fashion',
   '日用品＆テクノロジー':         'goods',
   'アクセサリー＆シューズ':       'goods',
   'エンターテインメント＆サービス': 'service',
-  // Ha Long 英語（genreEnglish）
-  'Foods & Beverage':           'gourmet',
-  'Fashion & Sports':           'fashion',
-  'Commodities & Technology':   'goods',
-  'Accessories & Shoes':        'goods',
-  'Entertainment & Services':   'service',
-  // 旧フォーマット（他モール互換）
   'グルメ':     'gourmet',
   'ファッション': 'fashion',
   'グッズ':     'goods',
@@ -110,6 +120,7 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
       } catch {
         // ロゴ取得失敗 → 空欄表示
       }
+      const floorJa = s.floorJapan?.trim() ?? '';
       return {
         id: parseInt(s.shopId, 10),
         name: s.shopName,
@@ -117,7 +128,8 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
         nameEn: s.shopNameEnglish?.trim() ?? '',
         nameVn: s.shopNameVietnam?.trim() ?? '',
         floor: s.floor,
-        floorJa: s.floorJapan?.trim() ?? '',
+        floorKey: floorJa || s.floor,
+        floorJa,
         floorEn: s.floorEnglish?.trim() ?? '',
         floorVn: s.floorVietnam?.trim() ?? '',
         section: s.number ?? '',
