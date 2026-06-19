@@ -6,7 +6,7 @@ import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { TransformWrapper, TransformComponent, type ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 import { useHalongMaps } from '../../hooks/useHalongMaps';
-import { useHalongShops } from '../../hooks/useHalongShops';
+import { useHalongShops, getDisplayName } from '../../hooks/useHalongShops';
 import { loadMallSettings } from '../../utils/settings';
 
 const IDLE_TIMEOUT_MS = 30000;
@@ -824,7 +824,7 @@ export default function HalongShopListScreen() {
                       maxWidth: "440px",
                     }}
                   >
-                    {shop.name}
+                    {getDisplayName(shop, selectedLang)}
                   </div>
                 </div>
               ))}

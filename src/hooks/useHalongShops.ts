@@ -10,18 +10,30 @@ import { loadMallSettings } from '../utils/settings';
 
 export interface HalongShop {
   id: number;
-  name: string;
+  name: string;      // shopName（現地語ベース）
+  nameJa: string;    // shopNameJapan（空なら name にフォールバック）
+  nameEn: string;    // shopNameEnglish（空なら name にフォールバック）
+  nameVn: string;    // shopNameVietnam（空なら name にフォールバック）
   floor: string;
   section: string;
   genre: string;
   logoDataUrl: string | null;
 }
 
+/** 言語に応じた表示名を返す（対応フィールドが空なら name にフォールバック） */
+export function getDisplayName(shop: HalongShop, lang: 'en' | 'ja' | 'vn'): string {
+  if (lang === 'ja') return shop.nameJa || shop.name;
+  if (lang === 'en') return shop.nameEn || shop.name;
+  return shop.nameVn || shop.name;
+}
+
 /** BG shoplist.json の1エントリ（Ha Long フォーマット） */
 interface BgShopEntry {
   shopId: string;
   shopName: string;
+  shopNameJapan?: string;
   shopNameEnglish?: string;
+  shopNameVietnam?: string;
   floor: string;
   number: string;
   genre: string;
@@ -87,7 +99,10 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
       }
       return {
         id: parseInt(s.shopId, 10),
-        name: s.shopNameEnglish?.trim() || s.shopName,
+        name: s.shopName,
+        nameJa: s.shopNameJapan?.trim() ?? '',
+        nameEn: s.shopNameEnglish?.trim() ?? '',
+        nameVn: s.shopNameVietnam?.trim() ?? '',
         floor: s.floor,
         section: s.number ?? '',
         genre: mapGenre(s.genre, s.genreEnglish),
