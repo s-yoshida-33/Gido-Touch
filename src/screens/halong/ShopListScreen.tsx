@@ -2,10 +2,20 @@
 // Screen size: 3840×2160 (16:9 landscape)
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { TransformWrapper, TransformComponent, type ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 import { useHalongMaps } from '../../hooks/useHalongMaps';
 import { useHalongShops } from '../../hooks/useHalongShops';
 import { loadMallSettings } from '../../utils/settings';
+
+import zoomInEn          from '../../assets/button/en/zoom-in.svg';
+import zoomInEnHighlight from '../../assets/button/en/zoom-in-highlight.svg';
+import zoomOutEn          from '../../assets/button/en/zoom-out.svg';
+import zoomOutEnHighlight from '../../assets/button/en/zoom-out-highlight.svg';
+import zoomInJa          from '../../assets/button/ja/zoom-in.svg';
+import zoomInJaHighlight from '../../assets/button/ja/zoom-in-highlight.svg';
+import zoomOutJa          from '../../assets/button/ja/zoom-out.svg';
+import zoomOutJaHighlight from '../../assets/button/ja/zoom-out-highlight.svg';
 
 export default function HalongShopListScreen() {
   const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('en');
@@ -16,6 +26,10 @@ export default function HalongShopListScreen() {
   const [currentFloor, setCurrentFloor] = useState<string>('1F');
   const [selectedPicto, setSelectedPicto] = useState<string | null>(null);
   const [pressedGenreNav, setPressedGenreNav] = useState<'prev' | 'next' | null>(null);
+  const [pressedZoomButton, setPressedZoomButton] = useState<'in' | 'out' | null>(null);
+  const [showHint, setShowHint] = useState(true);
+  const [showFloorLabel, setShowFloorLabel] = useState(true);
+  const transformComponentRef = useRef<ReactZoomPanPinchContentRef>(null);
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -85,9 +99,22 @@ export default function HalongShopListScreen() {
     genreScrollRef.current.scrollTo({ left: target, behavior: 'smooth' });
   }
 
+  useEffect(() => {
+    if (transformComponentRef.current) {
+      transformComponentRef.current.resetTransform(0);
+    }
+    setShowHint(true);
+    setShowFloorLabel(true);
+  }, [currentFloor]);
+
   function handleFloorSelect(floor: string) {
     setCurrentFloor(floor);
   }
+
+  const zoomInSrc          = selectedLang === 'ja' ? zoomInJa          : zoomInEn;
+  const zoomInHighlightSrc = selectedLang === 'ja' ? zoomInJaHighlight : zoomInEnHighlight;
+  const zoomOutSrc          = selectedLang === 'ja' ? zoomOutJa          : zoomOutEn;
+  const zoomOutHighlightSrc = selectedLang === 'ja' ? zoomOutJaHighlight : zoomOutEnHighlight;
 
   function handlePictoSelect(picto: string) {
     setSelectedPicto(prev => (prev === picto ? null : picto));
@@ -244,20 +271,47 @@ export default function HalongShopListScreen() {
               overflow: "hidden",
             }}
           >
-            {/* マップ画像 */}
-            <img
-              src={maps[currentFloor as 'B1' | '1F' | '2F' | '3F' | '4F'] ?? maps['1F']}
-              alt={`${currentFloor} map`}
-              draggable={false}
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                display: "block",
-                objectFit: "cover",
-              }}
-            />
+            {/* ズームパン対応マップ */}
+            <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+              <TransformWrapper
+                ref={transformComponentRef}
+                initialScale={1}
+                minScale={1}
+                maxScale={4}
+                centerOnInit={true}
+                limitToBounds={true}
+                doubleClick={{ disabled: true }}
+                panning={{ disabled: false, velocityDisabled: true }}
+                wheel={{ step: 0.1 }}
+                alignmentAnimation={{ animationTime: 0, sizeX: 0, sizeY: 0 }}
+                velocityAnimation={{ disabled: true }}
+                zoomAnimation={{ disabled: true }}
+                onPanningStart={(ref) => {
+                  if (ref.state.scale > 1.01) {
+                    setShowHint(false);
+                    setShowFloorLabel(false);
+                  }
+                }}
+                onTransformed={(_, state) => {
+                  const isDefault = Math.abs(state.scale - 1) < 0.01 && Math.abs(state.positionX) < 1 && Math.abs(state.positionY) < 1;
+                  setShowHint(isDefault);
+                  setShowFloorLabel(isDefault);
+                }}
+              >
+                <TransformComponent
+                  wrapperStyle={{ width: "100%", height: "100%" }}
+                  contentStyle={{ width: "100%", height: "100%" }}
+                >
+                  <img
+                    src={maps[currentFloor as 'B1' | '1F' | '2F' | '3F' | '4F'] ?? maps['1F']}
+                    alt={`${currentFloor} map`}
+                    draggable={false}
+                    style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
+                  />
+                </TransformComponent>
+              </TransformWrapper>
+            </div>
+
             {/* フロアラベル (x:50, y:50) */}
             <img
               src={assets.floorLabels[currentFloor as 'B1' | '1F' | '2F' | '3F' | '4F']}
@@ -270,9 +324,14 @@ export default function HalongShopListScreen() {
                 width: "250px",
                 height: "166px",
                 display: "block",
+                opacity: showFloorLabel ? 1 : 0,
+                transition: "opacity 0.3s ease-in-out",
+                pointerEvents: "none",
+                zIndex: 1,
               }}
             />
-            {/* ヒント (x:400, y:35) */}
+
+            {/* ヒント (x:400, y:85) */}
             <img
               src={assets.hint}
               alt=""
@@ -284,8 +343,63 @@ export default function HalongShopListScreen() {
                 width: "654px",
                 height: "96px",
                 display: "block",
+                opacity: showHint ? 1 : 0,
+                transition: "opacity 0.3s ease-in-out",
+                pointerEvents: "none",
+                zIndex: 1,
               }}
             />
+
+            {/* ズームボタン */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: "60px",
+                left: "60px",
+                zIndex: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: "0px",
+                filter: "drop-shadow(0px 0px 12px rgba(0, 0, 0, 0.25))",
+              }}
+            >
+              {/* Zoom In */}
+              <div
+                style={{ position: "relative", cursor: "pointer", touchAction: "none" }}
+                onClick={() => transformComponentRef.current?.zoomIn()}
+                onMouseDown={() => setPressedZoomButton('in')}
+                onMouseUp={() => setPressedZoomButton(null)}
+                onMouseLeave={() => setPressedZoomButton(null)}
+                onTouchStart={() => setPressedZoomButton('in')}
+                onTouchEnd={() => setPressedZoomButton(null)}
+              >
+                <img src={zoomInSrc} alt="Zoom In" draggable={false}
+                  style={{ display: "block", width: "160px", height: "212px",
+                    opacity: pressedZoomButton === 'in' ? 0 : 1, transition: "opacity 0.1s ease-in-out" }} />
+                <img src={zoomInHighlightSrc} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, display: "block", width: "160px", height: "212px",
+                    opacity: pressedZoomButton === 'in' ? 1 : 0, transition: "opacity 0.1s ease-in-out",
+                    pointerEvents: "none" }} />
+              </div>
+              {/* Zoom Out */}
+              <div
+                style={{ position: "relative", cursor: "pointer", touchAction: "none" }}
+                onClick={() => transformComponentRef.current?.zoomOut()}
+                onMouseDown={() => setPressedZoomButton('out')}
+                onMouseUp={() => setPressedZoomButton(null)}
+                onMouseLeave={() => setPressedZoomButton(null)}
+                onTouchStart={() => setPressedZoomButton('out')}
+                onTouchEnd={() => setPressedZoomButton(null)}
+              >
+                <img src={zoomOutSrc} alt="Zoom Out" draggable={false}
+                  style={{ display: "block", width: "160px", height: "212px",
+                    opacity: pressedZoomButton === 'out' ? 0 : 1, transition: "opacity 0.1s ease-in-out" }} />
+                <img src={zoomOutHighlightSrc} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, display: "block", width: "160px", height: "212px",
+                    opacity: pressedZoomButton === 'out' ? 1 : 0, transition: "opacity 0.1s ease-in-out",
+                    pointerEvents: "none" }} />
+              </div>
+            </div>
           </div>
 
           {/* インナーシャドウオーバーレイ */}
