@@ -889,13 +889,17 @@ export default function HalongShopListScreen() {
         >
           {/* ポップアップ（言語選択） */}
           {langPopupOpen && (
-            <div
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
               style={{
                 position: "absolute",
                 bottom: "calc(100% + 10px)",
                 left: "29px",
                 width: "600px",
                 zIndex: 100,
+                transformOrigin: "bottom center",
               }}
             >
               {/* 背景 */}
@@ -934,7 +938,7 @@ export default function HalongShopListScreen() {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* 現在の言語ボタン */}
