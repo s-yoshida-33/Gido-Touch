@@ -425,7 +425,7 @@ export default function HalongShopListScreen() {
         <div
           style={{
             width: "650px",
-            height: "1365px",
+            height: "1338px",
             borderRadius: "20px",
             backgroundColor: "#ffffff",
             marginTop: "25px",
@@ -534,7 +534,7 @@ export default function HalongShopListScreen() {
           alt=""
           style={{
             width: "658px",
-            height: "75px",
+            height: "119px",
             marginTop: "25px",
             flexShrink: 0,
             display: "block",
