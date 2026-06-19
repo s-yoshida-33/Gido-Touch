@@ -534,8 +534,9 @@ export default function HalongShopListScreen() {
           alt=""
           style={{
             width: "658px",
-            height: "119px",
+            height: "94px",
             marginTop: "25px",
+            marginBottom: "25px",
             flexShrink: 0,
             display: "block",
             filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))",
