@@ -14,7 +14,10 @@ export interface HalongShop {
   nameJa: string;    // shopNameJapan（空なら name にフォールバック）
   nameEn: string;    // shopNameEnglish（空なら name にフォールバック）
   nameVn: string;    // shopNameVietnam（空なら name にフォールバック）
-  floor: string;
+  floor: string;     // floor（現地語ベース）
+  floorJa: string;   // floorJapan（空なら floor にフォールバック）
+  floorEn: string;   // floorEnglish（空なら floor にフォールバック）
+  floorVn: string;   // floorVietnam（空なら floor にフォールバック）
   section: string;
   genre: string;
   logoDataUrl: string | null;
@@ -27,6 +30,13 @@ export function getDisplayName(shop: HalongShop, lang: 'en' | 'ja' | 'vn'): stri
   return shop.nameVn || shop.name;
 }
 
+/** 言語に応じたフロア表示テキストを返す（対応フィールドが空なら floor にフォールバック） */
+export function getFloorDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn'): string {
+  if (lang === 'ja') return shop.floorJa || shop.floor;
+  if (lang === 'en') return shop.floorEn || shop.floor;
+  return shop.floorVn || shop.floor;
+}
+
 /** BG shoplist.json の1エントリ（Ha Long フォーマット） */
 interface BgShopEntry {
   shopId: string;
@@ -35,6 +45,9 @@ interface BgShopEntry {
   shopNameEnglish?: string;
   shopNameVietnam?: string;
   floor: string;
+  floorJapan?: string;
+  floorEnglish?: string;
+  floorVietnam?: string;
   number: string;
   genre: string;
   genreEnglish?: string;
@@ -104,6 +117,9 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
         nameEn: s.shopNameEnglish?.trim() ?? '',
         nameVn: s.shopNameVietnam?.trim() ?? '',
         floor: s.floor,
+        floorJa: s.floorJapan?.trim() ?? '',
+        floorEn: s.floorEnglish?.trim() ?? '',
+        floorVn: s.floorVietnam?.trim() ?? '',
         section: s.number ?? '',
         genre: mapGenre(s.genre, s.genreEnglish),
         logoDataUrl,

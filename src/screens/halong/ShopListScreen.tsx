@@ -6,7 +6,7 @@ import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { TransformWrapper, TransformComponent, type ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 import { useHalongMaps } from '../../hooks/useHalongMaps';
-import { useHalongShops, getDisplayName } from '../../hooks/useHalongShops';
+import { useHalongShops, getDisplayName, getFloorDisplay } from '../../hooks/useHalongShops';
 import { loadMallSettings } from '../../utils/settings';
 
 const IDLE_TIMEOUT_MS = 30000;
@@ -55,6 +55,26 @@ export default function HalongShopListScreen() {
 
   const ALL_FLOORS = useMemo(() => ['1F', '2F', '3F', '4F'] as const, []);
   const FLOOR_ORDER = ['1F', '2F', '3F', '4F'];
+
+  // Canvas measureText でフロア・区画番号ラベルの最大幅を計算（言語切替時に再計算）
+  const { floorLabelWidth, sectionLabelWidth } = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx || allShops.length === 0) return { floorLabelWidth: 56, sectionLabelWidth: 84 };
+    ctx.font = 'bold 20px sans-serif';
+    const PADDING = 32;
+    const MIN_WIDTH = 48;
+    let maxFloor = 0;
+    let maxSection = 0;
+    for (const shop of allShops) {
+      maxFloor = Math.max(maxFloor, ctx.measureText(getFloorDisplay(shop, selectedLang)).width);
+      if (shop.section) maxSection = Math.max(maxSection, ctx.measureText(shop.section).width);
+    }
+    return {
+      floorLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxFloor + PADDING)),
+      sectionLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxSection + PADDING)),
+    };
+  }, [allShops, selectedLang]);
 
   const filteredShops = useMemo(() => {
     let result = allShops;
@@ -794,15 +814,15 @@ export default function HalongShopListScreen() {
                     )}
                   </div>
 
-                  {/* フロアラベル 56×30 黒 */}
-                  <div style={{ position: "absolute", left: "120px", top: 0, width: "56px", height: "30px", backgroundColor: "#000000",
+                  {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
+                  <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
                     display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{shop.floor}</span>
+                    <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{getFloorDisplay(shop, selectedLang)}</span>
                   </div>
 
-                  {/* 区画番号ラベル 84×30 グレー */}
+                  {/* 区画番号ラベル グレー（幅は言語ごとの最大テキスト幅に動的変更） */}
                   {shop.section && (
-                    <div style={{ position: "absolute", left: "176px", top: 0, width: "84px", height: "30px", backgroundColor: "#888888",
+                    <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: "#888888",
                       display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{shop.section}</span>
                     </div>
