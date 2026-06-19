@@ -8,6 +8,7 @@ import { useHalongMaps } from '../../hooks/useHalongMaps';
 import { useHalongShops } from '../../hooks/useHalongShops';
 import { loadMallSettings } from '../../utils/settings';
 
+const IDLE_TIMEOUT_MS = 30000;
 
 export default function HalongShopListScreen() {
   const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('en');
@@ -24,7 +25,11 @@ export default function HalongShopListScreen() {
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
+  const shopListScrollRef = useRef<HTMLDivElement>(null);
+  const lastActivityTimeRef = useRef<number>(Date.now());
+  const defaultFloorRef = useRef<string>('1F');
 
   const FLOOR_ORDER = ['1F', '2F', '3F', '4F'];
 
@@ -60,6 +65,7 @@ export default function HalongShopListScreen() {
         const mallSettings = await loadMallSettings('halong');
         if (mallSettings.currentFloorSetting) {
           setCurrentFloor(mallSettings.currentFloorSetting);
+          defaultFloorRef.current = mallSettings.currentFloorSetting;
         }
       } catch {
         // 設定未保存またはTauri未使用 → デフォルト1Fのまま
@@ -98,6 +104,87 @@ export default function HalongShopListScreen() {
     setShowFloorLabel(true);
   }, [currentFloor]);
 
+  // アイドルタイムアウト: 30秒操作なしでデフォルト状態にリセット
+  useEffect(() => {
+    lastActivityTimeRef.current = Date.now();
+
+    let throttleTimeout: number | null = null;
+    const handleActivity = () => {
+      if (isRefreshing) return;
+      if (throttleTimeout === null) {
+        lastActivityTimeRef.current = Date.now();
+        throttleTimeout = window.setTimeout(() => { throttleTimeout = null; }, 1000);
+      }
+    };
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click', 'keydown', 'wheel'];
+    events.forEach(ev => window.addEventListener(ev, handleActivity, { passive: true }));
+    const genreEl = genreScrollRef.current;
+    if (genreEl) genreEl.addEventListener('scroll', handleActivity, { passive: true });
+
+    const checkInterval = setInterval(() => {
+      if (isRefreshing) {
+        lastActivityTimeRef.current = Date.now();
+        return;
+      }
+
+      if (Date.now() - lastActivityTimeRef.current < IDLE_TIMEOUT_MS) return;
+
+      const isGenreScrolled = genreScrollRef.current ? genreScrollRef.current.scrollLeft > 5 : false;
+      const isShopListScrolled = shopListScrollRef.current ? shopListScrollRef.current.scrollTop > 5 : false;
+
+      const isDefaultState =
+        selectedLang === 'en' &&
+        !langPopupOpen &&
+        selectedGenre === 'all' &&
+        selectedPicto === null &&
+        currentFloor === defaultFloorRef.current &&
+        showHint && showFloorLabel &&
+        !isGenreScrolled &&
+        !isShopListScrolled;
+
+      if (isDefaultState) {
+        lastActivityTimeRef.current = Date.now();
+        return;
+      }
+
+      setIsRefreshing(true);
+
+      setTimeout(() => {
+        setSelectedLang('en');
+        setLangPopupOpen(false);
+        setSelectedGenre('all');
+        setSelectedPicto(null);
+        setCurrentFloor(defaultFloorRef.current);
+
+        if (transformComponentRef.current) {
+          transformComponentRef.current.setTransform(0, 0, 1, 0);
+        }
+        setShowHint(true);
+        setShowFloorLabel(true);
+
+        if (genreScrollRef.current) {
+          genreScrollRef.current.scrollTo({ left: 0, behavior: 'auto' });
+        }
+        if (shopListScrollRef.current) {
+          shopListScrollRef.current.scrollTo({ top: 0, behavior: 'auto' });
+        }
+
+        setTimeout(() => {
+          setIsRefreshing(false);
+          lastActivityTimeRef.current = Date.now();
+        }, 500);
+      }, 500);
+    }, 1000);
+
+    return () => {
+      clearInterval(checkInterval);
+      events.forEach(ev => window.removeEventListener(ev, handleActivity));
+      if (genreEl) genreEl.removeEventListener('scroll', handleActivity);
+      if (throttleTimeout !== null) window.clearTimeout(throttleTimeout);
+    };
+  }, [isRefreshing, selectedLang, langPopupOpen, selectedGenre, selectedPicto, currentFloor, showHint, showFloorLabel]);
+
   function handleFloorSelect(floor: string) {
     setCurrentFloor(floor);
   }
@@ -115,8 +202,21 @@ export default function HalongShopListScreen() {
         overflow: "hidden",
         display: "flex",
         flexDirection: "row",
+        position: "relative",
       }}
     >
+      {/* アイドルリフレッシュ フェードオーバーレイ */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundColor: "#ffffff",
+          opacity: isRefreshing ? 1 : 0,
+          transition: "opacity 0.5s ease-in-out",
+          pointerEvents: isRefreshing ? "all" : "none",
+          zIndex: 9999,
+        }}
+      />
       {/* 左エリア: 50px余白 + メインコンテナ3040×2060 + 右余白50px = 3140px */}
       <div
         style={{
@@ -513,6 +613,7 @@ export default function HalongShopListScreen() {
         >
           {/* ショップカードリスト */}
           <div
+            ref={shopListScrollRef}
             style={{
               position: "absolute",
               inset: 0,
