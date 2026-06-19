@@ -26,7 +26,7 @@ export default function HalongShopListScreen() {
   const [canScrollRight, setCanScrollRight] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
 
-  const FLOOR_ORDER = ['B1', '1F', '2F', '3F', '4F'];
+  const FLOOR_ORDER = ['1F', '2F', '3F', '4F'];
 
   const filteredShops = useMemo(() => {
     let result = allShops;
@@ -229,11 +229,11 @@ export default function HalongShopListScreen() {
             {/* スペーサー */}
             <div style={{ flex: 1 }} />
 
-            {/* フロアボタン（下・中央）上から 4F→3F→2F→1F→B1 */}
+            {/* フロアボタン（下・中央）上から 4F→3F→2F→1F */}
             <div
               style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "50px", flexShrink: 0 }}
             >
-              {((['4F', '3F', '2F', '1F', 'B1'] as const)).map(floor => (
+              {((['4F', '3F', '2F', '1F'] as const)).map(floor => (
                 <div
                   key={floor}
                   style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: currentFloor === floor ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
@@ -290,7 +290,7 @@ export default function HalongShopListScreen() {
                   contentStyle={{ width: "100%", height: "100%" }}
                 >
                   <img
-                    src={maps[currentFloor as 'B1' | '1F' | '2F' | '3F' | '4F'] ?? maps['1F']}
+                    src={maps[currentFloor as '1F' | '2F' | '3F' | '4F'] ?? maps['1F']}
                     alt={`${currentFloor} map`}
                     draggable={false}
                     style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
@@ -301,7 +301,7 @@ export default function HalongShopListScreen() {
 
             {/* フロアラベル (x:50, y:50) */}
             <img
-              src={assets.floorLabels[currentFloor as 'B1' | '1F' | '2F' | '3F' | '4F']}
+              src={assets.floorLabels[currentFloor as '1F' | '2F' | '3F' | '4F']}
               alt={currentFloor}
               draggable={false}
               style={{

@@ -58,29 +58,24 @@ import bundledHintJa from '../assets/malls/halong/hint/ja.svg';
 import bundledHintVn from '../assets/malls/halong/hint/vn.svg';
 
 // floor-labels (en)
-import bundledFloorLabelEnB1 from '../assets/malls/halong/floor-labels/en/B1.svg';
 import bundledFloorLabelEn1F from '../assets/malls/halong/floor-labels/en/1F.svg';
 import bundledFloorLabelEn2F from '../assets/malls/halong/floor-labels/en/2F.svg';
 import bundledFloorLabelEn3F from '../assets/malls/halong/floor-labels/en/3F.svg';
 import bundledFloorLabelEn4F from '../assets/malls/halong/floor-labels/en/4F.svg';
 
 // floor-labels (ja)
-import bundledFloorLabelJaB1 from '../assets/malls/halong/floor-labels/ja/B1.svg';
 import bundledFloorLabelJa1F from '../assets/malls/halong/floor-labels/ja/1F.svg';
 import bundledFloorLabelJa2F from '../assets/malls/halong/floor-labels/ja/2F.svg';
 import bundledFloorLabelJa3F from '../assets/malls/halong/floor-labels/ja/3F.svg';
 import bundledFloorLabelJa4F from '../assets/malls/halong/floor-labels/ja/4F.svg';
 
 // floor-labels (vn)
-import bundledFloorLabelVnB1 from '../assets/malls/halong/floor-labels/vn/B1.svg';
 import bundledFloorLabelVn1F from '../assets/malls/halong/floor-labels/vn/1F.svg';
 import bundledFloorLabelVn2F from '../assets/malls/halong/floor-labels/vn/2F.svg';
 import bundledFloorLabelVn3F from '../assets/malls/halong/floor-labels/vn/3F.svg';
 import bundledFloorLabelVn4F from '../assets/malls/halong/floor-labels/vn/4F.svg';
 
 // フロアボタン (en)
-import bundledFloorBtnEnB1          from '../assets/malls/halong/buttons/floors/en/B1-01.svg';
-import bundledFloorBtnEnB1Highlight  from '../assets/malls/halong/buttons/floors/en/B1-01-highlight.svg';
 import bundledFloorBtnEn1F          from '../assets/malls/halong/buttons/floors/en/1F-01.svg';
 import bundledFloorBtnEn1FHighlight  from '../assets/malls/halong/buttons/floors/en/1F-01-highlight.svg';
 import bundledFloorBtnEn2F          from '../assets/malls/halong/buttons/floors/en/2F-01.svg';
@@ -91,8 +86,6 @@ import bundledFloorBtnEn4F          from '../assets/malls/halong/buttons/floors/
 import bundledFloorBtnEn4FHighlight  from '../assets/malls/halong/buttons/floors/en/4F-01-highlight.svg';
 
 // フロアボタン (ja)
-import bundledFloorBtnJaB1          from '../assets/malls/halong/buttons/floors/ja/B1-01.svg';
-import bundledFloorBtnJaB1Highlight  from '../assets/malls/halong/buttons/floors/ja/B1-01-highlight.svg';
 import bundledFloorBtnJa1F          from '../assets/malls/halong/buttons/floors/ja/1F-01.svg';
 import bundledFloorBtnJa1FHighlight  from '../assets/malls/halong/buttons/floors/ja/1F-01-highlight.svg';
 import bundledFloorBtnJa2F          from '../assets/malls/halong/buttons/floors/ja/2F-01.svg';
@@ -103,8 +96,6 @@ import bundledFloorBtnJa4F          from '../assets/malls/halong/buttons/floors/
 import bundledFloorBtnJa4FHighlight  from '../assets/malls/halong/buttons/floors/ja/4F-01-highlight.svg';
 
 // フロアボタン (vn)
-import bundledFloorBtnVnB1          from '../assets/malls/halong/buttons/floors/vn/B1-01.svg';
-import bundledFloorBtnVnB1Highlight  from '../assets/malls/halong/buttons/floors/vn/B1-01-highlight.svg';
 import bundledFloorBtnVn1F          from '../assets/malls/halong/buttons/floors/vn/1F-01.svg';
 import bundledFloorBtnVn1FHighlight  from '../assets/malls/halong/buttons/floors/vn/1F-01-highlight.svg';
 import bundledFloorBtnVn2F          from '../assets/malls/halong/buttons/floors/vn/2F-01.svg';
@@ -188,9 +179,8 @@ export interface HalongAssets {
     prev:            string;
   };
   hint: string;
-  floorLabels: { 'B1': string; '1F': string; '2F': string; '3F': string; '4F': string };
+  floorLabels: { '1F': string; '2F': string; '3F': string; '4F': string };
   floorButtons: {
-    'B1': { default: string; highlight: string };
     '1F': { default: string; highlight: string };
     '2F': { default: string; highlight: string };
     '3F': { default: string; highlight: string };
@@ -271,28 +261,25 @@ const BUNDLED_GENRES: Record<'en' | 'ja' | 'vn', Omit<HalongAssets['genres'], 'n
 };
 
 const BUNDLED_FLOOR_LABELS: Record<'en' | 'ja' | 'vn', HalongAssets['floorLabels']> = {
-  en: { 'B1': bundledFloorLabelEnB1, '1F': bundledFloorLabelEn1F, '2F': bundledFloorLabelEn2F, '3F': bundledFloorLabelEn3F, '4F': bundledFloorLabelEn4F },
-  ja: { 'B1': bundledFloorLabelJaB1, '1F': bundledFloorLabelJa1F, '2F': bundledFloorLabelJa2F, '3F': bundledFloorLabelJa3F, '4F': bundledFloorLabelJa4F },
-  vn: { 'B1': bundledFloorLabelVnB1, '1F': bundledFloorLabelVn1F, '2F': bundledFloorLabelVn2F, '3F': bundledFloorLabelVn3F, '4F': bundledFloorLabelVn4F },
+  en: { '1F': bundledFloorLabelEn1F, '2F': bundledFloorLabelEn2F, '3F': bundledFloorLabelEn3F, '4F': bundledFloorLabelEn4F },
+  ja: { '1F': bundledFloorLabelJa1F, '2F': bundledFloorLabelJa2F, '3F': bundledFloorLabelJa3F, '4F': bundledFloorLabelJa4F },
+  vn: { '1F': bundledFloorLabelVn1F, '2F': bundledFloorLabelVn2F, '3F': bundledFloorLabelVn3F, '4F': bundledFloorLabelVn4F },
 };
 
 const BUNDLED_FLOOR_BUTTONS: Record<'en' | 'ja' | 'vn', HalongAssets['floorButtons']> = {
   en: {
-    'B1': { default: bundledFloorBtnEnB1,  highlight: bundledFloorBtnEnB1Highlight },
     '1F': { default: bundledFloorBtnEn1F,  highlight: bundledFloorBtnEn1FHighlight },
     '2F': { default: bundledFloorBtnEn2F,  highlight: bundledFloorBtnEn2FHighlight },
     '3F': { default: bundledFloorBtnEn3F,  highlight: bundledFloorBtnEn3FHighlight },
     '4F': { default: bundledFloorBtnEn4F,  highlight: bundledFloorBtnEn4FHighlight },
   },
   ja: {
-    'B1': { default: bundledFloorBtnJaB1,  highlight: bundledFloorBtnJaB1Highlight },
     '1F': { default: bundledFloorBtnJa1F,  highlight: bundledFloorBtnJa1FHighlight },
     '2F': { default: bundledFloorBtnJa2F,  highlight: bundledFloorBtnJa2FHighlight },
     '3F': { default: bundledFloorBtnJa3F,  highlight: bundledFloorBtnJa3FHighlight },
     '4F': { default: bundledFloorBtnJa4F,  highlight: bundledFloorBtnJa4FHighlight },
   },
   vn: {
-    'B1': { default: bundledFloorBtnVnB1,  highlight: bundledFloorBtnVnB1Highlight },
     '1F': { default: bundledFloorBtnVn1F,  highlight: bundledFloorBtnVn1FHighlight },
     '2F': { default: bundledFloorBtnVn2F,  highlight: bundledFloorBtnVn2FHighlight },
     '3F': { default: bundledFloorBtnVn3F,  highlight: bundledFloorBtnVn3FHighlight },
@@ -400,17 +387,12 @@ export function useHalongAssets(lang: 'en' | 'ja' | 'vn' = 'en'): HalongAssets {
           },
           hint: r(`hint/${lang}.svg`, fb.hint),
           floorLabels: {
-            'B1': r(`floor-labels/${lang}/B1.svg`, fb.floorLabels['B1']),
             '1F': r(`floor-labels/${lang}/1F.svg`, fb.floorLabels['1F']),
             '2F': r(`floor-labels/${lang}/2F.svg`, fb.floorLabels['2F']),
             '3F': r(`floor-labels/${lang}/3F.svg`, fb.floorLabels['3F']),
             '4F': r(`floor-labels/${lang}/4F.svg`, fb.floorLabels['4F']),
           },
           floorButtons: {
-            'B1': {
-              default:   r(`buttons/floors/${lang}/B1-01.svg`,           fb.floorButtons['B1'].default),
-              highlight: r(`buttons/floors/${lang}/B1-01-highlight.svg`, fb.floorButtons['B1'].highlight),
-            },
             '1F': {
               default:   r(`buttons/floors/${lang}/1F-01.svg`,           fb.floorButtons['1F'].default),
               highlight: r(`buttons/floors/${lang}/1F-01-highlight.svg`, fb.floorButtons['1F'].highlight),
