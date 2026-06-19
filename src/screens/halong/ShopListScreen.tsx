@@ -61,7 +61,7 @@ export default function HalongShopListScreen() {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx || allShops.length === 0) return { floorLabelWidth: 56, sectionLabelWidth: 84 };
-    ctx.font = 'bold 20px sans-serif';
+    ctx.font = 'bold 20px "Segoe UI", "Noto Sans", sans-serif';
     const PADDING = 32;
     const MIN_WIDTH = 48;
     let maxFloor = 0;
@@ -817,14 +817,14 @@ export default function HalongShopListScreen() {
                   {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
                   <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
                     display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{getFloorDisplay(shop, selectedLang)}</span>
+                    <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
                   </div>
 
                   {/* 区画番号ラベル グレー（幅は言語ごとの最大テキスト幅に動的変更） */}
                   {shop.section && (
                     <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: "#888888",
                       display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{shop.section}</span>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
                     </div>
                   )}
 
