@@ -571,11 +571,11 @@ export default function HalongShopListScreen() {
                 {((['vn', 'en', 'ja'] as const)).map(lang => (
                   <div
                     key={lang}
-                    style={{ position: "relative", cursor: "pointer", touchAction: "none", width: "618px", flexShrink: 0 }}
+                    style={{ position: "relative", cursor: "pointer", touchAction: "none", width: "618px", flexShrink: 0, filter: selectedLang === lang ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
                     onClick={() => { setSelectedLang(lang); setLangPopupOpen(false); }}
                   >
                     <img src={assets.langButtons.select[lang]} alt={lang} draggable={false}
-                      style={{ width: "618px", display: "block", filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }} />
+                      style={{ width: "618px", display: "block" }} />
                     <img src={assets.langButtons.select[`${lang}Highlight` as 'enHighlight' | 'jaHighlight' | 'vnHighlight']} alt="" draggable={false}
                       style={{
                         position: "absolute", top: 0, left: 0, width: "618px", display: "block",
