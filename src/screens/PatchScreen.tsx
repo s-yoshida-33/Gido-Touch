@@ -6,6 +6,7 @@ import { useAutoUpdate } from '../hooks/useAutoUpdate';
 import { useMediaDownload } from '../hooks/useMediaDownload';
 import { useAssetSync } from '../hooks/useAssetSync';
 import { useMapSync } from '../hooks/useMapSync';
+import { useDataSync } from '../hooks/useDataSync';
 import { getVersion } from '@tauri-apps/api/app';
 
 interface PatchScreenProps {
@@ -17,6 +18,7 @@ export function PatchScreen({ onComplete }: PatchScreenProps) {
   const { mediaStatus } = useMediaDownload();
   const { assetStatus } = useAssetSync();
   const { mapStatus } = useMapSync();
+  const { dataSyncStatus } = useDataSync();
   const [appVersion, setAppVersion] = useState<string>('');
 
   // Load app version from Tauri
@@ -42,21 +44,22 @@ export function PatchScreen({ onComplete }: PatchScreenProps) {
     const mediaDone = mediaStatus.status === 'done' || mediaStatus.status === 'error';
     const assetDone = assetStatus.status === 'done' || assetStatus.status === 'error';
     const mapDone = mapStatus.status === 'done' || mapStatus.status === 'error';
+    const dataDone = dataSyncStatus.status === 'done' || dataSyncStatus.status === 'error';
 
-    if (appDone && mediaDone && assetDone && mapDone) {
+    if (appDone && mediaDone && assetDone && mapDone && dataDone) {
       onComplete();
     }
-  }, [updateStatus.status, mediaStatus.status, assetStatus.status, mapStatus.status, onComplete]);
+  }, [updateStatus.status, mediaStatus.status, assetStatus.status, mapStatus.status, dataSyncStatus.status, onComplete]);
 
   // Pick the most active media status for display (assets → maps → videos)
   const activeMediaStatus = (() => {
-    for (const s of [assetStatus, mapStatus, mediaStatus]) {
+    for (const s of [assetStatus, mapStatus, dataSyncStatus, mediaStatus]) {
       if (s.status === 'downloading') return s;
     }
-    for (const s of [assetStatus, mapStatus, mediaStatus]) {
+    for (const s of [assetStatus, mapStatus, dataSyncStatus, mediaStatus]) {
       if (s.status === 'checking') return s;
     }
-    for (const s of [assetStatus, mapStatus, mediaStatus]) {
+    for (const s of [assetStatus, mapStatus, dataSyncStatus, mediaStatus]) {
       if (s.status === 'error') return s;
     }
     return mediaStatus;

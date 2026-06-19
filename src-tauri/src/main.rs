@@ -1194,6 +1194,32 @@ fn sync_maps_from_s3(app: tauri::AppHandle, mall_id: String, hostname: String, z
     sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &format!("maps/{}/{}", mall_id, hostname))
 }
 
+/// Download data ZIP from S3 and extract to data/{mallId}/files/{subtype}/ or data/{mallId}/json/.
+/// Version comparison and metadata updates (.{subtype}-meta.json) are handled by the frontend.
+#[tauri::command]
+fn sync_data_from_s3(
+    app: tauri::AppHandle,
+    mall_id: String,
+    subtype: String,
+    zip_url: String,
+) -> Result<MediaDownloadResult, String> {
+    let dest_dir = {
+        let base = get_app_data_dir()?.join("data").join(&mall_id);
+        if subtype == "json" {
+            base.join("json")
+        } else {
+            base.join("files").join(&subtype)
+        }
+    };
+    let zip_path = get_app_data_dir()?.join(format!("data-{}-{}.zip", &mall_id, &subtype));
+    let label = if subtype == "json" {
+        format!("data/{}/json", mall_id)
+    } else {
+        format!("data/{}/files/{}", mall_id, subtype)
+    };
+    sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &label)
+}
+
 /// Get media file path for a given mall and relative path.
 #[tauri::command]
 fn get_media_file_path(mall_id: String, relative_path: String) -> Result<String, String> {
@@ -1777,6 +1803,7 @@ fn main() {
             sync_video_from_s3,
             sync_assets_from_s3,
             sync_maps_from_s3,
+            sync_data_from_s3,
             cleanup_old_hostname_maps,
             get_media_file_path,
             list_media_files,
