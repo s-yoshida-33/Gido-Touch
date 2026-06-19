@@ -42,6 +42,16 @@ import bundledFloorBtn4F          from '../assets/malls/halong/buttons/floors/en
 import bundledFloorBtn4FHighlight  from '../assets/malls/halong/buttons/floors/en/4F-01-highlight.svg';
 
 import bundledLangEn from '../assets/malls/halong/buttons/languages/en.svg';
+import bundledLangJa from '../assets/malls/halong/buttons/languages/ja.svg';
+import bundledLangVn from '../assets/malls/halong/buttons/languages/vn.svg';
+
+import bundledLangSelectBg          from '../assets/malls/halong/buttons/languages/select/bg.svg';
+import bundledLangSelectEn          from '../assets/malls/halong/buttons/languages/select/en.svg';
+import bundledLangSelectEnHighlight from '../assets/malls/halong/buttons/languages/select/en-highlight.svg';
+import bundledLangSelectJa          from '../assets/malls/halong/buttons/languages/select/ja.svg';
+import bundledLangSelectJaHighlight from '../assets/malls/halong/buttons/languages/select/ja-highlight.svg';
+import bundledLangSelectVn          from '../assets/malls/halong/buttons/languages/select/vn.svg';
+import bundledLangSelectVnHighlight from '../assets/malls/halong/buttons/languages/select/vn-highlight.svg';
 
 import bundledPictoAtm              from '../assets/malls/halong/buttons/pictos/en/atm.svg';
 import bundledPictoAtmHighlight     from '../assets/malls/halong/buttons/pictos/en/atm-highlight.svg';
@@ -83,7 +93,17 @@ export interface HalongAssets {
     '3F': { default: string; highlight: string };
     '4F': { default: string; highlight: string };
   };
-  langButtons: { en: string };
+  langButtons: {
+    en: string;
+    ja: string;
+    vn: string;
+    select: {
+      bg: string;
+      en: string; enHighlight: string;
+      ja: string; jaHighlight: string;
+      vn: string; vnHighlight: string;
+    };
+  };
   pictos: {
     atm:            { default: string; highlight: string };
     elevator:       { default: string; highlight: string };
@@ -121,7 +141,20 @@ const BUNDLED: HalongAssets = {
     '3F': { default: bundledFloorBtn3F,  highlight: bundledFloorBtn3FHighlight },
     '4F': { default: bundledFloorBtn4F,  highlight: bundledFloorBtn4FHighlight },
   },
-  langButtons: { en: bundledLangEn },
+  langButtons: {
+    en: bundledLangEn,
+    ja: bundledLangJa,
+    vn: bundledLangVn,
+    select: {
+      bg:          bundledLangSelectBg,
+      en:          bundledLangSelectEn,
+      enHighlight: bundledLangSelectEnHighlight,
+      ja:          bundledLangSelectJa,
+      jaHighlight: bundledLangSelectJaHighlight,
+      vn:          bundledLangSelectVn,
+      vnHighlight: bundledLangSelectVnHighlight,
+    },
+  },
   pictos: {
     atm:      { default: bundledPictoAtm,      highlight: bundledPictoAtmHighlight },
     elevator: { default: bundledPictoElevator, highlight: bundledPictoElevatorHighlight },
@@ -203,6 +236,17 @@ export function useHalongAssets(): HalongAssets {
           },
           langButtons: {
             en: r('buttons/languages/en.svg', BUNDLED.langButtons.en),
+            ja: r('buttons/languages/ja.svg', BUNDLED.langButtons.ja),
+            vn: r('buttons/languages/vn.svg', BUNDLED.langButtons.vn),
+            select: {
+              bg:          r('buttons/languages/select/bg.svg',           BUNDLED.langButtons.select.bg),
+              en:          r('buttons/languages/select/en.svg',           BUNDLED.langButtons.select.en),
+              enHighlight: r('buttons/languages/select/en-highlight.svg', BUNDLED.langButtons.select.enHighlight),
+              ja:          r('buttons/languages/select/ja.svg',           BUNDLED.langButtons.select.ja),
+              jaHighlight: r('buttons/languages/select/ja-highlight.svg', BUNDLED.langButtons.select.jaHighlight),
+              vn:          r('buttons/languages/select/vn.svg',           BUNDLED.langButtons.select.vn),
+              vnHighlight: r('buttons/languages/select/vn-highlight.svg', BUNDLED.langButtons.select.vnHighlight),
+            },
           },
           pictos: {
             atm:      { default: r('buttons/pictos/en/atm.svg',                 BUNDLED.pictos.atm.default),      highlight: r('buttons/pictos/en/atm-highlight.svg',                 BUNDLED.pictos.atm.highlight) },

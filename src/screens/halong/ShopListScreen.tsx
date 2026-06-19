@@ -18,6 +18,8 @@ export default function HalongShopListScreen() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
+  const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('en');
+  const [langPopupOpen, setLangPopupOpen] = useState(false);
 
   const filteredShops = allShops.filter(
     s => s.floor === currentFloor && (selectedGenre === 'all' || s.genre === selectedGenre)
@@ -528,20 +530,81 @@ export default function HalongShopListScreen() {
           }}
         />
 
-        {/* 言語選択ボタン */}
-        <img
-          src={assets.langButtons.en}
-          alt=""
+        {/* 言語選択ボタン＋ポップアップ */}
+        <div
           style={{
-            width: "658px",
-            height: "94px",
+            position: "relative",
+            flexShrink: 0,
             marginTop: "25px",
             marginBottom: "25px",
-            flexShrink: 0,
-            display: "block",
-            filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))",
+            width: "658px",
           }}
-        />
+        >
+          {/* ポップアップ（言語選択） */}
+          {langPopupOpen && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: "calc(100% + 10px)",
+                left: 0,
+                width: "658px",
+                zIndex: 100,
+              }}
+            >
+              {/* 背景 */}
+              <img src={assets.langButtons.select.bg} alt="" draggable={false}
+                style={{ width: "658px", display: "block" }} />
+              {/* ボタン群（bg上に絶対配置） */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  paddingTop: "20px",
+                  paddingBottom: "63px",
+                  gap: "20px",
+                  boxSizing: "border-box",
+                }}
+              >
+                {((['vn', 'en', 'ja'] as const)).map(lang => (
+                  <div
+                    key={lang}
+                    style={{ position: "relative", cursor: "pointer", touchAction: "none", width: "618px", flexShrink: 0 }}
+                    onClick={() => { setSelectedLang(lang); setLangPopupOpen(false); }}
+                  >
+                    <img src={assets.langButtons.select[lang]} alt={lang} draggable={false}
+                      style={{ width: "618px", display: "block" }} />
+                    <img src={assets.langButtons.select[`${lang}Highlight` as 'enHighlight' | 'jaHighlight' | 'vnHighlight']} alt="" draggable={false}
+                      style={{
+                        position: "absolute", top: 0, left: 0, width: "618px", display: "block",
+                        opacity: selectedLang === lang ? 1 : 0,
+                        transition: "opacity 0.3s ease-in-out",
+                        pointerEvents: "none",
+                      }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 現在の言語ボタン */}
+          <img
+            src={assets.langButtons[selectedLang]}
+            alt={selectedLang}
+            draggable={false}
+            style={{
+              width: "658px",
+              height: "94px",
+              display: "block",
+              cursor: "pointer",
+              touchAction: "none",
+              filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))",
+            }}
+            onClick={() => setLangPopupOpen(prev => !prev)}
+          />
+        </div>
       </div>
     </div>
   );
