@@ -8,7 +8,9 @@ import { useHalongShops } from '../../hooks/useHalongShops';
 import { loadMallSettings } from '../../utils/settings';
 
 export default function HalongShopListScreen() {
-  const assets = useHalongAssets();
+  const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('en');
+  const [langPopupOpen, setLangPopupOpen] = useState(false);
+  const assets = useHalongAssets(selectedLang);
   const maps = useHalongMaps();
   const allShops = useHalongShops();
   const [currentFloor, setCurrentFloor] = useState<string>('1F');
@@ -18,8 +20,6 @@ export default function HalongShopListScreen() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
-  const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('en');
-  const [langPopupOpen, setLangPopupOpen] = useState(false);
 
   const filteredShops = allShops.filter(
     s => s.floor === currentFloor && (selectedGenre === 'all' || s.genre === selectedGenre)

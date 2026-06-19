@@ -30,16 +30,41 @@ import bundledFloorLabel2F from '../assets/malls/halong/floor-labels/en/2F.svg';
 import bundledFloorLabel3F from '../assets/malls/halong/floor-labels/en/3F.svg';
 import bundledFloorLabel4F from '../assets/malls/halong/floor-labels/en/4F.svg';
 
-import bundledFloorBtnB1          from '../assets/malls/halong/buttons/floors/en/B1-01.svg';
-import bundledFloorBtnB1Highlight  from '../assets/malls/halong/buttons/floors/en/B1-01-highlight.svg';
-import bundledFloorBtn1F          from '../assets/malls/halong/buttons/floors/en/1F-01.svg';
-import bundledFloorBtn1FHighlight  from '../assets/malls/halong/buttons/floors/en/1F-01-highlight.svg';
-import bundledFloorBtn2F          from '../assets/malls/halong/buttons/floors/en/2F-01.svg';
-import bundledFloorBtn2FHighlight  from '../assets/malls/halong/buttons/floors/en/2F-01-highlight.svg';
-import bundledFloorBtn3F          from '../assets/malls/halong/buttons/floors/en/3F-01.svg';
-import bundledFloorBtn3FHighlight  from '../assets/malls/halong/buttons/floors/en/3F-01-highlight.svg';
-import bundledFloorBtn4F          from '../assets/malls/halong/buttons/floors/en/4F-01.svg';
-import bundledFloorBtn4FHighlight  from '../assets/malls/halong/buttons/floors/en/4F-01-highlight.svg';
+// フロアボタン (en)
+import bundledFloorBtnEnB1          from '../assets/malls/halong/buttons/floors/en/B1-01.svg';
+import bundledFloorBtnEnB1Highlight  from '../assets/malls/halong/buttons/floors/en/B1-01-highlight.svg';
+import bundledFloorBtnEn1F          from '../assets/malls/halong/buttons/floors/en/1F-01.svg';
+import bundledFloorBtnEn1FHighlight  from '../assets/malls/halong/buttons/floors/en/1F-01-highlight.svg';
+import bundledFloorBtnEn2F          from '../assets/malls/halong/buttons/floors/en/2F-01.svg';
+import bundledFloorBtnEn2FHighlight  from '../assets/malls/halong/buttons/floors/en/2F-01-highlight.svg';
+import bundledFloorBtnEn3F          from '../assets/malls/halong/buttons/floors/en/3F-01.svg';
+import bundledFloorBtnEn3FHighlight  from '../assets/malls/halong/buttons/floors/en/3F-01-highlight.svg';
+import bundledFloorBtnEn4F          from '../assets/malls/halong/buttons/floors/en/4F-01.svg';
+import bundledFloorBtnEn4FHighlight  from '../assets/malls/halong/buttons/floors/en/4F-01-highlight.svg';
+
+// フロアボタン (ja)
+import bundledFloorBtnJaB1          from '../assets/malls/halong/buttons/floors/ja/B1-01.svg';
+import bundledFloorBtnJaB1Highlight  from '../assets/malls/halong/buttons/floors/ja/B1-01-highlight.svg';
+import bundledFloorBtnJa1F          from '../assets/malls/halong/buttons/floors/ja/1F-01.svg';
+import bundledFloorBtnJa1FHighlight  from '../assets/malls/halong/buttons/floors/ja/1F-01-highlight.svg';
+import bundledFloorBtnJa2F          from '../assets/malls/halong/buttons/floors/ja/2F-01.svg';
+import bundledFloorBtnJa2FHighlight  from '../assets/malls/halong/buttons/floors/ja/2F-01-highlight.svg';
+import bundledFloorBtnJa3F          from '../assets/malls/halong/buttons/floors/ja/3F-01.svg';
+import bundledFloorBtnJa3FHighlight  from '../assets/malls/halong/buttons/floors/ja/3F-01-highlight.svg';
+import bundledFloorBtnJa4F          from '../assets/malls/halong/buttons/floors/ja/4F-01.svg';
+import bundledFloorBtnJa4FHighlight  from '../assets/malls/halong/buttons/floors/ja/4F-01-highlight.svg';
+
+// フロアボタン (vn)
+import bundledFloorBtnVnB1          from '../assets/malls/halong/buttons/floors/vn/B1-01.svg';
+import bundledFloorBtnVnB1Highlight  from '../assets/malls/halong/buttons/floors/vn/B1-01-highlight.svg';
+import bundledFloorBtnVn1F          from '../assets/malls/halong/buttons/floors/vn/1F-01.svg';
+import bundledFloorBtnVn1FHighlight  from '../assets/malls/halong/buttons/floors/vn/1F-01-highlight.svg';
+import bundledFloorBtnVn2F          from '../assets/malls/halong/buttons/floors/vn/2F-01.svg';
+import bundledFloorBtnVn2FHighlight  from '../assets/malls/halong/buttons/floors/vn/2F-01-highlight.svg';
+import bundledFloorBtnVn3F          from '../assets/malls/halong/buttons/floors/vn/3F-01.svg';
+import bundledFloorBtnVn3FHighlight  from '../assets/malls/halong/buttons/floors/vn/3F-01-highlight.svg';
+import bundledFloorBtnVn4F          from '../assets/malls/halong/buttons/floors/vn/4F-01.svg';
+import bundledFloorBtnVn4FHighlight  from '../assets/malls/halong/buttons/floors/vn/4F-01-highlight.svg';
 
 import bundledLangEn from '../assets/malls/halong/buttons/languages/en.svg';
 import bundledLangJa from '../assets/malls/halong/buttons/languages/ja.svg';
@@ -114,9 +139,35 @@ export interface HalongAssets {
   };
 }
 
+// ── 言語別フロアボタン ────────────────────────────────────────────
+
+const BUNDLED_FLOOR_BUTTONS: Record<'en' | 'ja' | 'vn', HalongAssets['floorButtons']> = {
+  en: {
+    'B1': { default: bundledFloorBtnEnB1,  highlight: bundledFloorBtnEnB1Highlight },
+    '1F': { default: bundledFloorBtnEn1F,  highlight: bundledFloorBtnEn1FHighlight },
+    '2F': { default: bundledFloorBtnEn2F,  highlight: bundledFloorBtnEn2FHighlight },
+    '3F': { default: bundledFloorBtnEn3F,  highlight: bundledFloorBtnEn3FHighlight },
+    '4F': { default: bundledFloorBtnEn4F,  highlight: bundledFloorBtnEn4FHighlight },
+  },
+  ja: {
+    'B1': { default: bundledFloorBtnJaB1,  highlight: bundledFloorBtnJaB1Highlight },
+    '1F': { default: bundledFloorBtnJa1F,  highlight: bundledFloorBtnJa1FHighlight },
+    '2F': { default: bundledFloorBtnJa2F,  highlight: bundledFloorBtnJa2FHighlight },
+    '3F': { default: bundledFloorBtnJa3F,  highlight: bundledFloorBtnJa3FHighlight },
+    '4F': { default: bundledFloorBtnJa4F,  highlight: bundledFloorBtnJa4FHighlight },
+  },
+  vn: {
+    'B1': { default: bundledFloorBtnVnB1,  highlight: bundledFloorBtnVnB1Highlight },
+    '1F': { default: bundledFloorBtnVn1F,  highlight: bundledFloorBtnVn1FHighlight },
+    '2F': { default: bundledFloorBtnVn2F,  highlight: bundledFloorBtnVn2FHighlight },
+    '3F': { default: bundledFloorBtnVn3F,  highlight: bundledFloorBtnVn3FHighlight },
+    '4F': { default: bundledFloorBtnVn4F,  highlight: bundledFloorBtnVn4FHighlight },
+  },
+};
+
 // ── バンドルアセット定数 ──────────────────────────────────────────
 
-const BUNDLED: HalongAssets = {
+const BUNDLED_BASE: Omit<HalongAssets, 'floorButtons'> = {
   openTime: bundledOpenTime,
   genres: {
     all:             bundledGenreAll,
@@ -134,13 +185,6 @@ const BUNDLED: HalongAssets = {
   },
   hint: bundledHint,
   floorLabels: { 'B1': bundledFloorLabelB1, '1F': bundledFloorLabel1F, '2F': bundledFloorLabel2F, '3F': bundledFloorLabel3F, '4F': bundledFloorLabel4F },
-  floorButtons: {
-    'B1': { default: bundledFloorBtnB1,  highlight: bundledFloorBtnB1Highlight },
-    '1F': { default: bundledFloorBtn1F,  highlight: bundledFloorBtn1FHighlight },
-    '2F': { default: bundledFloorBtn2F,  highlight: bundledFloorBtn2FHighlight },
-    '3F': { default: bundledFloorBtn3F,  highlight: bundledFloorBtn3FHighlight },
-    '4F': { default: bundledFloorBtn4F,  highlight: bundledFloorBtn4FHighlight },
-  },
   langButtons: {
     en: bundledLangEn,
     ja: bundledLangJa,
@@ -170,12 +214,19 @@ function resolve(local: Record<string, string>, key: string, fallback: string): 
   return local[key] || fallback;
 }
 
+function getBundled(lang: 'en' | 'ja' | 'vn'): HalongAssets {
+  return { ...BUNDLED_BASE, floorButtons: BUNDLED_FLOOR_BUTTONS[lang] };
+}
+
 // ── Hook ─────────────────────────────────────────────────────────
 
-export function useHalongAssets(): HalongAssets {
-  const [assets, setAssets] = useState<HalongAssets>(BUNDLED);
+export function useHalongAssets(lang: 'en' | 'ja' | 'vn' = 'en'): HalongAssets {
+  const [assets, setAssets] = useState<HalongAssets>(() => getBundled(lang));
 
   useEffect(() => {
+    // 言語変更時はバンドルアセットに即時切り替え
+    setAssets(getBundled(lang));
+
     async function load() {
       try {
         const global = await loadGlobalSettings();
@@ -187,74 +238,75 @@ export function useHalongAssets(): HalongAssets {
         if (!local) return;
 
         const r = (key: string, fallback: string) => resolve(local, key, fallback);
+        const fb = BUNDLED_FLOOR_BUTTONS[lang];
 
         setAssets({
-          openTime: r('open-times/en.svg', BUNDLED.openTime),
+          openTime: r('open-times/en.svg', BUNDLED_BASE.openTime),
           genres: {
-            all:             r('buttons/genres/en/all.svg',            BUNDLED.genres.all),
-            allHighlight:    r('buttons/genres/en/all-hilight.svg',    BUNDLED.genres.allHighlight),
-            fashion:         r('buttons/genres/en/fashion.svg',        BUNDLED.genres.fashion),
-            fashionHighlight: r('buttons/genres/en/fashion-hilight.svg', BUNDLED.genres.fashionHighlight),
-            goods:           r('buttons/genres/en/goods.svg',          BUNDLED.genres.goods),
-            goodsHighlight:  r('buttons/genres/en/goods-hilight.svg',  BUNDLED.genres.goodsHighlight),
-            gourmet:         r('buttons/genres/en/gourmet.svg',        BUNDLED.genres.gourmet),
-            gourmetHighlight: r('buttons/genres/en/gourmet-hilight.svg', BUNDLED.genres.gourmetHighlight),
-            service:         r('buttons/genres/en/service.svg',        BUNDLED.genres.service),
-            serviceHighlight: r('buttons/genres/en/service-hilight.svg', BUNDLED.genres.serviceHighlight),
-            next:            r('buttons/genres/next.svg',              BUNDLED.genres.next),
-            prev:            r('buttons/genres/prev.svg',              BUNDLED.genres.prev),
+            all:             r('buttons/genres/en/all.svg',            BUNDLED_BASE.genres.all),
+            allHighlight:    r('buttons/genres/en/all-hilight.svg',    BUNDLED_BASE.genres.allHighlight),
+            fashion:         r('buttons/genres/en/fashion.svg',        BUNDLED_BASE.genres.fashion),
+            fashionHighlight: r('buttons/genres/en/fashion-hilight.svg', BUNDLED_BASE.genres.fashionHighlight),
+            goods:           r('buttons/genres/en/goods.svg',          BUNDLED_BASE.genres.goods),
+            goodsHighlight:  r('buttons/genres/en/goods-hilight.svg',  BUNDLED_BASE.genres.goodsHighlight),
+            gourmet:         r('buttons/genres/en/gourmet.svg',        BUNDLED_BASE.genres.gourmet),
+            gourmetHighlight: r('buttons/genres/en/gourmet-hilight.svg', BUNDLED_BASE.genres.gourmetHighlight),
+            service:         r('buttons/genres/en/service.svg',        BUNDLED_BASE.genres.service),
+            serviceHighlight: r('buttons/genres/en/service-hilight.svg', BUNDLED_BASE.genres.serviceHighlight),
+            next:            r('buttons/genres/next.svg',              BUNDLED_BASE.genres.next),
+            prev:            r('buttons/genres/prev.svg',              BUNDLED_BASE.genres.prev),
           },
-          hint: r('hint/en.svg', BUNDLED.hint),
+          hint: r('hint/en.svg', BUNDLED_BASE.hint),
           floorLabels: {
-            'B1': r('floor-labels/en/B1.svg', BUNDLED.floorLabels['B1']),
-            '1F': r('floor-labels/en/1F.svg', BUNDLED.floorLabels['1F']),
-            '2F': r('floor-labels/en/2F.svg', BUNDLED.floorLabels['2F']),
-            '3F': r('floor-labels/en/3F.svg', BUNDLED.floorLabels['3F']),
-            '4F': r('floor-labels/en/4F.svg', BUNDLED.floorLabels['4F']),
+            'B1': r('floor-labels/en/B1.svg', BUNDLED_BASE.floorLabels['B1']),
+            '1F': r('floor-labels/en/1F.svg', BUNDLED_BASE.floorLabels['1F']),
+            '2F': r('floor-labels/en/2F.svg', BUNDLED_BASE.floorLabels['2F']),
+            '3F': r('floor-labels/en/3F.svg', BUNDLED_BASE.floorLabels['3F']),
+            '4F': r('floor-labels/en/4F.svg', BUNDLED_BASE.floorLabels['4F']),
           },
           floorButtons: {
             'B1': {
-              default:   r('buttons/floors/en/B1-01.svg',           BUNDLED.floorButtons['B1'].default),
-              highlight: r('buttons/floors/en/B1-01-highlight.svg', BUNDLED.floorButtons['B1'].highlight),
+              default:   r(`buttons/floors/${lang}/B1-01.svg`,           fb['B1'].default),
+              highlight: r(`buttons/floors/${lang}/B1-01-highlight.svg`, fb['B1'].highlight),
             },
             '1F': {
-              default:   r('buttons/floors/en/1F-01.svg',           BUNDLED.floorButtons['1F'].default),
-              highlight: r('buttons/floors/en/1F-01-highlight.svg', BUNDLED.floorButtons['1F'].highlight),
+              default:   r(`buttons/floors/${lang}/1F-01.svg`,           fb['1F'].default),
+              highlight: r(`buttons/floors/${lang}/1F-01-highlight.svg`, fb['1F'].highlight),
             },
             '2F': {
-              default:   r('buttons/floors/en/2F-01.svg',           BUNDLED.floorButtons['2F'].default),
-              highlight: r('buttons/floors/en/2F-01-highlight.svg', BUNDLED.floorButtons['2F'].highlight),
+              default:   r(`buttons/floors/${lang}/2F-01.svg`,           fb['2F'].default),
+              highlight: r(`buttons/floors/${lang}/2F-01-highlight.svg`, fb['2F'].highlight),
             },
             '3F': {
-              default:   r('buttons/floors/en/3F-01.svg',           BUNDLED.floorButtons['3F'].default),
-              highlight: r('buttons/floors/en/3F-01-highlight.svg', BUNDLED.floorButtons['3F'].highlight),
+              default:   r(`buttons/floors/${lang}/3F-01.svg`,           fb['3F'].default),
+              highlight: r(`buttons/floors/${lang}/3F-01-highlight.svg`, fb['3F'].highlight),
             },
             '4F': {
-              default:   r('buttons/floors/en/4F-01.svg',           BUNDLED.floorButtons['4F'].default),
-              highlight: r('buttons/floors/en/4F-01-highlight.svg', BUNDLED.floorButtons['4F'].highlight),
+              default:   r(`buttons/floors/${lang}/4F-01.svg`,           fb['4F'].default),
+              highlight: r(`buttons/floors/${lang}/4F-01-highlight.svg`, fb['4F'].highlight),
             },
           },
           langButtons: {
-            en: r('buttons/languages/en.svg', BUNDLED.langButtons.en),
-            ja: r('buttons/languages/ja.svg', BUNDLED.langButtons.ja),
-            vn: r('buttons/languages/vn.svg', BUNDLED.langButtons.vn),
+            en: r('buttons/languages/en.svg', BUNDLED_BASE.langButtons.en),
+            ja: r('buttons/languages/ja.svg', BUNDLED_BASE.langButtons.ja),
+            vn: r('buttons/languages/vn.svg', BUNDLED_BASE.langButtons.vn),
             select: {
-              bg:          r('buttons/languages/select/bg.svg',           BUNDLED.langButtons.select.bg),
-              en:          r('buttons/languages/select/en.svg',           BUNDLED.langButtons.select.en),
-              enHighlight: r('buttons/languages/select/en-highlight.svg', BUNDLED.langButtons.select.enHighlight),
-              ja:          r('buttons/languages/select/ja.svg',           BUNDLED.langButtons.select.ja),
-              jaHighlight: r('buttons/languages/select/ja-highlight.svg', BUNDLED.langButtons.select.jaHighlight),
-              vn:          r('buttons/languages/select/vn.svg',           BUNDLED.langButtons.select.vn),
-              vnHighlight: r('buttons/languages/select/vn-highlight.svg', BUNDLED.langButtons.select.vnHighlight),
+              bg:          r('buttons/languages/select/bg.svg',           BUNDLED_BASE.langButtons.select.bg),
+              en:          r('buttons/languages/select/en.svg',           BUNDLED_BASE.langButtons.select.en),
+              enHighlight: r('buttons/languages/select/en-highlight.svg', BUNDLED_BASE.langButtons.select.enHighlight),
+              ja:          r('buttons/languages/select/ja.svg',           BUNDLED_BASE.langButtons.select.ja),
+              jaHighlight: r('buttons/languages/select/ja-highlight.svg', BUNDLED_BASE.langButtons.select.jaHighlight),
+              vn:          r('buttons/languages/select/vn.svg',           BUNDLED_BASE.langButtons.select.vn),
+              vnHighlight: r('buttons/languages/select/vn-highlight.svg', BUNDLED_BASE.langButtons.select.vnHighlight),
             },
           },
           pictos: {
-            atm:      { default: r('buttons/pictos/en/atm.svg',                 BUNDLED.pictos.atm.default),      highlight: r('buttons/pictos/en/atm-highlight.svg',                 BUNDLED.pictos.atm.highlight) },
-            elevator: { default: r('buttons/pictos/en/elevator.svg',            BUNDLED.pictos.elevator.default), highlight: r('buttons/pictos/en/elevator-highlight.svg',            BUNDLED.pictos.elevator.highlight) },
-            lockers:  { default: r('buttons/pictos/en/free-coin-lockers.svg',   BUNDLED.pictos.lockers.default),  highlight: r('buttons/pictos/en/free-coin-lockers-highlight.svg',   BUNDLED.pictos.lockers.highlight) },
-            info:     { default: r('buttons/pictos/en/info.svg',                BUNDLED.pictos.info.default),     highlight: r('buttons/pictos/en/info-highlight.svg',                BUNDLED.pictos.info.highlight) },
-            restroom: { default: r('buttons/pictos/en/restroom.svg',            BUNDLED.pictos.restroom.default), highlight: r('buttons/pictos/en/restroom-highlight.svg',            BUNDLED.pictos.restroom.highlight) },
-            smoking:  { default: r('buttons/pictos/en/smoking-room.svg',        BUNDLED.pictos.smoking.default),  highlight: r('buttons/pictos/en/smoking-room-highlight.svg',        BUNDLED.pictos.smoking.highlight) },
+            atm:      { default: r('buttons/pictos/en/atm.svg',                 BUNDLED_BASE.pictos.atm.default),      highlight: r('buttons/pictos/en/atm-highlight.svg',                 BUNDLED_BASE.pictos.atm.highlight) },
+            elevator: { default: r('buttons/pictos/en/elevator.svg',            BUNDLED_BASE.pictos.elevator.default), highlight: r('buttons/pictos/en/elevator-highlight.svg',            BUNDLED_BASE.pictos.elevator.highlight) },
+            lockers:  { default: r('buttons/pictos/en/free-coin-lockers.svg',   BUNDLED_BASE.pictos.lockers.default),  highlight: r('buttons/pictos/en/free-coin-lockers-highlight.svg',   BUNDLED_BASE.pictos.lockers.highlight) },
+            info:     { default: r('buttons/pictos/en/info.svg',                BUNDLED_BASE.pictos.info.default),     highlight: r('buttons/pictos/en/info-highlight.svg',                BUNDLED_BASE.pictos.info.highlight) },
+            restroom: { default: r('buttons/pictos/en/restroom.svg',            BUNDLED_BASE.pictos.restroom.default), highlight: r('buttons/pictos/en/restroom-highlight.svg',            BUNDLED_BASE.pictos.restroom.highlight) },
+            smoking:  { default: r('buttons/pictos/en/smoking-room.svg',        BUNDLED_BASE.pictos.smoking.default),  highlight: r('buttons/pictos/en/smoking-room-highlight.svg',        BUNDLED_BASE.pictos.smoking.highlight) },
           },
         });
       } catch {
@@ -263,7 +315,7 @@ export function useHalongAssets(): HalongAssets {
     }
 
     load();
-  }, []);
+  }, [lang]);
 
   return assets;
 }
