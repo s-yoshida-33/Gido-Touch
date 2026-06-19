@@ -1,7 +1,8 @@
 // src/screens/halong/ShopListScreen.tsx
 // Screen size: 3840×2160 (16:9 landscape)
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { TransformWrapper, TransformComponent, type ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 import { useHalongMaps } from '../../hooks/useHalongMaps';
@@ -9,9 +10,25 @@ import { useHalongShops } from '../../hooks/useHalongShops';
 import { loadMallSettings } from '../../utils/settings';
 
 const IDLE_TIMEOUT_MS = 30000;
+const FLOOR_ANIM_DURATION = 0.35;
+
+const GENRES = ['all', 'fashion', 'goods', 'gourmet', 'service'] as const;
+type Genre = typeof GENRES[number];
+
+const listVariants: Variants = {
+  enter: (direction: number) => {
+    if (direction === 0) return { opacity: 0 };
+    return { x: direction > 0 ? 300 : -300, opacity: 0 };
+  },
+  center: { zIndex: 1, x: 0, opacity: 1 },
+  exit: (direction: number) => {
+    if (direction === 0) return { opacity: 0 };
+    return { zIndex: 0, x: direction > 0 ? -300 : 300, opacity: 0 };
+  },
+};
 
 export default function HalongShopListScreen() {
-  const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('en');
+  const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('vn');
   const [langPopupOpen, setLangPopupOpen] = useState(false);
   const assets = useHalongAssets(selectedLang);
   const maps = useHalongMaps();
@@ -21,30 +38,33 @@ export default function HalongShopListScreen() {
   const [pressedGenreNav, setPressedGenreNav] = useState<'prev' | 'next' | null>(null);
   const [showHint, setShowHint] = useState(true);
   const [showFloorLabel, setShowFloorLabel] = useState(true);
-  const transformComponentRef = useRef<ReactZoomPanPinchContentRef>(null);
-  const [selectedGenre, setSelectedGenre] = useState<string>('all');
+  const [selectedGenre, setSelectedGenre] = useState<Genre>('all');
+  const [genreDirection, setGenreDirection] = useState(0);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const transformComponentRef = useRef<ReactZoomPanPinchContentRef>(null);
   const genreScrollRef = useRef<HTMLDivElement>(null);
   const shopListScrollRef = useRef<HTMLDivElement>(null);
   const lastActivityTimeRef = useRef<number>(Date.now());
   const defaultFloorRef = useRef<string>('1F');
+  const floorLayerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const isInitialFloorRenderRef = useRef(true);
+  const prevFloorRef = useRef<string | null>(null);
 
+  const ALL_FLOORS = useMemo(() => ['1F', '2F', '3F', '4F'] as const, []);
   const FLOOR_ORDER = ['1F', '2F', '3F', '4F'];
 
   const filteredShops = useMemo(() => {
     let result = allShops;
 
-    // ジャンルフィルタリング（ショップ数が変化するのはここのみ）
     if (selectedGenre !== 'all') {
       result = result.filter(s => s.genre === selectedGenre);
     }
 
-    // 区画番号が空のショップを除外
     result = result.filter(s => s.section && s.section.trim() !== '');
 
-    // ソート: 選択フロア優先 → フロア昇順 → 区画番号昇順
     return [...result].sort((a, b) => {
       const aOnFloor = a.floor === currentFloor;
       const bOnFloor = b.floor === currentFloor;
@@ -59,6 +79,7 @@ export default function HalongShopListScreen() {
     });
   }, [allShops, currentFloor, selectedGenre]);
 
+  // 設定からデフォルトフロアを読み込む
   useEffect(() => {
     async function loadFloorSetting() {
       try {
@@ -74,6 +95,18 @@ export default function HalongShopListScreen() {
     loadFloorSetting();
   }, []);
 
+  // スクロールバー非表示のCSS注入
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .halong-shop-list-scroll::-webkit-scrollbar { display: none; }
+      .halong-genre-scroll::-webkit-scrollbar { display: none; }
+    `;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
+
+  // ジャンルスクロール可否の更新
   function updateGenreScrollability() {
     const el = genreScrollRef.current;
     if (!el) return;
@@ -96,10 +129,90 @@ export default function HalongShopListScreen() {
     genreScrollRef.current.scrollTo({ left: target, behavior: 'smooth' });
   }
 
-  useEffect(() => {
-    if (transformComponentRef.current) {
+  // マップフロア切り替えアニメーション（Mini準拠）
+  useLayoutEffect(() => {
+    const newFloor = currentFloor;
+    const isInitial = isInitialFloorRenderRef.current;
+    const duration = FLOOR_ANIM_DURATION;
+
+    const getFloorNum = (f: string) => parseInt(f.replace('F', '') || '1');
+    const prevFloor = prevFloorRef.current;
+    const current = getFloorNum(prevFloor || '1F');
+    const next = getFloorNum(newFloor);
+
+    let direction = 0;
+    if (next !== current) {
+      if (next === 1) direction = -1;
+      else if (next === 4) direction = 1;
+      else direction = next > current ? 1 : -1;
+    }
+
+    prevFloorRef.current = currentFloor;
+
+    if (!isInitial && direction !== 0 && transformComponentRef.current) {
       transformComponentRef.current.resetTransform(0);
     }
+
+    const animating = !isInitial && direction !== 0;
+
+    ALL_FLOORS.forEach(floor => {
+      const el = floorLayerRefs.current[floor];
+      if (!el) return;
+
+      if (animating) el.style.willChange = 'transform, opacity';
+
+      if (floor === newFloor) {
+        if (isInitial || direction === 0) {
+          el.style.transition = 'none';
+          el.style.transform = 'translateY(0)';
+          el.style.opacity = '1';
+          el.style.visibility = 'visible';
+          el.style.zIndex = '1';
+        } else {
+          const entryY = direction > 0 ? -200 : 200;
+          el.style.transition = 'none';
+          el.style.transform = `translateY(${entryY}px)`;
+          el.style.opacity = '0';
+          el.style.visibility = 'visible';
+          el.style.zIndex = '1';
+          el.getBoundingClientRect();
+          el.style.transition = `transform ${duration}s ease-in-out, opacity ${duration}s ease-in-out`;
+          el.style.transform = 'translateY(0)';
+          el.style.opacity = '1';
+        }
+      } else {
+        if (isInitial) {
+          el.style.transition = 'none';
+          el.style.transform = 'translateY(0)';
+          el.style.opacity = '0';
+          el.style.visibility = 'hidden';
+          el.style.zIndex = '0';
+        } else {
+          const exitY = direction > 0 ? 200 : -200;
+          el.style.transition = `transform ${duration}s ease-in-out, opacity ${duration}s ease-in-out`;
+          el.style.transform = `translateY(${exitY}px)`;
+          el.style.opacity = '0';
+          el.style.zIndex = '0';
+        }
+      }
+    });
+
+    isInitialFloorRenderRef.current = false;
+
+    const cleanupTimeout = setTimeout(() => {
+      ALL_FLOORS.forEach(floor => {
+        const el = floorLayerRefs.current[floor];
+        if (!el) return;
+        el.style.willChange = 'auto';
+        if (floor !== currentFloor) el.style.visibility = 'hidden';
+      });
+    }, duration * 1000 + 50);
+
+    return () => clearTimeout(cleanupTimeout);
+  }, [currentFloor, ALL_FLOORS]);
+
+  // フロアラベル・ヒントをズーム時に非表示（showHint/showFloorLabel はズーム判定に使用）
+  useEffect(() => {
     setShowHint(true);
     setShowFloorLabel(true);
   }, [currentFloor]);
@@ -134,7 +247,7 @@ export default function HalongShopListScreen() {
       const isShopListScrolled = shopListScrollRef.current ? shopListScrollRef.current.scrollTop > 5 : false;
 
       const isDefaultState =
-        selectedLang === 'en' &&
+        selectedLang === 'vn' &&
         !langPopupOpen &&
         selectedGenre === 'all' &&
         selectedPicto === null &&
@@ -151,7 +264,7 @@ export default function HalongShopListScreen() {
       setIsRefreshing(true);
 
       setTimeout(() => {
-        setSelectedLang('en');
+        setSelectedLang('vn');
         setLangPopupOpen(false);
         setSelectedGenre('all');
         setSelectedPicto(null);
@@ -186,13 +299,22 @@ export default function HalongShopListScreen() {
   }, [isRefreshing, selectedLang, langPopupOpen, selectedGenre, selectedPicto, currentFloor, showHint, showFloorLabel]);
 
   function handleFloorSelect(floor: string) {
+    setGenreDirection(0);
     setCurrentFloor(floor);
   }
 
+  function handleGenreSelect(genre: Genre) {
+    if (genre === selectedGenre) return;
+    const currentIndex = GENRES.indexOf(selectedGenre);
+    const newIndex = GENRES.indexOf(genre);
+    setGenreDirection(newIndex > currentIndex ? 1 : -1);
+    setSelectedGenre(genre);
+  }
 
   function handlePictoSelect(picto: string) {
     setSelectedPicto(prev => (prev === picto ? null : picto));
   }
+
   return (
     <div
       style={{
@@ -217,6 +339,7 @@ export default function HalongShopListScreen() {
           zIndex: 9999,
         }}
       />
+
       {/* 左エリア: 50px余白 + メインコンテナ3040×2060 + 右余白50px = 3140px */}
       <div
         style={{
@@ -358,7 +481,7 @@ export default function HalongShopListScreen() {
               overflow: "hidden",
             }}
           >
-            {/* ズームパン対応マップ */}
+            {/* ズームパン対応マップ（全フロアを事前レンダリング、フロア切り替えアニメーション） */}
             <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
               <TransformWrapper
                 ref={transformComponentRef}
@@ -389,12 +512,22 @@ export default function HalongShopListScreen() {
                   wrapperStyle={{ width: "100%", height: "100%" }}
                   contentStyle={{ width: "100%", height: "100%" }}
                 >
-                  <img
-                    src={maps[currentFloor as '1F' | '2F' | '3F' | '4F'] ?? maps['1F']}
-                    alt={`${currentFloor} map`}
-                    draggable={false}
-                    style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
-                  />
+                  <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                    {ALL_FLOORS.map(floor => (
+                      <div
+                        key={floor}
+                        ref={el => { floorLayerRefs.current[floor] = el; }}
+                        style={{ position: "absolute", inset: 0 }}
+                      >
+                        <img
+                          src={maps[floor]}
+                          alt={`${floor} map`}
+                          draggable={false}
+                          style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </TransformComponent>
               </TransformWrapper>
             </div>
@@ -436,7 +569,6 @@ export default function HalongShopListScreen() {
                 zIndex: 1,
               }}
             />
-
           </div>
 
           {/* インナーシャドウオーバーレイ */}
@@ -476,26 +608,30 @@ export default function HalongShopListScreen() {
             position: "relative",
           }}
         >
-          {/* ジャンルスクロールエリア（フル幅、prevとnextの下レイヤー） */}
+          {/* ジャンルスクロールエリア（タッチスクロール対応、スクロールバー非表示） */}
           <div
             ref={genreScrollRef}
+            className="halong-genre-scroll"
             style={{
               position: "absolute",
               left: 0,
               right: 0,
               top: 0,
               bottom: 0,
-              overflowX: "hidden",
+              overflowX: "auto",
               display: "flex",
               alignItems: "center",
+              cursor: "grab",
+              userSelect: "none",
+              scrollbarWidth: "none",
             }}
           >
             <div style={{ display: "flex", gap: "15px", padding: "0 15px", flexShrink: 0 }}>
-              {([ 'all', 'fashion', 'goods', 'gourmet', 'service' ] as const).map(genre => (
+              {GENRES.map(genre => (
                 <div
                   key={genre}
-                  style={{ position: "relative", cursor: "pointer", touchAction: "none", flexShrink: 0 }}
-                  onClick={() => setSelectedGenre(genre)}
+                  style={{ position: "relative", cursor: "pointer", touchAction: "pan-x", flexShrink: 0 }}
+                  onClick={() => handleGenreSelect(genre)}
                 >
                   <img
                     src={assets.genres[genre]}
@@ -525,7 +661,7 @@ export default function HalongShopListScreen() {
             </div>
           </div>
 
-          {/* prevボタン（スクロール可能な場合のみ表示、アイコンに重なる） */}
+          {/* prevボタン */}
           {canScrollLeft && (
             <div
               style={{
@@ -555,7 +691,7 @@ export default function HalongShopListScreen() {
             </div>
           )}
 
-          {/* nextボタン（スクロール可能な場合のみ表示、アイコンに重なる） */}
+          {/* nextボタン */}
           {canScrollRight && (
             <div
               style={{
@@ -611,76 +747,90 @@ export default function HalongShopListScreen() {
             overflow: "hidden",
           }}
         >
-          {/* ショップカードリスト */}
-          <div
-            ref={shopListScrollRef}
-            style={{
-              position: "absolute",
-              inset: 0,
-              overflowY: "auto",
-              padding: "25px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "25px",
-              boxSizing: "border-box",
-            }}
-          >
-            {filteredShops.map(shop => (
-              <div
-                key={shop.id}
-                style={{
-                  width: "600px",
-                  height: "120px",
-                  borderRadius: "10px",
-                  backgroundColor: "#ffffff",
-                  flexShrink: 0,
-                  filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
-                  position: "relative",
-                }}
-              >
-                {/* ロゴエリア 120×120 */}
-                <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden", borderRadius: "10px 0 0 10px" }}>
-                  {shop.logoDataUrl && (
-                    <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
-                      style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-                  )}
-                </div>
-
-                {/* フロアラベル 56×30 黒 */}
-                <div style={{ position: "absolute", left: "120px", top: 0, width: "56px", height: "30px", backgroundColor: "#000000",
-                  display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{shop.floor}</span>
-                </div>
-
-                {/* 区画番号ラベル 84×30 グレー（number が空の場合は非表示） */}
-                {shop.section && (
-                  <div style={{ position: "absolute", left: "176px", top: 0, width: "84px", height: "30px", backgroundColor: "#888888",
-                    display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{shop.section}</span>
-                  </div>
-                )}
-
-                {/* ショップ名（ロゴから20px右、縦中央） */}
+          <AnimatePresence initial={false} custom={genreDirection}>
+            <motion.div
+              key={`${selectedGenre}-${currentFloor}`}
+              ref={shopListScrollRef}
+              custom={genreDirection}
+              variants={listVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="halong-shop-list-scroll"
+              transition={{
+                x: { type: "tween", duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5, ease: "easeInOut" },
+                opacity: { duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5 },
+              }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                overflowY: "auto",
+                scrollbarWidth: "none",
+                padding: "25px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "25px",
+                boxSizing: "border-box",
+              }}
+            >
+              {filteredShops.map(shop => (
                 <div
+                  key={shop.id}
                   style={{
-                    position: "absolute",
-                    left: "140px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    fontSize: "24px",
-                    fontWeight: "bold",
-                    color: "#000000",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    maxWidth: "440px",
+                    width: "600px",
+                    height: "120px",
+                    borderRadius: "10px",
+                    backgroundColor: "#ffffff",
+                    flexShrink: 0,
+                    filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
+                    position: "relative",
                   }}
                 >
-                  {shop.name}
+                  {/* ロゴエリア 120×120 */}
+                  <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden", borderRadius: "10px 0 0 10px" }}>
+                    {shop.logoDataUrl && (
+                      <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
+                        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                    )}
+                  </div>
+
+                  {/* フロアラベル 56×30 黒 */}
+                  <div style={{ position: "absolute", left: "120px", top: 0, width: "56px", height: "30px", backgroundColor: "#000000",
+                    display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{shop.floor}</span>
+                  </div>
+
+                  {/* 区画番号ラベル 84×30 グレー */}
+                  {shop.section && (
+                    <div style={{ position: "absolute", left: "176px", top: 0, width: "84px", height: "30px", backgroundColor: "#888888",
+                      display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff" }}>{shop.section}</span>
+                    </div>
+                  )}
+
+                  {/* ショップ名 */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "140px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      fontSize: "24px",
+                      fontWeight: "bold",
+                      color: "#000000",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "440px",
+                    }}
+                  >
+                    {shop.name}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </motion.div>
+          </AnimatePresence>
+
           {/* インナーシャドウオーバーレイ */}
           <div
             style={{
@@ -689,6 +839,7 @@ export default function HalongShopListScreen() {
               borderRadius: "20px",
               boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
               pointerEvents: "none",
+              zIndex: 2,
             }}
           />
         </div>
@@ -739,7 +890,8 @@ export default function HalongShopListScreen() {
                   flexDirection: "column",
                   alignItems: "center",
                   paddingTop: "20px",
-                  paddingBottom: "63px",
+                  paddingLeft: "20px",
+                  paddingRight: "20px",
                   gap: "20px",
                   boxSizing: "border-box",
                 }}
