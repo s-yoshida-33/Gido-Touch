@@ -553,7 +553,7 @@ export default function HalongShopListScreen() {
             >
               {/* 背景 */}
               <img src={assets.langButtons.select.bg} alt="" draggable={false}
-                style={{ width: "658px", display: "block" }} />
+                style={{ width: "658px", display: "block", filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }} />
               {/* ボタン群（bg上に絶対配置） */}
               <div
                 style={{
@@ -575,7 +575,7 @@ export default function HalongShopListScreen() {
                     onClick={() => { setSelectedLang(lang); setLangPopupOpen(false); }}
                   >
                     <img src={assets.langButtons.select[lang]} alt={lang} draggable={false}
-                      style={{ width: "618px", display: "block" }} />
+                      style={{ width: "618px", display: "block", filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }} />
                     <img src={assets.langButtons.select[`${lang}Highlight` as 'enHighlight' | 'jaHighlight' | 'vnHighlight']} alt="" draggable={false}
                       style={{
                         position: "absolute", top: 0, left: 0, width: "618px", display: "block",
