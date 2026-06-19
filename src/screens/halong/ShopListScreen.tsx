@@ -487,10 +487,10 @@ export default function HalongShopListScreen() {
                 }}
               >
                 {/* ロゴエリア 120×120 */}
-                <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden" }}>
+                <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden", borderRadius: "10px 0 0 10px" }}>
                   {shop.logoDataUrl && (
                     <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
                   )}
                 </div>
 
