@@ -196,7 +196,7 @@ export default function HalongShopListScreen() {
               {((['4F', '3F', '2F', '1F', 'B1'] as const)).map(floor => (
                 <div
                   key={floor}
-                  style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
+                  style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: currentFloor === floor ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
                   onClick={() => handleFloorSelect(floor)}
                 >
                   <img src={assets.floorButtons[floor].default} alt={floor} draggable={false}
