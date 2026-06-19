@@ -382,116 +382,6 @@ export default function HalongShopListScreen() {
             flexDirection: "row",
           }}
         >
-          {/* オペレーションコンテナ */}
-          <div
-            style={{
-              width: "655px",
-              height: "2060px",
-              backgroundColor: "#DDDDDD",
-              flexShrink: 0,
-              display: "flex",
-              flexDirection: "column",
-              padding: "50px",
-              boxSizing: "border-box",
-            }}
-          >
-            {/* ピクトボタン行（左上） */}
-            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0 }}>
-              {/* info */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('info')}
-              >
-                <img src={assets.pictos.info.default} alt="info" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.info.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'info' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-              {/* restroom */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('restroom')}
-              >
-                <img src={assets.pictos.restroom.default} alt="restroom" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.restroom.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'restroom' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-              {/* smoking */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('smoking')}
-              >
-                <img src={assets.pictos.smoking.default} alt="smoking" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.smoking.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'smoking' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-            </div>
-
-            {/* ピクトボタン行2（コインロッカー・ATM・エレベーター） */}
-            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0, marginTop: "30px" }}>
-              {/* lockers */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('lockers')}
-              >
-                <img src={assets.pictos.lockers.default} alt="lockers" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.lockers.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'lockers' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-              {/* atm */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('atm')}
-              >
-                <img src={assets.pictos.atm.default} alt="atm" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.atm.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'atm' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-              {/* elevator */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('elevator')}
-              >
-                <img src={assets.pictos.elevator.default} alt="elevator" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.elevator.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'elevator' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-            </div>
-
-            {/* スペーサー */}
-            <div style={{ flex: 1 }} />
-
-            {/* フロアボタン（下・中央）上から 4F→3F→2F→1F */}
-            <div
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "50px", flexShrink: 0 }}
-            >
-              {((['4F', '3F', '2F', '1F'] as const)).map(floor => (
-                <div
-                  key={floor}
-                  style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: currentFloor === floor ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
-                  onClick={() => handleFloorSelect(floor)}
-                >
-                  <img src={assets.floorButtons[floor].default} alt={floor} draggable={false}
-                    style={{ width: "555px", height: "174px", display: "block" }} />
-                  <img src={assets.floorButtons[floor].highlight} alt="" draggable={false}
-                    style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
-                      opacity: currentFloor === floor ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* マップコンテナ */}
           <div
             style={{
@@ -571,15 +461,15 @@ export default function HalongShopListScreen() {
               }}
             />
 
-            {/* ヒント (x:400, y:85) */}
+            {/* ヒント (x:50, y:bottom 50) */}
             <img
               src={assets.hint}
               alt=""
               draggable={false}
               style={{
                 position: "absolute",
-                left: "400px",
-                top: "85px",
+                left: "50px",
+                bottom: "50px",
                 width: "654px",
                 height: "96px",
                 display: "block",
@@ -589,6 +479,116 @@ export default function HalongShopListScreen() {
                 zIndex: 1,
               }}
             />
+          </div>
+
+          {/* オペレーションコンテナ */}
+          <div
+            style={{
+              width: "655px",
+              height: "2060px",
+              backgroundColor: "#DDDDDD",
+              flexShrink: 0,
+              display: "flex",
+              flexDirection: "column",
+              padding: "50px",
+              boxSizing: "border-box",
+            }}
+          >
+            {/* スペーサー */}
+            <div style={{ flex: 1 }} />
+
+            {/* ピクトボタン行（左上） */}
+            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0 }}>
+              {/* info */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
+                onClick={() => handlePictoSelect('info')}
+              >
+                <img src={assets.pictos.info.default} alt="info" draggable={false}
+                  style={{ width: "165px", height: "165px", display: "block" }} />
+                <img src={assets.pictos.info.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                    opacity: selectedPicto === 'info' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+              {/* restroom */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
+                onClick={() => handlePictoSelect('restroom')}
+              >
+                <img src={assets.pictos.restroom.default} alt="restroom" draggable={false}
+                  style={{ width: "165px", height: "165px", display: "block" }} />
+                <img src={assets.pictos.restroom.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                    opacity: selectedPicto === 'restroom' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+              {/* smoking */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
+                onClick={() => handlePictoSelect('smoking')}
+              >
+                <img src={assets.pictos.smoking.default} alt="smoking" draggable={false}
+                  style={{ width: "165px", height: "165px", display: "block" }} />
+                <img src={assets.pictos.smoking.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                    opacity: selectedPicto === 'smoking' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+            </div>
+
+            {/* ピクトボタン行2（コインロッカー・ATM・エレベーター） */}
+            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0, marginTop: "30px" }}>
+              {/* lockers */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
+                onClick={() => handlePictoSelect('lockers')}
+              >
+                <img src={assets.pictos.lockers.default} alt="lockers" draggable={false}
+                  style={{ width: "165px", height: "165px", display: "block" }} />
+                <img src={assets.pictos.lockers.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                    opacity: selectedPicto === 'lockers' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+              {/* atm */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
+                onClick={() => handlePictoSelect('atm')}
+              >
+                <img src={assets.pictos.atm.default} alt="atm" draggable={false}
+                  style={{ width: "165px", height: "165px", display: "block" }} />
+                <img src={assets.pictos.atm.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                    opacity: selectedPicto === 'atm' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+              {/* elevator */}
+              <div
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
+                onClick={() => handlePictoSelect('elevator')}
+              >
+                <img src={assets.pictos.elevator.default} alt="elevator" draggable={false}
+                  style={{ width: "165px", height: "165px", display: "block" }} />
+                <img src={assets.pictos.elevator.highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                    opacity: selectedPicto === 'elevator' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+            </div>
+
+            {/* フロアボタン（下・中央）上から 4F→3F→2F→1F */}
+            <div
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "50px", flexShrink: 0, marginTop: "50px" }}
+            >
+              {((['4F', '3F', '2F', '1F'] as const)).map(floor => (
+                <div
+                  key={floor}
+                  style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: currentFloor === floor ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
+                  onClick={() => handleFloorSelect(floor)}
+                >
+                  <img src={assets.floorButtons[floor].default} alt={floor} draggable={false}
+                    style={{ width: "555px", height: "174px", display: "block" }} />
+                  <img src={assets.floorButtons[floor].highlight} alt="" draggable={false}
+                    style={{ position: "absolute", top: 0, left: 0, width: "555px", height: "174px", display: "block",
+                      opacity: currentFloor === floor ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* インナーシャドウオーバーレイ */}
@@ -617,6 +617,128 @@ export default function HalongShopListScreen() {
           paddingTop: "25px",
         }}
       >
+        {/* 営業時間 */}
+        <img
+          src={assets.openTime}
+          alt=""
+          style={{
+            width: "650px",
+            height: "453px",
+            flexShrink: 0,
+            display: "block",
+          }}
+        />
+
+        {/* ショップリストコンテナ */}
+        <div
+          style={{
+            width: "650px",
+            height: "1338px",
+            borderRadius: "20px",
+            backgroundColor: "#ffffff",
+            marginTop: "25px",
+            flexShrink: 0,
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          <AnimatePresence initial={false} custom={genreDirection}>
+            <motion.div
+              key={`${selectedGenre}-${currentFloor}`}
+              ref={shopListScrollRef}
+              custom={genreDirection}
+              variants={listVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="halong-shop-list-scroll"
+              transition={{
+                x: { type: "tween", duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5, ease: "easeInOut" },
+                opacity: { duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5 },
+              }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                overflowY: "auto",
+                scrollbarWidth: "none",
+                padding: "25px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "25px",
+                boxSizing: "border-box",
+              }}
+            >
+              {filteredShops.map(shop => (
+                <div
+                  key={shop.id}
+                  style={{
+                    width: "600px",
+                    height: "120px",
+                    borderRadius: "10px",
+                    backgroundColor: "#ffffff",
+                    flexShrink: 0,
+                    filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
+                    position: "relative",
+                  }}
+                >
+                  {/* ロゴエリア 120×120 */}
+                  <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden", borderRadius: "10px 0 0 10px" }}>
+                    {shop.logoDataUrl && (
+                      <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
+                        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                    )}
+                  </div>
+
+                  {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
+                  <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
+                    display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
+                  </div>
+
+                  {/* 区画番号ラベル グレー（幅は言語ごとの最大テキスト幅に動的変更） */}
+                  {shop.section && (
+                    <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: "#888888",
+                      display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
+                    </div>
+                  )}
+
+                  {/* ショップ名 */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "140px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      fontSize: "24px",
+                      fontWeight: "bold",
+                      color: "#000000",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "440px",
+                    }}
+                  >
+                    {getDisplayName(shop, selectedLang)}
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* インナーシャドウオーバーレイ */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "20px",
+              boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
+        </div>
+
         {/* ジャンルコンテナ */}
         <div
           style={{
@@ -624,6 +746,7 @@ export default function HalongShopListScreen() {
             height: "150px",
             borderRadius: "20px",
             backgroundColor: "#ffffff",
+            marginTop: "25px",
             flexShrink: 0,
             position: "relative",
           }}
@@ -753,129 +876,6 @@ export default function HalongShopListScreen() {
             }}
           />
         </div>
-
-        {/* ショップリストコンテナ */}
-        <div
-          style={{
-            width: "650px",
-            height: "1338px",
-            borderRadius: "20px",
-            backgroundColor: "#ffffff",
-            marginTop: "25px",
-            flexShrink: 0,
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          <AnimatePresence initial={false} custom={genreDirection}>
-            <motion.div
-              key={`${selectedGenre}-${currentFloor}`}
-              ref={shopListScrollRef}
-              custom={genreDirection}
-              variants={listVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="halong-shop-list-scroll"
-              transition={{
-                x: { type: "tween", duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5, ease: "easeInOut" },
-                opacity: { duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5 },
-              }}
-              style={{
-                position: "absolute",
-                inset: 0,
-                overflowY: "auto",
-                scrollbarWidth: "none",
-                padding: "25px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "25px",
-                boxSizing: "border-box",
-              }}
-            >
-              {filteredShops.map(shop => (
-                <div
-                  key={shop.id}
-                  style={{
-                    width: "600px",
-                    height: "120px",
-                    borderRadius: "10px",
-                    backgroundColor: "#ffffff",
-                    flexShrink: 0,
-                    filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
-                    position: "relative",
-                  }}
-                >
-                  {/* ロゴエリア 120×120 */}
-                  <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden", borderRadius: "10px 0 0 10px" }}>
-                    {shop.logoDataUrl && (
-                      <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
-                        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-                    )}
-                  </div>
-
-                  {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
-                  <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
-                    display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
-                  </div>
-
-                  {/* 区画番号ラベル グレー（幅は言語ごとの最大テキスト幅に動的変更） */}
-                  {shop.section && (
-                    <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: "#888888",
-                      display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
-                    </div>
-                  )}
-
-                  {/* ショップ名 */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "140px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      fontSize: "24px",
-                      fontWeight: "bold",
-                      color: "#000000",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      maxWidth: "440px",
-                    }}
-                  >
-                    {getDisplayName(shop, selectedLang)}
-                  </div>
-                </div>
-              ))}
-            </motion.div>
-          </AnimatePresence>
-
-          {/* インナーシャドウオーバーレイ */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              borderRadius: "20px",
-              boxShadow: "inset 4px 4px 12px rgba(0, 0, 0, 0.4)",
-              pointerEvents: "none",
-              zIndex: 2,
-            }}
-          />
-        </div>
-
-        {/* 営業時間 */}
-        <img
-          src={assets.openTime}
-          alt=""
-          style={{
-            width: "650px",
-            height: "453px",
-            marginTop: "25px",
-            flexShrink: 0,
-            display: "block",
-          }}
-        />
 
         {/* 言語選択ボタン＋ポップアップ */}
         <div
