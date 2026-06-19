@@ -37,8 +37,20 @@ out/
 # Exclude all files in media/ but keep the directory structure
 medias/*
 !medias/.gitkeep
-data/*
+
+# Data directory (local content files - gitignored except .gitkeep files)
+data/**
 !data/.gitkeep
+!data/halong/
+!data/halong/files/
+!data/halong/files/shops/
+!data/halong/files/shops/.gitkeep
+!data/halong/files/news/
+!data/halong/files/news/.gitkeep
+!data/halong/files/events/
+!data/halong/files/events/.gitkeep
+!data/halong/json/
+!data/halong/json/.gitkeep
 
 # Tauri
 src-tauri/target/
