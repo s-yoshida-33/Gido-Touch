@@ -1,7 +1,7 @@
 // src/hooks/useHalongAssets.ts
 // ローカル端末アセット優先、失敗時はバンドルアセットにフォールバック
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { loadGlobalSettings } from '../utils/settings';
 
@@ -347,15 +347,72 @@ function getBundled(lang: 'en' | 'ja' | 'vn'): HalongAssets {
   };
 }
 
+// ── ローカルアセットビルダー ──────────────────────────────────────
+
+function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn'): HalongAssets {
+  const r = (key: string, fallback: string) => resolve(local, key, fallback);
+  const fb = getBundled(lang);
+  return {
+    openTime: r(`open-times/${lang}.svg`, fb.openTime),
+    genres: {
+      all:             r(`buttons/genres/${lang}/all.svg`,             fb.genres.all),
+      allHighlight:    r(`buttons/genres/${lang}/all-hilight.svg`,     fb.genres.allHighlight),
+      fashion:         r(`buttons/genres/${lang}/fashion.svg`,         fb.genres.fashion),
+      fashionHighlight: r(`buttons/genres/${lang}/fashion-hilight.svg`, fb.genres.fashionHighlight),
+      goods:           r(`buttons/genres/${lang}/goods.svg`,           fb.genres.goods),
+      goodsHighlight:  r(`buttons/genres/${lang}/goods-hilight.svg`,   fb.genres.goodsHighlight),
+      gourmet:         r(`buttons/genres/${lang}/gourmet.svg`,         fb.genres.gourmet),
+      gourmetHighlight: r(`buttons/genres/${lang}/gourmet-hilight.svg`, fb.genres.gourmetHighlight),
+      service:         r(`buttons/genres/${lang}/service.svg`,         fb.genres.service),
+      serviceHighlight: r(`buttons/genres/${lang}/service-hilight.svg`, fb.genres.serviceHighlight),
+      next:            r('buttons/genres/next.svg',                    fb.genres.next),
+      prev:            r('buttons/genres/prev.svg',                    fb.genres.prev),
+    },
+    hint: r(`hint/${lang}.svg`, fb.hint),
+    floorLabels: {
+      '1F': r(`floor-labels/${lang}/1F.svg`, fb.floorLabels['1F']),
+      '2F': r(`floor-labels/${lang}/2F.svg`, fb.floorLabels['2F']),
+      '3F': r(`floor-labels/${lang}/3F.svg`, fb.floorLabels['3F']),
+      '4F': r(`floor-labels/${lang}/4F.svg`, fb.floorLabels['4F']),
+    },
+    floorButtons: {
+      '1F': { default: r(`buttons/floors/${lang}/1F-01.svg`, fb.floorButtons['1F'].default), highlight: r(`buttons/floors/${lang}/1F-01-highlight.svg`, fb.floorButtons['1F'].highlight) },
+      '2F': { default: r(`buttons/floors/${lang}/2F-01.svg`, fb.floorButtons['2F'].default), highlight: r(`buttons/floors/${lang}/2F-01-highlight.svg`, fb.floorButtons['2F'].highlight) },
+      '3F': { default: r(`buttons/floors/${lang}/3F-01.svg`, fb.floorButtons['3F'].default), highlight: r(`buttons/floors/${lang}/3F-01-highlight.svg`, fb.floorButtons['3F'].highlight) },
+      '4F': { default: r(`buttons/floors/${lang}/4F-01.svg`, fb.floorButtons['4F'].default), highlight: r(`buttons/floors/${lang}/4F-01-highlight.svg`, fb.floorButtons['4F'].highlight) },
+    },
+    langButtons: {
+      en: r('buttons/languages/en.svg', fb.langButtons.en),
+      ja: r('buttons/languages/ja.svg', fb.langButtons.ja),
+      vn: r('buttons/languages/vn.svg', fb.langButtons.vn),
+      select: {
+        bg:          r('buttons/languages/select/bg.svg',           fb.langButtons.select.bg),
+        en:          r('buttons/languages/select/en.svg',           fb.langButtons.select.en),
+        enHighlight: r('buttons/languages/select/en-highlight.svg', fb.langButtons.select.enHighlight),
+        ja:          r('buttons/languages/select/ja.svg',           fb.langButtons.select.ja),
+        jaHighlight: r('buttons/languages/select/ja-highlight.svg', fb.langButtons.select.jaHighlight),
+        vn:          r('buttons/languages/select/vn.svg',           fb.langButtons.select.vn),
+        vnHighlight: r('buttons/languages/select/vn-highlight.svg', fb.langButtons.select.vnHighlight),
+      },
+    },
+    pictos: {
+      atm:      { default: r(`buttons/pictos/${lang}/atm.svg`,               fb.pictos.atm.default),      highlight: r(`buttons/pictos/${lang}/atm-highlight.svg`,               fb.pictos.atm.highlight) },
+      elevator: { default: r(`buttons/pictos/${lang}/elevator.svg`,          fb.pictos.elevator.default), highlight: r(`buttons/pictos/${lang}/elevator-highlight.svg`,          fb.pictos.elevator.highlight) },
+      lockers:  { default: r(`buttons/pictos/${lang}/free-coin-lockers.svg`, fb.pictos.lockers.default),  highlight: r(`buttons/pictos/${lang}/free-coin-lockers-highlight.svg`, fb.pictos.lockers.highlight) },
+      info:     { default: r(`buttons/pictos/${lang}/info.svg`,              fb.pictos.info.default),     highlight: r(`buttons/pictos/${lang}/info-highlight.svg`,              fb.pictos.info.highlight) },
+      restroom: { default: r(`buttons/pictos/${lang}/restroom.svg`,          fb.pictos.restroom.default), highlight: r(`buttons/pictos/${lang}/restroom-highlight.svg`,          fb.pictos.restroom.highlight) },
+      smoking:  { default: r(`buttons/pictos/${lang}/smoking-room.svg`,      fb.pictos.smoking.default),  highlight: r(`buttons/pictos/${lang}/smoking-room-highlight.svg`,      fb.pictos.smoking.highlight) },
+    },
+  };
+}
+
 // ── Hook ─────────────────────────────────────────────────────────
 
 export function useHalongAssets(lang: 'en' | 'ja' | 'vn' = 'en'): HalongAssets {
-  const [assets, setAssets] = useState<HalongAssets>(() => getBundled(lang));
+  // ローカルアセットURLマップをマウント時に1回だけ取得してキャッシュ
+  const [localMap, setLocalMap] = useState<Record<string, string> | null>(null);
 
   useEffect(() => {
-    // 言語変更時はバンドルアセットに即時切り替え
-    setAssets(getBundled(lang));
-
     async function load() {
       try {
         const global = await loadGlobalSettings();
@@ -364,82 +421,17 @@ export function useHalongAssets(lang: 'en' | 'ja' | 'vn' = 'en'): HalongAssets {
           mallId: 'halong',
           hostname,
         });
-        if (!local) return;
-
-        const r = (key: string, fallback: string) => resolve(local, key, fallback);
-        const fb = getBundled(lang);
-
-        setAssets({
-          openTime: r(`open-times/${lang}.svg`, fb.openTime),
-          genres: {
-            all:             r(`buttons/genres/${lang}/all.svg`,            fb.genres.all),
-            allHighlight:    r(`buttons/genres/${lang}/all-hilight.svg`,    fb.genres.allHighlight),
-            fashion:         r(`buttons/genres/${lang}/fashion.svg`,        fb.genres.fashion),
-            fashionHighlight: r(`buttons/genres/${lang}/fashion-hilight.svg`, fb.genres.fashionHighlight),
-            goods:           r(`buttons/genres/${lang}/goods.svg`,          fb.genres.goods),
-            goodsHighlight:  r(`buttons/genres/${lang}/goods-hilight.svg`,  fb.genres.goodsHighlight),
-            gourmet:         r(`buttons/genres/${lang}/gourmet.svg`,        fb.genres.gourmet),
-            gourmetHighlight: r(`buttons/genres/${lang}/gourmet-hilight.svg`, fb.genres.gourmetHighlight),
-            service:         r(`buttons/genres/${lang}/service.svg`,        fb.genres.service),
-            serviceHighlight: r(`buttons/genres/${lang}/service-hilight.svg`, fb.genres.serviceHighlight),
-            next:            r('buttons/genres/next.svg',                   fb.genres.next),
-            prev:            r('buttons/genres/prev.svg',                   fb.genres.prev),
-          },
-          hint: r(`hint/${lang}.svg`, fb.hint),
-          floorLabels: {
-            '1F': r(`floor-labels/${lang}/1F.svg`, fb.floorLabels['1F']),
-            '2F': r(`floor-labels/${lang}/2F.svg`, fb.floorLabels['2F']),
-            '3F': r(`floor-labels/${lang}/3F.svg`, fb.floorLabels['3F']),
-            '4F': r(`floor-labels/${lang}/4F.svg`, fb.floorLabels['4F']),
-          },
-          floorButtons: {
-            '1F': {
-              default:   r(`buttons/floors/${lang}/1F-01.svg`,           fb.floorButtons['1F'].default),
-              highlight: r(`buttons/floors/${lang}/1F-01-highlight.svg`, fb.floorButtons['1F'].highlight),
-            },
-            '2F': {
-              default:   r(`buttons/floors/${lang}/2F-01.svg`,           fb.floorButtons['2F'].default),
-              highlight: r(`buttons/floors/${lang}/2F-01-highlight.svg`, fb.floorButtons['2F'].highlight),
-            },
-            '3F': {
-              default:   r(`buttons/floors/${lang}/3F-01.svg`,           fb.floorButtons['3F'].default),
-              highlight: r(`buttons/floors/${lang}/3F-01-highlight.svg`, fb.floorButtons['3F'].highlight),
-            },
-            '4F': {
-              default:   r(`buttons/floors/${lang}/4F-01.svg`,           fb.floorButtons['4F'].default),
-              highlight: r(`buttons/floors/${lang}/4F-01-highlight.svg`, fb.floorButtons['4F'].highlight),
-            },
-          },
-          langButtons: {
-            en: r('buttons/languages/en.svg', fb.langButtons.en),
-            ja: r('buttons/languages/ja.svg', fb.langButtons.ja),
-            vn: r('buttons/languages/vn.svg', fb.langButtons.vn),
-            select: {
-              bg:          r('buttons/languages/select/bg.svg',           fb.langButtons.select.bg),
-              en:          r('buttons/languages/select/en.svg',           fb.langButtons.select.en),
-              enHighlight: r('buttons/languages/select/en-highlight.svg', fb.langButtons.select.enHighlight),
-              ja:          r('buttons/languages/select/ja.svg',           fb.langButtons.select.ja),
-              jaHighlight: r('buttons/languages/select/ja-highlight.svg', fb.langButtons.select.jaHighlight),
-              vn:          r('buttons/languages/select/vn.svg',           fb.langButtons.select.vn),
-              vnHighlight: r('buttons/languages/select/vn-highlight.svg', fb.langButtons.select.vnHighlight),
-            },
-          },
-          pictos: {
-            atm:      { default: r(`buttons/pictos/${lang}/atm.svg`,                 fb.pictos.atm.default),      highlight: r(`buttons/pictos/${lang}/atm-highlight.svg`,                 fb.pictos.atm.highlight) },
-            elevator: { default: r(`buttons/pictos/${lang}/elevator.svg`,            fb.pictos.elevator.default), highlight: r(`buttons/pictos/${lang}/elevator-highlight.svg`,            fb.pictos.elevator.highlight) },
-            lockers:  { default: r(`buttons/pictos/${lang}/free-coin-lockers.svg`,   fb.pictos.lockers.default),  highlight: r(`buttons/pictos/${lang}/free-coin-lockers-highlight.svg`,   fb.pictos.lockers.highlight) },
-            info:     { default: r(`buttons/pictos/${lang}/info.svg`,                fb.pictos.info.default),     highlight: r(`buttons/pictos/${lang}/info-highlight.svg`,                fb.pictos.info.highlight) },
-            restroom: { default: r(`buttons/pictos/${lang}/restroom.svg`,            fb.pictos.restroom.default), highlight: r(`buttons/pictos/${lang}/restroom-highlight.svg`,            fb.pictos.restroom.highlight) },
-            smoking:  { default: r(`buttons/pictos/${lang}/smoking-room.svg`,        fb.pictos.smoking.default),  highlight: r(`buttons/pictos/${lang}/smoking-room-highlight.svg`,        fb.pictos.smoking.highlight) },
-          },
-        });
+        if (local) setLocalMap(local);
       } catch {
         // Tauri 未使用（ブラウザ開発環境）またはロード失敗 → バンドルアセットを使用
       }
     }
-
     load();
-  }, [lang]);
+  }, []); // マウント時のみ実行
 
-  return assets;
+  // localMap と lang から同期的にアセットを導出（言語切り替えでフラッシュなし）
+  return useMemo(
+    () => localMap ? buildFromLocal(localMap, lang) : getBundled(lang),
+    [localMap, lang],
+  );
 }
