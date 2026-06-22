@@ -1,7 +1,7 @@
 // src/App.tsx
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import ShopListScreen from "./screens/ShopListScreen";
-import { ShopListScreen as HalongShopListScreen } from "./screens/halong";
+import { ShopListScreen as HalongShopListScreen, HalongSettingsScreen } from "./screens/halong";
 import VersionInfoScreen from "./screens/VersionInfoScreen";
 import UnifiedSettingsScreen from "./screens/UnifiedSettingsScreen";
 import { ContextMenu } from "./components/ContextMenu";
@@ -295,12 +295,15 @@ const App: React.FC = () => {
   };
 
   // Handler for settings save — update App state with persisted settings
-  const handleSettingsSave = (saved: MallSettingsFile, savedMallId?: string) => {
+  const handleSettingsSave = (saved: MallSettingsFile, savedMallId?: string, savedHostname?: string) => {
     // Update mall ID if changed
     if (savedMallId && savedMallId !== mallId) {
       setMallId(savedMallId);
       setContextMallId(savedMallId as any);
       addDebug(`App: Mall changed to ${savedMallId}`);
+    }
+    if (savedHostname !== undefined) {
+      setHostname(savedHostname);
     }
     setLocationSettings(saved.locationIcons);
     setImageSettings(saved.imageSettings);
@@ -700,21 +703,32 @@ const App: React.FC = () => {
           />
         )}
       </ContextMenu>
-      <UnifiedSettingsScreen
-        visible={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        onSave={handleSettingsSave}
-        floor={floor}
-        floorLayout={floorLayout}
-        locationIconSettings={locationSettings}
-        imageSettings={imageSettings}
-        shopPositions={shopPositions}
-        shops={shops}
-        currentFloorSetting={currentFloorSetting}
-        localMediaTextSettings={localMediaTextSettings}
-        genreSettings={localGenreSettings}
-        subFloorSettings={subFloorSettings}
-      />
+      {mallId === "halong" ? (
+        <HalongSettingsScreen
+          visible={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          onSave={(settings, savedHostname) => handleSettingsSave(settings, undefined, savedHostname)}
+          hostname={hostname}
+          currentFloorSetting={currentFloorSetting}
+          blackScreenSettings={blackScreenSettings}
+        />
+      ) : (
+        <UnifiedSettingsScreen
+          visible={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          onSave={handleSettingsSave}
+          floor={floor}
+          floorLayout={floorLayout}
+          locationIconSettings={locationSettings}
+          imageSettings={imageSettings}
+          shopPositions={shopPositions}
+          shops={shops}
+          currentFloorSetting={currentFloorSetting}
+          localMediaTextSettings={localMediaTextSettings}
+          genreSettings={localGenreSettings}
+          subFloorSettings={subFloorSettings}
+        />
+      )}
       <VersionInfoScreen
         visible={isVersionInfoOpen}
         onClose={() => setIsVersionInfoOpen(false)}
