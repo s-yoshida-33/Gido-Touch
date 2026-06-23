@@ -52,6 +52,10 @@ import bundledGenreVnServiceHighlight from '../assets/malls/halong/buttons/genre
 import bundledGenreNext from '../assets/malls/halong/buttons/genres/next.svg';
 import bundledGenrePrev from '../assets/malls/halong/buttons/genres/prev.svg';
 
+// location icons (bundled fallback)
+import bundledSpeechBubbleSvg from '../assets/location/user.svg';
+import bundledLocationSvg from '../assets/location/location.svg';
+
 // hint
 import bundledHintEn from '../assets/malls/halong/hint/en.svg';
 import bundledHintJa from '../assets/malls/halong/hint/ja.svg';
@@ -205,6 +209,8 @@ export interface HalongAssets {
     restroom: { default: string; highlight: string };
     smoking:  { default: string; highlight: string };
   };
+  speechBubbleIconSrc: string;
+  locationIconSrc: string;
 }
 
 // ── 言語別バンドルアセットテーブル ───────────────────────────────
@@ -344,6 +350,8 @@ function getBundled(lang: 'en' | 'ja' | 'vn'): HalongAssets {
     floorButtons: BUNDLED_FLOOR_BUTTONS[lang],
     langButtons: BUNDLED_LANG_BUTTONS,
     pictos: BUNDLED_PICTOS[lang],
+    speechBubbleIconSrc: bundledSpeechBubbleSvg,
+    locationIconSrc: bundledLocationSvg,
   };
 }
 
@@ -403,6 +411,8 @@ function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn')
       restroom: { default: r(`buttons/pictos/${lang}/restroom.svg`,          fb.pictos.restroom.default), highlight: r(`buttons/pictos/${lang}/restroom-highlight.svg`,          fb.pictos.restroom.highlight) },
       smoking:  { default: r(`buttons/pictos/${lang}/smoking-room.svg`,      fb.pictos.smoking.default),  highlight: r(`buttons/pictos/${lang}/smoking-room-highlight.svg`,      fb.pictos.smoking.highlight) },
     },
+    speechBubbleIconSrc: r(`icons/locations/user-${lang}.svg`, fb.speechBubbleIconSrc),
+    locationIconSrc:     r('icons/locations/location.svg',     fb.locationIconSrc),
   };
 }
 

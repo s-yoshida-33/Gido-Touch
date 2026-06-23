@@ -8,6 +8,10 @@ import { useHalongAssets } from '../../hooks/useHalongAssets';
 import { useHalongMaps } from '../../hooks/useHalongMaps';
 import { useHalongShops, getDisplayName, getFloorDisplay } from '../../hooks/useHalongShops';
 import { loadMallSettings } from '../../utils/settings';
+import { LocationIconsOverlay } from '../../components/LocationIconsOverlay';
+import { getLocationIconSettingsForFloor } from '../../config';
+import type { LocationIconSettingsPerFloor } from '../../types/locationIcon';
+import type { FloorId } from '../../types/floorLayout';
 
 const IDLE_TIMEOUT_MS = 30000;
 const FLOOR_ANIM_DURATION = 0.35;
@@ -43,6 +47,8 @@ export default function HalongShopListScreen() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [locationIconSettings, setLocationIconSettings] = useState<LocationIconSettingsPerFloor | null>(null);
+  const [currentFloorSetting, setCurrentFloorSetting] = useState<string>('1F');
 
   const transformComponentRef = useRef<ReactZoomPanPinchContentRef>(null);
   const genreScrollRef = useRef<HTMLDivElement>(null);
@@ -99,14 +105,18 @@ export default function HalongShopListScreen() {
     });
   }, [allShops, currentFloor, selectedGenre]);
 
-  // 設定からデフォルトフロアを読み込む
+  // 設定からデフォルトフロアと現在地アイコン設定を読み込む
   useEffect(() => {
     async function loadFloorSetting() {
       try {
         const mallSettings = await loadMallSettings('halong');
         if (mallSettings.currentFloorSetting) {
           setCurrentFloor(mallSettings.currentFloorSetting);
+          setCurrentFloorSetting(mallSettings.currentFloorSetting);
           defaultFloorRef.current = mallSettings.currentFloorSetting;
+        }
+        if (mallSettings.locationIcons) {
+          setLocationIconSettings(mallSettings.locationIcons);
         }
       } catch {
         // 設定未保存またはTauri未使用 → デフォルト1Fのまま
@@ -437,6 +447,14 @@ export default function HalongShopListScreen() {
                         />
                       </div>
                     ))}
+                    {locationIconSettings && currentFloor === currentFloorSetting && (
+                      <LocationIconsOverlay
+                        settings={getLocationIconSettingsForFloor(locationIconSettings, currentFloor as FloorId)}
+                        imageMetrics={null}
+                        speechBubbleSrc={assets.speechBubbleIconSrc}
+                        locationSrc={assets.locationIconSrc}
+                      />
+                    )}
                   </div>
                 </TransformComponent>
               </TransformWrapper>
