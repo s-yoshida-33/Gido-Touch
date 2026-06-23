@@ -137,6 +137,8 @@ const GidoApp: React.FC<GidoAppProps> = ({
           shops={previewShops}
           selectedShopId={selectedShopId}
           currentFloorSetting={propCurrentFloorSetting}
+          speechBubbleSrc={assets.common.speechBubbleIconSrc}
+          locationSrc={assets.common.locationIconSrc}
         />
       </div>
     );
@@ -173,6 +175,8 @@ const GidoApp: React.FC<GidoAppProps> = ({
           shops={previewShops}
           selectedShopId={selectedShopId}
           currentFloorSetting={propCurrentFloorSetting}
+          speechBubbleSrc={assets.common.speechBubbleIconSrc}
+          locationSrc={assets.common.locationIconSrc}
         />
 
         <div
@@ -318,7 +322,9 @@ const ShopPinsOverlay: React.FC<{
   shops?: Shop[];
   selectedShopId?: string | null;
   currentFloorSetting?: string;
-}> = ({ floor, floorMap, locationIconSettings, shopPositions, shops, selectedShopId, currentFloorSetting: propCurrentFloorSetting }) => {
+  speechBubbleSrc?: string;
+  locationSrc?: string;
+}> = ({ floor, floorMap, locationIconSettings, shopPositions, shops, selectedShopId, currentFloorSetting: propCurrentFloorSetting, speechBubbleSrc, locationSrc }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageMetrics, setImageMetrics] = useState<{ 
@@ -471,8 +477,8 @@ const ShopPinsOverlay: React.FC<{
         <LocationIconsOverlay
           settings={locationIconSettings}
           imageMetrics={imageMetrics}
-          speechBubbleSrc={assets.common.speechBubbleIconSrc}
-          locationSrc={assets.common.locationIconSrc}
+          speechBubbleSrc={speechBubbleSrc}
+          locationSrc={locationSrc}
         />
       )}
 

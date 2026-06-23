@@ -197,7 +197,9 @@ const MapWithPinsComponent: React.FC<{
   shopId?: string;
   currentFloorSetting: string;
   locationIconSettings: LocationIconSettingsPerFloor;
-}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentFloorSetting, locationIconSettings }) => {
+  speechBubbleSrc?: string;
+  locationSrc?: string;
+}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentFloorSetting, locationIconSettings, speechBubbleSrc, locationSrc }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageMetrics, setImageMetrics] = useState<{ 
@@ -299,8 +301,8 @@ const MapWithPinsComponent: React.FC<{
         <LocationIconsOverlay
           settings={currentFloorIconSettings}
           imageMetrics={imageMetrics}
-          speechBubbleSrc={assets.common.speechBubbleIconSrc}
-          locationSrc={assets.common.locationIconSrc}
+          speechBubbleSrc={speechBubbleSrc}
+          locationSrc={locationSrc}
         />
       )}
 
@@ -331,7 +333,7 @@ const ShopNameDisplay: React.FC<{ name: string; width: string; fontSize: string 
 interface ShopDetailScreenProps {
   shop: Shop;
   onClose: () => void;
-  language?: "ja" | "en";
+  language?: "ja" | "en" | "vn";
   currentFloorSetting: string;
   locationIconSettings: LocationIconSettingsPerFloor;
 }
@@ -432,6 +434,8 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                   shopId={shop.shopId || shop.number}
                   currentFloorSetting={currentFloorSetting}
                   locationIconSettings={locationIconSettings}
+                  speechBubbleSrc={assets.common.speechBubbleIconSrc}
+                  locationSrc={assets.common.locationIconSrc}
                 />
               </TransformComponent>
             </PinchSafeTransformWrapper>

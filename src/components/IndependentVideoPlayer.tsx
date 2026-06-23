@@ -143,7 +143,7 @@ function toAssetUrl(filePath: string): string {
 interface IndependentVideoPlayerProps {
   forceReload?: number;
   videoHeight?: string | number;
-  language?: "ja" | "en";
+  language?: "ja" | "en" | "vn";
   shops?: Shop[];
   overrideShopId?: string | null;
 }
