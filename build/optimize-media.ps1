@@ -7,6 +7,11 @@ param(
     [string]$MallId = ""
 )
 
+chcp 65001 | Out-Null
+$OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding  = [System.Text.Encoding]::UTF8
+
 $ErrorActionPreference = "Stop"
 
 # Require MallId
@@ -18,6 +23,8 @@ if ([string]::IsNullOrWhiteSpace($MallId)) {
         exit 1
     }
 }
+
+Write-Host "Processing videos for mall: $MallId" -ForegroundColor Cyan
 
 $rootDir   = Split-Path -Parent $PSScriptRoot
 $videosDir = Join-Path $rootDir "medias\$MallId\videos"
