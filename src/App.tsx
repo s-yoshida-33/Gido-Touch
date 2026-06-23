@@ -150,7 +150,7 @@ const App: React.FC = () => {
   const [isVersionInfoOpen, setIsVersionInfoOpen] = useState(false);
 
   // Mall ID state
-  const [mallId, setMallId] = useState<string>("suzaka");
+  const [mallId, setMallId] = useState<string>("");
   const [hostname, setHostname] = useState<string>("");
 
   // Bridge-Ground app registration & heartbeat
