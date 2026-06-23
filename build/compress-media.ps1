@@ -2,21 +2,21 @@
 # Usage: powershell -ExecutionPolicy Bypass -File .\build\compress-media.ps1 -MallId "suzaka" -MediaType "all"
 #
 # MediaType options:
-#   assets  - Compress medias/assets/{MallId}/
-#   maps    - Compress medias/maps/{MallId}/{hostname}/ for each hostname dir
-#   videos  - Compress medias/videos/{MallId}/optimized/ (fallback: videos/{MallId}/)
+#   assets  - Compress medias/{MallId}/assets/
+#   maps    - Compress medias/{MallId}/maps/{hostname}/ for each hostname dir
+#   videos  - Compress medias/{MallId}/videos/optimized/ (fallback: videos/)
 #   all     - All of the above
 #
 # S3 upload paths:
-#   s3://tti-distribution/public/gido-touch/medias/assets/{MallId}/
-#   s3://tti-distribution/public/gido-touch/medias/maps/{MallId}/{hostname}/
-#   s3://tti-distribution/public/gido-touch/medias/videos/{MallId}/
+#   s3://tti-distribution/public/gido-touch/medias/{MallId}/assets/
+#   s3://tti-distribution/public/gido-touch/medias/{MallId}/maps/{hostname}/
+#   s3://tti-distribution/public/gido-touch/medias/{MallId}/videos/
 #
 # Local source layout:
-#   medias/assets/{MallId}/                   <- asset files
-#   medias/maps/{MallId}/{hostname}/          <- map files per hostname (auto-scanned)
-#   medias/videos/{MallId}/optimized/         <- optimized video files
-#   medias/videos/{MallId}/                   <- fallback (raw videos)
+#   medias/{MallId}/assets/                   <- asset files
+#   medias/{MallId}/maps/{hostname}/          <- map files per hostname (auto-scanned)
+#   medias/{MallId}/videos/optimized/         <- optimized video files
+#   medias/{MallId}/videos/                   <- fallback (raw videos)
 #
 # Release output:
 #   release/{MallId}/assets/assets-{timestamp}.zip + latest.json
@@ -187,9 +187,9 @@ function Compress-And-Upload {
 function Process-Assets {
     Write-Host "`n[ASSETS]" -ForegroundColor Magenta
 
-    $sourceDir = Join-Path $mediasRoot "assets\$MallId"
+    $sourceDir = Join-Path $mediasRoot "$MallId\assets"
     $outputDir = Join-Path $rootDir "release\$MallId\assets"
-    $s3Base    = "s3://tti-distribution/public/gido-touch/medias/assets/$MallId"
+    $s3Base    = "s3://tti-distribution/public/gido-touch/medias/$MallId/assets"
 
     Compress-And-Upload -SourceDir $sourceDir -OutputDir $outputDir -ZipPrefix "assets" -S3Base $s3Base
 }
@@ -200,7 +200,7 @@ function Process-Assets {
 function Process-Maps {
     Write-Host "`n[MAPS]" -ForegroundColor Magenta
 
-    $mapsBaseDir = Join-Path $mediasRoot "maps\$MallId"
+    $mapsBaseDir = Join-Path $mediasRoot "$MallId\maps"
 
     if (-not (Test-Path $mapsBaseDir)) {
         Write-Host "  Maps directory not found: $mapsBaseDir" -ForegroundColor Yellow
@@ -220,7 +220,7 @@ function Process-Maps {
         $hn        = $hostnameDir.Name
         $sourceDir = $hostnameDir.FullName
         $outputDir = Join-Path $rootDir "release\$MallId\maps\$hn"
-        $s3Base    = "s3://tti-distribution/public/gido-touch/medias/maps/$MallId/$hn"
+        $s3Base    = "s3://tti-distribution/public/gido-touch/medias/$MallId/maps/$hn"
 
         Write-Host "  Processing hostname: $hn" -ForegroundColor Cyan
         Compress-And-Upload -SourceDir $sourceDir -OutputDir $outputDir -ZipPrefix "maps" -S3Base $s3Base
@@ -233,10 +233,10 @@ function Process-Maps {
 function Process-Videos {
     Write-Host "`n[VIDEOS]" -ForegroundColor Magenta
 
-    $sourceDir   = Join-Path $mediasRoot "videos\$MallId\optimized"
-    $fallbackDir = Join-Path $mediasRoot "videos\$MallId"
+    $sourceDir   = Join-Path $mediasRoot "$MallId\videos\optimized"
+    $fallbackDir = Join-Path $mediasRoot "$MallId\videos"
     $outputDir   = Join-Path $rootDir "release\$MallId\videos"
-    $s3Base      = "s3://tti-distribution/public/gido-touch/medias/videos/$MallId"
+    $s3Base      = "s3://tti-distribution/public/gido-touch/medias/$MallId/videos"
 
     # Select source: optimized/ if it has video files, otherwise fallback
     $videoExts = @('mp4', 'webm', 'mov')
