@@ -73,7 +73,7 @@ export const MallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (typeof window !== "undefined" && window.localStorage) {
       const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-      if (saved === "en" || saved === "ja") {
+      if (saved === "en" || saved === "ja" || saved === "vn") {
         setLanguageState(saved);
       }
     }

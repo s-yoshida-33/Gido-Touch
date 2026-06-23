@@ -467,7 +467,14 @@ const ShopPinsOverlay: React.FC<{
         }}
       />
 
-      {showLocationIcons && <LocationIconsOverlay settings={locationIconSettings} imageMetrics={imageMetrics} />}
+      {showLocationIcons && (
+        <LocationIconsOverlay
+          settings={locationIconSettings}
+          imageMetrics={imageMetrics}
+          speechBubbleSrc={assets.common.speechBubbleIconSrc}
+          locationSrc={assets.common.locationIconSrc}
+        />
+      )}
 
       {shopPins}
     </div>

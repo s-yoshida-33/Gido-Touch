@@ -18,6 +18,8 @@ interface ImageMetrics {
 interface Props {
   settings: LocationIconSettings;
   imageMetrics?: ImageMetrics | null;
+  speechBubbleSrc?: string;
+  locationSrc?: string;
 }
 
 function buildShadowStyle(config: { enabled: boolean; offsetX: number; offsetY: number; blur: number; opacity: number }): React.CSSProperties {
@@ -90,7 +92,7 @@ function buildAnimationProps(animation?: AnimationConfig, scaleRatio: number = 1
   }
 }
 
-export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics }) => {
+export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, speechBubbleSrc, locationSrc }) => {
   const { speechBubble, location } = settings;
 
   // Helper to calculate scale ratio
@@ -255,7 +257,7 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics }
           >
             {renderRippleAnimation(speechBubble, "speech-bubble")}
             <img
-              src={SpeechBubbleSvg}
+              src={speechBubbleSrc ?? SpeechBubbleSvg}
               alt="Current location speech bubble"
               style={getSizeStyle(speechBubble)}
             />
@@ -281,7 +283,7 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics }
           >
             {renderRippleAnimation(location, "location")}
             <img
-              src={LocationSvg}
+              src={locationSrc ?? LocationSvg}
               alt="Current location pin"
               style={getSizeStyle(location)}
             />

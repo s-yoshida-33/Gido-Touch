@@ -6,7 +6,7 @@ import mallsConfig from '../config/malls.json';
 
 export type MallId = string;
 export const MALL_IDS = mallsConfig.map(m => m.id);
-export type Language = "ja" | "en";
+export type Language = "ja" | "en" | "vn";
 
 // アセットのパス定義
 interface MallAssets {
@@ -35,6 +35,8 @@ interface MallAssets {
     resetHighlight: string;
     iconCurrentFloor: string;
     iconLocation: string;
+    speechBubbleIconSrc: string;
+    locationIconSrc: string;
     iconTime: string;
     iconTel: string;
     waonPointIcon: string;
@@ -85,6 +87,8 @@ import resetHighlightEn from "../assets/button/en/reset-highlight.svg";
 import iconCurrentFloorEn from "../assets/current/en/current.svg";
 
 import iconLocation from "../assets/icon/location.svg";
+import bundledSpeechBubbleSvg from "../assets/location/user.svg";
+import bundledLocationSvg from "../assets/location/location.svg";
 import iconTime from "../assets/icon/time.svg";
 import iconTel from "../assets/icon/tel.svg";
 import waonPointIcon from "../assets/icon/waonpoint.svg";
@@ -227,13 +231,26 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja', refresh
     });
 
     const isEn = language === 'en';
-    
+
     let openTime = "";
     if (isEn) {
       openTime = openTimeEn || openTimeJa || openTimeDefault;
     } else {
       openTime = openTimeJa || openTimeDefault || openTimeEn;
     }
+
+    // Local location icon overrides (medias/{mallId}/assets/icons/locations/)
+    const localSpeechBubbleJa = rawAssets['icons/locations/user-ja.svg'] || null;
+    const localSpeechBubbleEn = rawAssets['icons/locations/user-en.svg'] || null;
+    const localSpeechBubbleVn = rawAssets['icons/locations/user-vn.svg'] || null;
+    const localLocationSvg = rawAssets['icons/locations/location.svg'] || null;
+
+    const speechBubbleIconSrc =
+      language === 'en' ? (localSpeechBubbleEn ?? bundledSpeechBubbleSvg) :
+      language === 'vn' ? (localSpeechBubbleVn ?? bundledSpeechBubbleSvg) :
+      (localSpeechBubbleJa ?? bundledSpeechBubbleSvg);
+
+    const locationIconSrcOverride = localLocationSvg ?? bundledLocationSvg;
 
     const commonAssets = {
       buttonClose,
@@ -252,6 +269,8 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja', refresh
       iconCurrentFloor: isEn ? iconCurrentFloorEn : iconCurrentFloorJa,
 
       iconLocation,
+      speechBubbleIconSrc,
+      locationIconSrc: locationIconSrcOverride,
       iconTime,
       iconTel,
       waonPointIcon,
