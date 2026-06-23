@@ -28,6 +28,7 @@ import { DEFAULT_IGNORED_GENRE_KEYWORDS, DEFAULT_CATEGORY_MAPPINGS } from "../ut
 import type { SubFloorSettings } from "../types/global";
 import { loadGlobalSettings, saveGlobalSettings, cleanupOldHostnameMaps, loadMallSettings, saveMallSettings as saveMallSettingsToFile } from '../utils/settings';
 import type { MallSettingsFile, GlobalSettings } from '../utils/settings';
+import { invoke } from '@tauri-apps/api/core';
 
 type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre" | "blackScreen";
 
@@ -88,14 +89,47 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   // Shop data mode
   const [shopDataMode, setShopDataMode] = useState<'api' | 'local'>('api');
 
+  // Local shop list for Halon local mode (overrides BG-sourced shops in coordinate settings)
+  const [localHalongShops, setLocalHalongShops] = useState<Shop[] | null>(null);
+
+  useEffect(() => {
+    if (mallId !== 'halong' || shopDataMode !== 'local') {
+      setLocalHalongShops(null);
+      return;
+    }
+    invoke<unknown>('load_local_shoplist', { mallId: 'halong' })
+      .then((raw) => {
+        if (!Array.isArray(raw)) { setLocalHalongShops([]); return; }
+        const converted: Shop[] = (raw as Array<Record<string, string>>)
+          .filter(e => e.closeFlg !== '1' && e.webStatus !== '0')
+          .map(e => ({
+            shopId: String(e.shopId),
+            name: (e.shopNameJapan ?? '').trim() || e.shopName,
+            genre: e.genre ?? '',
+            genreMemo: '',
+            number: e.number ?? '',
+            floors: [(e.floorJapan ?? '').trim() || e.floor],
+          }));
+        setLocalHalongShops(converted);
+      })
+      .catch(() => setLocalHalongShops([]));
+  }, [mallId, shopDataMode]);
+
+  const shopsForSettings = useMemo(
+    () => mallId === 'halong' && shopDataMode === 'local' && localHalongShops != null
+      ? localHalongShops
+      : shops,
+    [mallId, shopDataMode, localHalongShops, shops],
+  );
+
   // 座標未設定ショップ数（全ショップ対象）
   const unsetShopCount = useMemo(() => {
-    if (!shops) return 0;
-    return shops.filter(shop => {
+    if (!shopsForSettings) return 0;
+    return shopsForSettings.filter(shop => {
       const id = shop.shopId || shop.number;
       return id && !shopPositions.positions[id];
     }).length;
-  }, [shops, shopPositions]);
+  }, [shopsForSettings, shopPositions]);
 
   // Mall settings
   // Mall settings
@@ -808,7 +842,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                   previewFloorLayout={floorLayout}
                   imageSettings={imageSettings}
                   shopPositions={activeTab === "shopPosition" ? shopPositions : undefined}
-                  shops={activeTab === "shopPosition" ? shops : undefined}
+                  shops={activeTab === "shopPosition" ? shopsForSettings : undefined}
                   selectedShopId={activeTab === "shopPosition" ? selectedShopId : undefined}
                   showOnlyMap={true}
                   currentFloorSetting={currentFloorSetting}
@@ -912,7 +946,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onChangeFloor={setFloor}
               shopPositions={shopPositions}
               onChangeShopPositions={setShopPositions}
-              shops={shops}
+              shops={shopsForSettings}
               onSelectedShopIdChange={setSelectedShopId}
               locationIconSettings={locationIconSettings}
               onChangeLocationIconSettings={setLocationIconSettings}
