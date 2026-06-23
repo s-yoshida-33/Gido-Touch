@@ -596,6 +596,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             >
               <option value="suzaka">須坂 (ID: suzaka)</option>
               <option value="sendaikamisugi">仙台上杉 (ID: sendaikamisugi)</option>
+              <option value="halong">ハロン (ID: halong)</option>
             </select>
           </div>
 
