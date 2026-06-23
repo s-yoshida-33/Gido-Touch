@@ -27,12 +27,12 @@ interface AssetMeta {
   lastUpdatedAt: string | null;
 }
 
-const S3_ASSETS_BASE = 'https://dl.tti.ninja/gido-touch/medias/assets';
+const S3_MEDIAS_BASE = 'https://dl.tti.ninja/gido-touch/medias';
 
 async function fetchAssetVersionFromS3(mallId: string): Promise<{ zip: string | null; updated_at: string | null }> {
   try {
     const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-    const url = `${S3_ASSETS_BASE}/${mallId}/latest.json?t=${Date.now()}`;
+    const url = `${S3_MEDIAS_BASE}/${mallId}/assets/latest.json?t=${Date.now()}`;
     const response = await tauriFetch(url, {
       headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' },
     });
@@ -48,7 +48,7 @@ async function fetchAssetVersionFromS3(mallId: string): Promise<{ zip: string | 
   }
 }
 
-const assetMetaPath = (mallId: string) => `medias/assets/${mallId}/.asset-meta.json`;
+const assetMetaPath = (mallId: string) => `medias/${mallId}/assets/.asset-meta.json`;
 
 async function readAssetMeta(mallId: string): Promise<AssetMeta | null> {
   try {
@@ -64,7 +64,7 @@ async function readAssetMeta(mallId: string): Promise<AssetMeta | null> {
 
 async function writeAssetMeta(mallId: string, meta: AssetMeta): Promise<void> {
   try {
-    await mkdir(`medias/assets/${mallId}`, { baseDir: BaseDirectory.AppLocalData, recursive: true });
+    await mkdir(`medias/${mallId}/assets`, { baseDir: BaseDirectory.AppLocalData, recursive: true });
     await writeTextFile(assetMetaPath(mallId), JSON.stringify(meta), { baseDir: BaseDirectory.AppLocalData });
   } catch {
     // non-critical
@@ -128,7 +128,7 @@ export const useAssetSync = () => {
 
         logInfo('ASSET_SYNC', `Asset ZIP changed: ${localZipName} → ${remoteVersion.zip}`, { mallId });
 
-        const zipUrl = `${S3_ASSETS_BASE}/${mallId}/${remoteVersion.zip}`;
+        const zipUrl = `${S3_MEDIAS_BASE}/${mallId}/assets/${remoteVersion.zip}`;
         setAssetStatus({ status: 'downloading', progress: 0, message: `アセットをダウンロード中... (${mallId})` });
 
         let unlisten: UnlistenFn | null = null;

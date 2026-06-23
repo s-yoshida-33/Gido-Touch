@@ -28,13 +28,13 @@ interface VideoMeta {
   lastMediaUpdatedAt: string | null;
 }
 
-const S3_BASE = 'https://dl.tti.ninja/gido-touch/medias/videos';
+const S3_MEDIAS_BASE = 'https://dl.tti.ninja/gido-touch/medias';
 
 async function fetchVideoVersionFromS3(mallId: string): Promise<{ zip: string | null; updated_at: string | null }> {
   try {
     const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
     // Cache-busting: timestamp query param + no-cache headers
-    const url = `${S3_BASE}/${mallId}/latest.json?t=${Date.now()}`;
+    const url = `${S3_MEDIAS_BASE}/${mallId}/videos/latest.json?t=${Date.now()}`;
 
     const response = await tauriFetch(url, {
       headers: {
@@ -58,7 +58,7 @@ async function fetchVideoVersionFromS3(mallId: string): Promise<{ zip: string | 
   }
 }
 
-const metaPath = (mallId: string) => `medias/videos/${mallId}/.media-meta.json`;
+const metaPath = (mallId: string) => `medias/${mallId}/videos/.media-meta.json`;
 
 async function readVideoMeta(mallId: string): Promise<VideoMeta | null> {
   try {
@@ -74,7 +74,7 @@ async function readVideoMeta(mallId: string): Promise<VideoMeta | null> {
 
 async function writeVideoMeta(mallId: string, meta: VideoMeta): Promise<void> {
   try {
-    await mkdir(`medias/videos/${mallId}`, { baseDir: BaseDirectory.AppLocalData, recursive: true });
+    await mkdir(`medias/${mallId}/videos`, { baseDir: BaseDirectory.AppLocalData, recursive: true });
     await writeTextFile(
       metaPath(mallId),
       JSON.stringify(meta),
@@ -150,7 +150,7 @@ export const useMediaDownload = () => {
 
         logInfo('MEDIA_DOWNLOAD', `ZIP file changed: ${localZipName} → ${remoteVersion.zip}`, { mallId });
 
-        const zipUrl = `${S3_BASE}/${mallId}/${remoteVersion.zip}`;
+        const zipUrl = `${S3_MEDIAS_BASE}/${mallId}/videos/${remoteVersion.zip}`;
         logInfo('MEDIA_DOWNLOAD', 'Starting video download from S3', { mallId, zipUrl });
         setMediaStatus({ status: 'downloading', progress: 0, message: `メディアデータをダウンロード中... (${mallId})` });
 

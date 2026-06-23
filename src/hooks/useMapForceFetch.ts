@@ -25,20 +25,20 @@ export interface MapForceFetchStatus {
   message: string;
 }
 
-const S3_MAPS_BASE = 'https://dl.tti.ninja/gido-touch/medias/maps';
+const S3_MEDIAS_BASE = 'https://dl.tti.ninja/gido-touch/medias';
 
 const FLOOR_IDS: FloorId[] = ['1F', '2F', '3F', '4F'];
 
 async function fetchLatestMapZipUrl(mallId: string, hostname: string): Promise<string | null> {
   try {
     const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-    const url = `${S3_MAPS_BASE}/${mallId}/${hostname}/latest.json?t=${Date.now()}`;
+    const url = `${S3_MEDIAS_BASE}/${mallId}/maps/${hostname}/latest.json?t=${Date.now()}`;
     const response = await tauriFetch(url, {
       headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' },
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json() as { zip: string; updated_at: string };
-    return `${S3_MAPS_BASE}/${mallId}/${hostname}/${data.zip}`;
+    return `${S3_MEDIAS_BASE}/${mallId}/maps/${hostname}/${data.zip}`;
   } catch (error) {
     logError('MAP_FORCE_FETCH', 'Failed to fetch latest.json', {
       error: error instanceof Error ? error.message : String(error),
@@ -49,7 +49,7 @@ async function fetchLatestMapZipUrl(mallId: string, hostname: string): Promise<s
 
 async function writeMapMeta(mallId: string, hostname: string, zipName: string): Promise<void> {
   try {
-    const dir = `medias/maps/${mallId}/${hostname}`;
+    const dir = `medias/${mallId}/maps/${hostname}`;
     await mkdir(dir, { baseDir: BaseDirectory.AppLocalData, recursive: true });
     await writeTextFile(
       `${dir}/.map-meta.json`,

@@ -673,22 +673,22 @@ fn read_mall_asset(relative_path: String) -> Result<Option<String>, String> {
 
 /// List all mall-specific asset files (buttons, open-times, maps).
 /// Looks in:
-///   <media_base>/assets/<mall_id>/       → relative keys as-is (e.g. "buttons/...")
-///   <media_base>/maps/<mall_id>/<hostname>/ → prefixed with "maps/"
+///   <media_base>/<mall_id>/assets/       → relative keys as-is (e.g. "buttons/...")
+///   <media_base>/<mall_id>/maps/<hostname>/ → prefixed with "maps/"
 #[tauri::command]
 fn list_mall_assets(mall_id: String, hostname: String) -> Result<HashMap<String, String>, String> {
     let media_base = get_media_base_dir()?;
     let mut result = HashMap::new();
 
-    // Scan assets/{mall_id}/
-    let assets_dir = media_base.join("assets").join(&mall_id);
+    // Scan {mall_id}/assets/
+    let assets_dir = media_base.join(&mall_id).join("assets");
     if assets_dir.exists() {
         scan_assets_to_data_urls(&assets_dir, &assets_dir, &mut result)?;
     }
 
-    // Scan maps/{mall_id}/{hostname}/ → prefix keys with "maps/"
+    // Scan {mall_id}/maps/{hostname}/ → prefix keys with "maps/"
     if !hostname.is_empty() && hostname != "unknown" {
-        let maps_dir = media_base.join("maps").join(&mall_id).join(&hostname);
+        let maps_dir = media_base.join(&mall_id).join("maps").join(&hostname);
         if maps_dir.exists() {
             let mut maps_raw = HashMap::new();
             scan_assets_to_data_urls(&maps_dir, &maps_dir, &mut maps_raw)?;
@@ -770,14 +770,14 @@ fn get_local_shop_logo(mall_id: String, shop_id: String) -> Result<Option<String
 }
 
 /// List map files for a specific mall and hostname.
-/// Scans media_base/maps/{mall_id}/{hostname}/ and returns filename → data-URL.
+/// Scans media_base/{mall_id}/maps/{hostname}/ and returns filename → data-URL.
 #[tauri::command]
 fn list_mall_maps(mall_id: String, hostname: String) -> Result<Option<HashMap<String, String>>, String> {
     if hostname.is_empty() || hostname == "unknown" {
         return Ok(None);
     }
     let media_base = get_media_base_dir()?;
-    let maps_dir = media_base.join("maps").join(&mall_id).join(&hostname);
+    let maps_dir = media_base.join(&mall_id).join("maps").join(&hostname);
     if !maps_dir.exists() {
         return Ok(None);
     }
@@ -806,7 +806,7 @@ fn load_shop_data(mall_id: String) -> Result<Option<serde_json::Value>, String> 
 // Cleanup old hostname map directories
 // ---------------------------------------------------------------------------
 
-/// Delete all subdirectories under maps/{mall_id}/ that do not match current_hostname.
+/// Delete all subdirectories under {mall_id}/maps/ that do not match current_hostname.
 /// Called after a hostname change to remove stale map files from disk.
 #[tauri::command]
 fn cleanup_old_hostname_maps(mall_id: String, current_hostname: String) -> Result<(), String> {
@@ -814,7 +814,7 @@ fn cleanup_old_hostname_maps(mall_id: String, current_hostname: String) -> Resul
         return Ok(());
     }
     let media_base = get_media_base_dir()?;
-    let maps_mall_dir = media_base.join("maps").join(&mall_id);
+    let maps_mall_dir = media_base.join(&mall_id).join("maps");
     if !maps_mall_dir.exists() {
         return Ok(());
     }
@@ -1171,32 +1171,32 @@ fn sync_zip_to_dir(
     })
 }
 
-/// Download video ZIP from S3 and extract to media/videos/{mallId}/.
+/// Download video ZIP from S3 and extract to media/{mallId}/videos/.
 /// Version comparison and metadata updates are handled by the frontend.
 #[tauri::command]
 fn sync_video_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -> Result<MediaDownloadResult, String> {
     let media_root = get_media_dir()?;
-    let zip_path = media_root.join(format!("video-{}.zip", &mall_id));
-    let dest_dir = media_root.join("videos").join(&mall_id);
-    sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &mall_id)
+    let zip_path = media_root.join(format!("{}-video.zip", &mall_id));
+    let dest_dir = media_root.join(&mall_id).join("videos");
+    sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &format!("{}/videos", mall_id))
 }
 
-/// Download assets ZIP from S3 and extract to media/assets/{mallId}/.
+/// Download assets ZIP from S3 and extract to media/{mallId}/assets/.
 #[tauri::command]
 fn sync_assets_from_s3(app: tauri::AppHandle, mall_id: String, zip_url: String) -> Result<MediaDownloadResult, String> {
     let media_root = get_media_dir()?;
-    let zip_path = media_root.join(format!("assets-{}.zip", &mall_id));
-    let dest_dir = media_root.join("assets").join(&mall_id);
-    sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &format!("assets/{}", mall_id))
+    let zip_path = media_root.join(format!("{}-assets.zip", &mall_id));
+    let dest_dir = media_root.join(&mall_id).join("assets");
+    sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &format!("{}/assets", mall_id))
 }
 
-/// Download maps ZIP from S3 and extract to media/maps/{mallId}/{hostname}/.
+/// Download maps ZIP from S3 and extract to media/{mallId}/maps/{hostname}/.
 #[tauri::command]
 fn sync_maps_from_s3(app: tauri::AppHandle, mall_id: String, hostname: String, zip_url: String) -> Result<MediaDownloadResult, String> {
     let media_root = get_media_dir()?;
-    let zip_path = media_root.join(format!("maps-{}-{}.zip", &mall_id, &hostname));
-    let dest_dir = media_root.join("maps").join(&mall_id).join(&hostname);
-    sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &format!("maps/{}/{}", mall_id, hostname))
+    let zip_path = media_root.join(format!("{}-maps-{}.zip", &mall_id, &hostname));
+    let dest_dir = media_root.join(&mall_id).join("maps").join(&hostname);
+    sync_zip_to_dir(&app, &zip_url, &zip_path, &dest_dir, &format!("{}/maps/{}", mall_id, hostname))
 }
 
 /// Download data ZIP from S3 and extract to data/{mallId}/files/{subtype}/ or data/{mallId}/json/.
@@ -1247,7 +1247,7 @@ fn get_media_file_path(mall_id: String, relative_path: String) -> Result<String,
 #[tauri::command]
 fn list_media_files(mall_id: String) -> Result<Vec<String>, String> {
     let media_root = get_media_base_dir()?;
-    let videos_dir = media_root.join("videos").join(&mall_id);
+    let videos_dir = media_root.join(&mall_id).join("videos");
 
     if !videos_dir.exists() {
         return Ok(Vec::new());
