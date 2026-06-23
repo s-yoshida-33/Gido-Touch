@@ -89,6 +89,12 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   // Shop data mode
   const [shopDataMode, setShopDataMode] = useState<'api' | 'local'>('api');
 
+  // Mall settings
+  // Mall settings
+  const { mallId: contextMallId, setMallId: setContextMallId, refreshAssets } = useMall();
+  const [mallId, setMallIdLocal] = useState<MallId>(contextMallId);
+  const [initialMallId, setInitialMallId] = useState<MallId>(contextMallId);
+
   // Local shop list for Halon local mode (overrides BG-sourced shops in coordinate settings)
   const [localHalongShops, setLocalHalongShops] = useState<Shop[] | null>(null);
 
@@ -124,18 +130,11 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // 座標未設定ショップ数（全ショップ対象）
   const unsetShopCount = useMemo(() => {
-    if (!shopsForSettings) return 0;
     return shopsForSettings.filter(shop => {
       const id = shop.shopId || shop.number;
       return id && !shopPositions.positions[id];
     }).length;
   }, [shopsForSettings, shopPositions]);
-
-  // Mall settings
-  // Mall settings
-  const { mallId: contextMallId, setMallId: setContextMallId, refreshAssets } = useMall();
-  const [mallId, setMallIdLocal] = useState<MallId>(contextMallId);
-  const [initialMallId, setInitialMallId] = useState<MallId>(contextMallId);
 
   // Hostname for S3 maps path
   const [hostname, setHostname] = useState<string>('');
