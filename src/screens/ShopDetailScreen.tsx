@@ -199,7 +199,8 @@ const MapWithPinsComponent: React.FC<{
   locationIconSettings: LocationIconSettingsPerFloor;
   speechBubbleSrc?: string;
   locationSrc?: string;
-}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentFloorSetting, locationIconSettings, speechBubbleSrc, locationSrc }) => {
+  language?: 'ja' | 'en' | 'vn';
+}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentFloorSetting, locationIconSettings, speechBubbleSrc, locationSrc, language }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageMetrics, setImageMetrics] = useState<{ 
@@ -303,6 +304,7 @@ const MapWithPinsComponent: React.FC<{
           imageMetrics={imageMetrics}
           speechBubbleSrc={speechBubbleSrc}
           locationSrc={locationSrc}
+          language={language}
         />
       )}
 
@@ -436,6 +438,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                   locationIconSettings={locationIconSettings}
                   speechBubbleSrc={assets.common.speechBubbleIconSrc}
                   locationSrc={assets.common.locationIconSrc}
+                  language={language}
                 />
               </TransformComponent>
             </PinchSafeTransformWrapper>

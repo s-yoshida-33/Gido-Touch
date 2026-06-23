@@ -20,6 +20,7 @@ interface Props {
   imageMetrics?: ImageMetrics | null;
   speechBubbleSrc?: string;
   locationSrc?: string;
+  language?: 'ja' | 'en' | 'vn';
 }
 
 function buildShadowStyle(config: { enabled: boolean; offsetX: number; offsetY: number; blur: number; opacity: number }): React.CSSProperties {
@@ -92,11 +93,18 @@ function buildAnimationProps(animation?: AnimationConfig, scaleRatio: number = 1
   }
 }
 
-export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, speechBubbleSrc, locationSrc }) => {
+export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, speechBubbleSrc, locationSrc, language }) => {
   const { speechBubble, location } = settings;
 
   // Helper to calculate scale ratio
   const scaleRatio = imageMetrics ? imageMetrics.displayWidth / REFERENCE_MAP_WIDTH : 1;
+
+  // Resolve language-specific speech bubble size, falling back to the shared size
+  const speechBubbleEffectiveSize = (
+    language && settings.speechBubbleLangSizes?.[language] !== undefined
+      ? settings.speechBubbleLangSizes[language]!
+      : speechBubble.size
+  ) * scaleRatio;
 
   // Create keys based on animation settings to force re-mount when settings change
   const speechBubbleAnimationKey = speechBubble.animation
@@ -140,13 +148,12 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, 
   };
 
   // Helper to calculate size style
-  const getSizeStyle = (config: IconPositionConfig): React.CSSProperties => {
-    const size = config.size * scaleRatio;
+  const getSizeStyle = (config: IconPositionConfig, sizeOverride?: number): React.CSSProperties => {
+    const size = sizeOverride ?? config.size * scaleRatio;
 
     return {
       width: `${size}px`,
       height: "auto",
-      // transform: `rotate(${config.rotation}deg)`, // Handled by parent container
       display: "block",
     };
   };
@@ -164,7 +171,8 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, 
   // 波紋アニメーション用のスタイルとコンテンツを生成
   const renderRippleAnimation = (
     config: IconPositionConfig,
-    uniqueId: string
+    uniqueId: string,
+    sizeOverride?: number
   ) => {
     const animation = config.animation;
     if (!animation || !animation.enabled || animation.type !== "blink") {
@@ -174,9 +182,8 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, 
     const rippleColor = animation.rippleColor || "#FFFFFF";
     const rippleSize = animation.rippleSize || 1.5;
     const rippleCenterSize = animation.rippleCenterSize ?? 0.95;
-    
-    // Use scaled size for ripples too
-    const size = config.size * scaleRatio;
+
+    const size = sizeOverride ?? config.size * scaleRatio;
 
     return (
       <>
@@ -245,21 +252,21 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, 
           style={speechBubbleWrapperStyle}
         >
           <motion.div
-            style={{ 
-              width: "100%", 
-              height: "100%", 
-              display: "flex", 
-              justifyContent: "center", 
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              justifyContent: "center",
               alignItems: "center",
-              rotate: speechBubble.rotation 
+              rotate: speechBubble.rotation
             }}
             {...buildAnimationProps(speechBubble.animation, scaleRatio)}
           >
-            {renderRippleAnimation(speechBubble, "speech-bubble")}
+            {renderRippleAnimation(speechBubble, "speech-bubble", speechBubbleEffectiveSize)}
             <img
               src={speechBubbleSrc ?? SpeechBubbleSvg}
               alt="Current location speech bubble"
-              style={getSizeStyle(speechBubble)}
+              style={getSizeStyle(speechBubble, speechBubbleEffectiveSize)}
             />
           </motion.div>
         </motion.div>

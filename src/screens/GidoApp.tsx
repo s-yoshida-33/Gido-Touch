@@ -60,7 +60,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
   // Use custom hook for data fetching with cache strategy
   const { shops, error: shopsError } = useShops();
   const error = shopsError ? shopsError.message : null;
-  const { assets, isLoading: isAssetsLoading } = useMall();
+  const { assets, isLoading: isAssetsLoading, language } = useMall();
 
   const [floor, setFloor] = useState<string>(
     previewFloor ?? APP_CONFIG.floor
@@ -139,6 +139,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
           currentFloorSetting={propCurrentFloorSetting}
           speechBubbleSrc={assets.common.speechBubbleIconSrc}
           locationSrc={assets.common.locationIconSrc}
+          language={language}
         />
       </div>
     );
@@ -177,6 +178,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
           currentFloorSetting={propCurrentFloorSetting}
           speechBubbleSrc={assets.common.speechBubbleIconSrc}
           locationSrc={assets.common.locationIconSrc}
+          language={language}
         />
 
         <div
@@ -324,7 +326,8 @@ const ShopPinsOverlay: React.FC<{
   currentFloorSetting?: string;
   speechBubbleSrc?: string;
   locationSrc?: string;
-}> = ({ floor, floorMap, locationIconSettings, shopPositions, shops, selectedShopId, currentFloorSetting: propCurrentFloorSetting, speechBubbleSrc, locationSrc }) => {
+  language?: 'ja' | 'en' | 'vn';
+}> = ({ floor, floorMap, locationIconSettings, shopPositions, shops, selectedShopId, currentFloorSetting: propCurrentFloorSetting, speechBubbleSrc, locationSrc, language }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageMetrics, setImageMetrics] = useState<{ 
@@ -479,6 +482,7 @@ const ShopPinsOverlay: React.FC<{
           imageMetrics={imageMetrics}
           speechBubbleSrc={speechBubbleSrc}
           locationSrc={locationSrc}
+          language={language}
         />
       )}
 

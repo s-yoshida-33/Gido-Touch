@@ -949,6 +949,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onSelectedShopIdChange={setSelectedShopId}
               locationIconSettings={locationIconSettings}
               onChangeLocationIconSettings={setLocationIconSettings}
+              hasLangSpecificSpeechBubble={mallId === 'halong'}
             />
           )}
           {activeTab === "floorSettings" && (

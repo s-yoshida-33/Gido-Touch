@@ -48,6 +48,8 @@ export interface IconPositionConfig {
   
   export interface LocationIconSettings {
     speechBubble: IconPositionConfig;
+    /** Per-language size overrides for the speech bubble icon (falls back to speechBubble.size) */
+    speechBubbleLangSizes?: { ja?: number; en?: number; vn?: number };
     location: IconPositionConfig;
   }
 

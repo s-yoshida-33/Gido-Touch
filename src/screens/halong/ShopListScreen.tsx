@@ -1,7 +1,7 @@
 // src/screens/halong/ShopListScreen.tsx
 // Screen size: 3840×2160 (16:9 landscape)
 
-import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { TransformWrapper, TransformComponent, type ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
@@ -49,7 +49,10 @@ export default function HalongShopListScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [locationIconSettings, setLocationIconSettings] = useState<LocationIconSettingsPerFloor | null>(null);
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>('1F');
+  const [mapImageMetrics, setMapImageMetrics] = useState<{ displayWidth: number; displayHeight: number; offsetX: number; offsetY: number } | null>(null);
 
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const firstFloorImgRef = useRef<HTMLImageElement>(null);
   const transformComponentRef = useRef<ReactZoomPanPinchContentRef>(null);
   const genreScrollRef = useRef<HTMLDivElement>(null);
   const shopListScrollRef = useRef<HTMLDivElement>(null);
@@ -124,6 +127,52 @@ export default function HalongShopListScreen() {
     }
     loadFloorSetting();
   }, []);
+
+  // objectFit: cover のマップ画像メトリクスを計算（アイコンの正確な位置スケーリング用）
+  const updateMapMetrics = useCallback(() => {
+    const container = mapContainerRef.current;
+    const img = firstFloorImgRef.current;
+    if (!container || !img || !img.complete || img.naturalWidth === 0) return;
+
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    const imageAspect = img.naturalWidth / img.naturalHeight;
+    const containerAspect = containerWidth / containerHeight;
+
+    let displayWidth: number, displayHeight: number, offsetX: number, offsetY: number;
+    if (containerAspect > imageAspect) {
+      displayWidth = containerWidth;
+      displayHeight = displayWidth / imageAspect;
+      offsetX = 0;
+      offsetY = (containerHeight - displayHeight) / 2;
+    } else {
+      displayHeight = containerHeight;
+      displayWidth = displayHeight * imageAspect;
+      offsetX = (containerWidth - displayWidth) / 2;
+      offsetY = 0;
+    }
+
+    setMapImageMetrics({
+      displayWidth: Math.round(displayWidth),
+      displayHeight: Math.round(displayHeight),
+      offsetX: Math.round(offsetX),
+      offsetY: Math.round(offsetY),
+    });
+  }, []);
+
+  useEffect(() => {
+    const img = firstFloorImgRef.current;
+    if (img) {
+      if (img.complete) updateMapMetrics();
+      else img.addEventListener('load', updateMapMetrics);
+    }
+    const resizeObserver = new ResizeObserver(updateMapMetrics);
+    if (mapContainerRef.current) resizeObserver.observe(mapContainerRef.current);
+    return () => {
+      img?.removeEventListener('load', updateMapMetrics);
+      resizeObserver.disconnect();
+    };
+  }, [updateMapMetrics]);
 
   // スクロールバー非表示のCSS注入
   useEffect(() => {
@@ -394,6 +443,7 @@ export default function HalongShopListScreen() {
         >
           {/* マップコンテナ */}
           <div
+            ref={mapContainerRef}
             style={{
               flex: 1,
               height: "2060px",
@@ -440,6 +490,8 @@ export default function HalongShopListScreen() {
                         style={{ position: "absolute", inset: 0 }}
                       >
                         <img
+                          ref={floor === '1F' ? firstFloorImgRef : undefined}
+                          onLoad={floor === '1F' ? updateMapMetrics : undefined}
                           src={maps[floor]}
                           alt={`${floor} map`}
                           draggable={false}
@@ -450,9 +502,10 @@ export default function HalongShopListScreen() {
                     {locationIconSettings && currentFloor === currentFloorSetting && (
                       <LocationIconsOverlay
                         settings={getLocationIconSettingsForFloor(locationIconSettings, currentFloor as FloorId)}
-                        imageMetrics={null}
+                        imageMetrics={mapImageMetrics}
                         speechBubbleSrc={assets.speechBubbleIconSrc}
                         locationSrc={assets.locationIconSrc}
+                        language={selectedLang}
                       />
                     )}
                   </div>
