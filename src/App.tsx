@@ -686,7 +686,7 @@ const App: React.FC = () => {
         onOpenVersionInfo={() => setIsVersionInfoOpen(true)}
       >
         {mallId === "halong" ? (
-          <HalongShopListScreen locationIconSettings={locationSettings} />
+          <HalongShopListScreen locationIconSettings={locationSettings} shopPositions={shopPositions} />
         ) : (
           <ShopListScreen
             currentFloorSetting={currentFloorSetting}

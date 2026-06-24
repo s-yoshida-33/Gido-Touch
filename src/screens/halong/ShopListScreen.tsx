@@ -12,6 +12,11 @@ import { LocationIconsOverlay } from '../../components/LocationIconsOverlay';
 import { getLocationIconSettingsForFloor } from '../../config';
 import type { LocationIconSettingsPerFloor } from '../../types/locationIcon';
 import type { FloorId } from '../../types/floorLayout';
+import { ShopPin } from '../../components/ShopPin';
+import halongShopPinSvg from '../../assets/malls/halong/icons/locations/shop.svg';
+import type { ShopPositionSettings } from '../../types/shopPosition';
+
+const HALONG_REFERENCE_MAP_WIDTH = 1920;
 
 const IDLE_TIMEOUT_MS = 30000;
 const FLOOR_ANIM_DURATION = 0.35;
@@ -33,9 +38,10 @@ const listVariants: Variants = {
 
 interface HalongShopListScreenProps {
   locationIconSettings?: LocationIconSettingsPerFloor;
+  shopPositions?: ShopPositionSettings;
 }
 
-export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp }: HalongShopListScreenProps = {}) {
+export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp }: HalongShopListScreenProps = {}) {
   const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('vn');
   const [langPopupOpen, setLangPopupOpen] = useState(false);
   const assets = useHalongAssets(selectedLang);
@@ -54,6 +60,11 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const [locationIconSettings, setLocationIconSettings] = useState<LocationIconSettingsPerFloor | null>(null);
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>('1F');
   const [mapImageMetrics, setMapImageMetrics] = useState<{ displayWidth: number; displayHeight: number; offsetX: number; offsetY: number } | null>(null);
+  const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+  const [selectedShopLogoUrl, setSelectedShopLogoUrl] = useState<string | null>(null);
+  const [pinDelay, setPinDelay] = useState(0);
+  const [shopPositions, setShopPositions] = useState<ShopPositionSettings | null>(null);
+  const [currentScale, setCurrentScale] = useState(1);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const firstFloorImgRef = useRef<HTMLImageElement>(null);
@@ -119,6 +130,13 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     }
   }, [locationIconSettingsProp]);
 
+  // Sync shopPositions from prop when provided (after settings save)
+  useEffect(() => {
+    if (shopPositionsProp) {
+      setShopPositions(shopPositionsProp);
+    }
+  }, [shopPositionsProp]);
+
   // 設定からデフォルトフロアと現在地アイコン設定を読み込む（初回のみ）
   useEffect(() => {
     async function loadFloorSetting() {
@@ -131,6 +149,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         }
         if (mallSettings.locationIcons && !locationIconSettingsProp) {
           setLocationIconSettings(mallSettings.locationIcons);
+        }
+        if (mallSettings.shopPositions && !shopPositionsProp) {
+          setShopPositions(mallSettings.shopPositions);
         }
       } catch {
         // 設定未保存またはTauri未使用 → デフォルト1Fのまま
@@ -342,6 +363,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         !langPopupOpen &&
         selectedGenre === 'all' &&
         selectedPicto === null &&
+        selectedShopId === null &&
         currentFloor === defaultFloorRef.current &&
         showHint && showFloorLabel &&
         !isGenreScrolled &&
@@ -359,6 +381,8 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         setLangPopupOpen(false);
         setSelectedGenre('all');
         setSelectedPicto(null);
+        setSelectedShopId(null);
+        setSelectedShopLogoUrl(null);
         setCurrentFloor(defaultFloorRef.current);
 
         if (transformComponentRef.current) {
@@ -387,7 +411,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       if (genreEl) genreEl.removeEventListener('scroll', handleActivity);
       if (throttleTimeout !== null) window.clearTimeout(throttleTimeout);
     };
-  }, [isRefreshing, selectedLang, langPopupOpen, selectedGenre, selectedPicto, currentFloor, showHint, showFloorLabel]);
+  }, [isRefreshing, selectedLang, langPopupOpen, selectedGenre, selectedPicto, selectedShopId, currentFloor, showHint, showFloorLabel]);
 
   function handleFloorSelect(floor: string) {
     setGenreDirection(0);
@@ -405,6 +429,46 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   function handlePictoSelect(picto: string) {
     setSelectedPicto(prev => (prev === picto ? null : picto));
   }
+
+  function handleShopTap(shopId: string, floorKey: string, logoDataUrl: string | null) {
+    const needsFloorSwitch = floorKey !== currentFloor;
+    if (needsFloorSwitch) {
+      setCurrentFloor(floorKey);
+      setPinDelay(FLOOR_ANIM_DURATION + 0.1);
+    } else {
+      setPinDelay(0);
+    }
+    setSelectedShopLogoUrl(logoDataUrl);
+    setSelectedShopId(shopId);
+  }
+
+  // Map focus: animate to pin position when selectedShopId changes and metrics are ready
+  useEffect(() => {
+    if (!selectedShopId || !mapImageMetrics || !shopPositions || !transformComponentRef.current) return;
+
+    const position = shopPositions.positions[selectedShopId];
+    if (!position) return;
+
+    const x = position.x <= 1 ? position.x * 100 : position.x;
+    const y = position.y <= 1 ? position.y * 100 : position.y;
+
+    const pinContentX = mapImageMetrics.offsetX + (x / 100) * mapImageMetrics.displayWidth;
+    const pinContentY = mapImageMetrics.offsetY + (y / 100) * mapImageMetrics.displayHeight;
+
+    const container = mapContainerRef.current;
+    if (!container) return;
+
+    const scale = 2.0;
+    const newX = -(pinContentX * scale - container.clientWidth / 2);
+    const newY = -(pinContentY * scale - container.clientHeight / 2);
+
+    const focusDelay = pinDelay > 0 ? (FLOOR_ANIM_DURATION + 0.1) * 1000 : 0;
+    const timer = setTimeout(() => {
+      transformComponentRef.current?.setTransform(newX, newY, scale, 800, "easeOut");
+    }, focusDelay);
+
+    return () => clearTimeout(timer);
+  }, [selectedShopId, mapImageMetrics, shopPositions, pinDelay]);
 
   return (
     <div
@@ -488,6 +552,8 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   const isDefault = Math.abs(state.scale - 1) < 0.01 && Math.abs(state.positionX) < 1 && Math.abs(state.positionY) < 1;
                   setShowHint(isDefault);
                   setShowFloorLabel(isDefault);
+                  setCurrentScale(state.scale);
+                  if (isDefault) { setSelectedShopId(null); setSelectedShopLogoUrl(null); }
                 }}
               >
                 <TransformComponent
@@ -520,6 +586,32 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                         language={selectedLang}
                       />
                     )}
+                    {selectedShopId && shopPositions && mapImageMetrics && (() => {
+                      const position = shopPositions.positions[selectedShopId];
+                      if (!position || position.floor !== currentFloor) return null;
+                      const x = position.x <= 1 ? position.x * 100 : position.x;
+                      const y = position.y <= 1 ? position.y * 100 : position.y;
+                      const scaleRatio = mapImageMetrics.displayWidth / HALONG_REFERENCE_MAP_WIDTH;
+                      const pinSize = (position.size ?? 80) * scaleRatio;
+                      const pixelX = Math.round(mapImageMetrics.offsetX + (x / 100) * mapImageMetrics.displayWidth);
+                      const pixelY = Math.round(mapImageMetrics.offsetY + (y / 100) * mapImageMetrics.displayHeight);
+                      return (
+                        <ShopPin
+                          key={selectedShopId}
+                          position={{ ...position, x, y, size: pinSize }}
+                          usePixelPosition={true}
+                          pixelX={pixelX}
+                          pixelY={pixelY}
+                          shopName={selectedShopId}
+                          isSelected={true}
+                          shopLogo={selectedShopLogoUrl ?? undefined}
+                          transformScale={currentScale}
+                          pinSrc={halongShopPinSvg}
+                          logoTopPercent={50.5}
+                          delay={pinDelay}
+                        />
+                      );
+                    })()}
                   </div>
                 </TransformComponent>
               </TransformWrapper>
@@ -754,14 +846,17 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               {filteredShops.map(shop => (
                 <div
                   key={shop.id}
+                  onClick={() => handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl)}
                   style={{
                     width: "600px",
                     height: "120px",
                     borderRadius: "10px",
-                    backgroundColor: "#ffffff",
+                    backgroundColor: selectedShopId === String(shop.id) ? "#ffe0e0" : "#ffffff",
                     flexShrink: 0,
                     filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
                     position: "relative",
+                    cursor: "pointer",
+                    touchAction: "none",
                   }}
                 >
                   {/* ロゴエリア 120×120 */}
