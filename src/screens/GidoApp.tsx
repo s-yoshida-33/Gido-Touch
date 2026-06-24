@@ -69,8 +69,8 @@ const GidoApp: React.FC<GidoAppProps> = ({
 
   // When previewing halong with a different language, resolve speech bubble src for that language
   const halongAssets = useHalongAssets(language as 'en' | 'ja' | 'vn');
-  const speechBubbleSrc = mallId === 'halong' ? halongAssets.speechBubbleIconSrc : assets.common.speechBubbleIconSrc;
-  const locationSrc = mallId === 'halong' ? halongAssets.locationIconSrc : assets.common.locationIconSrc;
+  const speechBubbleSrc = mallId === 'halong' ? halongAssets.speechBubbleIconSrc : assets?.common.speechBubbleIconSrc;
+  const locationSrc = mallId === 'halong' ? halongAssets.locationIconSrc : assets?.common.locationIconSrc;
 
   const [floor, setFloor] = useState<string>(
     previewFloor ?? APP_CONFIG.floor
