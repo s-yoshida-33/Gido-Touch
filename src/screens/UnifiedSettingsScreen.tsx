@@ -29,8 +29,15 @@ import type { SubFloorSettings } from "../types/global";
 import { loadGlobalSettings, saveGlobalSettings, cleanupOldHostnameMaps, loadMallSettings, saveMallSettings as saveMallSettingsToFile } from '../utils/settings';
 import type { MallSettingsFile, GlobalSettings } from '../utils/settings';
 import { invoke } from '@tauri-apps/api/core';
+import { PictoSettingsTab } from '../components/PictoSettingsTab';
+import type { PictoSettings } from '../types/picto';
+import { DEFAULT_PICTO_SETTINGS } from '../types/picto';
+import { useHalongMaps } from '../hooks/useHalongMaps';
+import { useHalongAssets } from '../hooks/useHalongAssets';
+import { PictoPin } from '../components/PictoPin';
+import { AnimatePresence } from 'framer-motion';
 
-type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre" | "blackScreen";
+type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre" | "blackScreen" | "picto";
 
 interface UnifiedSettingsScreenProps {
   visible: boolean;
@@ -82,6 +89,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [genreSettings, setGenreSettings] = useState<GenreSettings>(initialGenreSettings || { ignoredKeywords: DEFAULT_IGNORED_GENRE_KEYWORDS, maxItems: 3, categoryMapping: DEFAULT_CATEGORY_MAPPINGS });
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
+  const [pictoSettings, setPictoSettings] = useState<PictoSettings>(DEFAULT_PICTO_SETTINGS);
+  const [selectedPictoId, setSelectedPictoId] = useState<string | null>(null);
 
   // Black screen settings
   const [blackScreenSettings, setBlackScreenSettings] = useState<BlackScreenSettings>(DEFAULT_BLACK_SCREEN_SETTINGS);
@@ -133,6 +142,24 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       : shops,
     [mallId, shopDataMode, localHalongShops, shops],
   );
+
+  // Halong map and asset hooks (used for picto tab preview)
+  const halongMaps = useHalongMaps();
+  const halongAssets = useHalongAssets();
+
+  const pictoIconOptions = useMemo(() => [
+    { fileName: 'atm.svg',              url: halongAssets.pictoMapIcons.atm },
+    { fileName: 'elevator.svg',          url: halongAssets.pictoMapIcons.elevator },
+    { fileName: 'free-coin-lockers.svg', url: halongAssets.pictoMapIcons.lockers },
+    { fileName: 'info.svg',             url: halongAssets.pictoMapIcons.info },
+    { fileName: 'restroom.svg',          url: halongAssets.pictoMapIcons.restroom },
+    { fileName: 'smoking-room.svg',      url: halongAssets.pictoMapIcons.smoking },
+  ], [halongAssets]);
+
+  const PICTO_TAG_TO_ASSETS_KEY: Record<string, keyof typeof halongAssets.pictoMapIcons> = {
+    info: 'info', restroom: 'restroom', smoking_room: 'smoking',
+    free_coin_lockers: 'lockers', atm: 'atm', elevator: 'elevator',
+  };
 
   // 座標未設定ショップ数（全ショップ対象）
   const unsetShopCount = useMemo(() => {
@@ -191,6 +218,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     currentCmsSettings: any;
     blackScreenSettings: BlackScreenSettings;
     shopDataMode: 'api' | 'local';
+    pictoSettings: PictoSettings;
   };
   const mallEditingCache = useRef<Map<MallId, MallEditingSnapshot>>(new Map());
 
@@ -209,7 +237,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     currentCmsSettings,
     blackScreenSettings,
     shopDataMode,
-  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings, shopDataMode]);
+    pictoSettings,
+  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings, shopDataMode, pictoSettings]);
 
   // Apply a snapshot to all editing state
   const applySnapshot = useCallback((snap: MallEditingSnapshot) => {
@@ -226,6 +255,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentCmsSettings(snap.currentCmsSettings);
     setBlackScreenSettings(snap.blackScreenSettings);
     setShopDataMode(snap.shopDataMode);
+    setPictoSettings(snap.pictoSettings);
   }, []);
 
   // Apply MallSettingsFile loaded from disk to all editing state
@@ -242,6 +272,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentCmsSettings(mallSettings.cmsSettings);
     setBlackScreenSettings(mallSettings.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
     setShopDataMode(mallSettings.shopDataMode ?? 'api');
+    setPictoSettings(mallSettings.pictoSettings ?? DEFAULT_PICTO_SETTINGS);
 
     // Genre settings with fallback
     const gs = mallSettings.genreSettings;
@@ -489,6 +520,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
     setBlackScreenSettings(DEFAULT_BLACK_SCREEN_SETTINGS);
     setShopDataMode('api');
+    setPictoSettings(DEFAULT_PICTO_SETTINGS);
     setErrors({});
 
     // Reset transform
@@ -521,6 +553,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         floorLayout: snap.floorLayout,
         blackScreenSettings: snap.blackScreenSettings,
         shopDataMode: snap.shopDataMode ?? 'api',
+        pictoSettings: snap.pictoSettings,
       });
 
       // Save cached malls first (other malls that were edited during this session)
@@ -788,7 +821,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               { id: "localMedia" as TabType, label: "ローカルメディア設定", badge: 0 },
               { id: "genre" as TabType, label: "ジャンルメモ設定", badge: 0 },
               { id: "blackScreen" as TabType, label: "ブラックスクリーン", badge: 0 },
-            ] as const).map((tab) => (
+              ...(mallId === 'halong' ? [{ id: "picto" as TabType, label: "ピクトグラム設定", badge: 0 }] : []),
+            ]).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -896,6 +930,36 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                   previewLanguage={mallId === 'halong' && halongHasLocalSpeechBubbles ? previewLanguage : undefined}
                 />
               )}
+              {activeTab === "picto" && mallId === 'halong' && (() => {
+                const mapSrc = halongMaps[floor as keyof typeof halongMaps] ?? halongMaps['1F'];
+                const contentW = window.screen.width >= 3840 ? 3840 : 1920;
+                const contentH = window.screen.height >= 2160 ? 2160 : 1080;
+                return (
+                  <div style={{ position: 'relative', width: contentW, height: contentH, overflow: 'hidden' }}>
+                    <img src={mapSrc} alt={floor} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <AnimatePresence>
+                      {Object.values(pictoSettings.instances)
+                        .filter(inst => inst.floor === floor)
+                        .map(inst => {
+                          const x = inst.x <= 1 ? inst.x * 100 : inst.x;
+                          const y = inst.y <= 1 ? inst.y * 100 : inst.y;
+                          const assetsKey = PICTO_TAG_TO_ASSETS_KEY[inst.tag];
+                          const iconUrl = assetsKey ? halongAssets.pictoMapIcons[assetsKey] : '';
+                          return (
+                            <PictoPin
+                              key={inst.id}
+                              instance={{ ...inst, x, y }}
+                              iconUrl={iconUrl}
+                              isSelected={inst.id === selectedPictoId}
+                              delay={0}
+                            />
+                          );
+                        })
+                      }
+                    </AnimatePresence>
+                  </div>
+                );
+              })()}
             </TransformComponent>
           </PinchSafeTransformWrapper>
           </div>
@@ -1077,6 +1141,17 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             <BlackScreenSettingsTab
               settings={blackScreenSettings}
               onChangeSettings={setBlackScreenSettings}
+            />
+          )}
+          {activeTab === "picto" && mallId === 'halong' && (
+            <PictoSettingsTab
+              floor={floor as import('../types/floorLayout').FloorId}
+              onChangeFloor={(f) => setFloor(f as import('../types/floorLayout').FloorId)}
+              pictoSettings={pictoSettings}
+              onSavePictoSettings={setPictoSettings}
+              selectedInstanceId={selectedPictoId}
+              onSelectedInstanceIdChange={setSelectedPictoId}
+              iconOptions={pictoIconOptions}
             />
           )}
         </div>

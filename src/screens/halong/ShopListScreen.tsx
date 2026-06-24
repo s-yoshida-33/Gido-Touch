@@ -13,8 +13,10 @@ import { getLocationIconSettingsForFloor } from '../../config';
 import type { LocationIconSettingsPerFloor } from '../../types/locationIcon';
 import type { FloorId } from '../../types/floorLayout';
 import { ShopPin } from '../../components/ShopPin';
+import { PictoPin } from '../../components/PictoPin';
 import halongShopPinSvg from '../../assets/malls/halong/icons/locations/shop.svg';
 import type { ShopPositionSettings } from '../../types/shopPosition';
+import type { PictoSettings } from '../../types/picto';
 
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
 
@@ -36,12 +38,31 @@ const listVariants: Variants = {
   },
 };
 
+const PICTO_KEY_TO_TAG: Record<string, string> = {
+  info:     'info',
+  restroom: 'restroom',
+  smoking:  'smoking_room',
+  lockers:  'free_coin_lockers',
+  atm:      'atm',
+  elevator: 'elevator',
+};
+
+const PICTO_TAG_TO_ASSETS_KEY: Record<string, keyof ReturnType<typeof import('../../hooks/useHalongAssets').useHalongAssets>['pictoMapIcons']> = {
+  info:             'info',
+  restroom:         'restroom',
+  smoking_room:     'smoking',
+  free_coin_lockers: 'lockers',
+  atm:              'atm',
+  elevator:         'elevator',
+};
+
 interface HalongShopListScreenProps {
   locationIconSettings?: LocationIconSettingsPerFloor;
   shopPositions?: ShopPositionSettings;
+  pictoSettings?: PictoSettings;
 }
 
-export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp }: HalongShopListScreenProps = {}) {
+export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp }: HalongShopListScreenProps = {}) {
   const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('vn');
   const [langPopupOpen, setLangPopupOpen] = useState(false);
   const assets = useHalongAssets(selectedLang);
@@ -64,6 +85,8 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const [visibleShopId, setVisibleShopId] = useState<string | null>(null);
   const [selectedShopLogoUrl, setSelectedShopLogoUrl] = useState<string | null>(null);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings | null>(null);
+  const [pictoSettings, setPictoSettings] = useState<PictoSettings | null>(pictoSettingsProp ?? null);
+  const [visiblePictoTag, setVisiblePictoTag] = useState<string | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const firstFloorImgRef = useRef<HTMLImageElement>(null);
@@ -72,6 +95,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const focusDelayRef = useRef(0);
   const ignoreFloorChangeRef = useRef(false);
   const pinVisibilityTimerRef = useRef<number | null>(null);
+  const pictoVisibilityTimerRef = useRef<number | null>(null);
   const mapImageMetricsRef = useRef<{ displayWidth: number; displayHeight: number; offsetX: number; offsetY: number } | null>(null);
   const shopListScrollRef = useRef<HTMLDivElement>(null);
   const lastActivityTimeRef = useRef<number>(Date.now());
@@ -140,6 +164,13 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     }
   }, [shopPositionsProp]);
 
+  // Sync pictoSettings from prop when provided (after settings save)
+  useEffect(() => {
+    if (pictoSettingsProp !== undefined) {
+      setPictoSettings(pictoSettingsProp ?? null);
+    }
+  }, [pictoSettingsProp]);
+
   // 設定からデフォルトフロアと現在地アイコン設定を読み込む（初回のみ）
   useEffect(() => {
     async function loadFloorSetting() {
@@ -155,6 +186,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         }
         if (mallSettings.shopPositions && !shopPositionsProp) {
           setShopPositions(mallSettings.shopPositions);
+        }
+        if (mallSettings.pictoSettings && !pictoSettingsProp) {
+          setPictoSettings(mallSettings.pictoSettings);
         }
       } catch {
         // 設定未保存またはTauri未使用 → デフォルト1Fのまま
@@ -401,10 +435,15 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
           clearTimeout(pinVisibilityTimerRef.current);
           pinVisibilityTimerRef.current = null;
         }
+        if (pictoVisibilityTimerRef.current !== null) {
+          clearTimeout(pictoVisibilityTimerRef.current);
+          pictoVisibilityTimerRef.current = null;
+        }
         setSelectedLang('vn');
         setLangPopupOpen(false);
         setSelectedGenre('all');
         setSelectedPicto(null);
+        setVisiblePictoTag(null);
         setSelectedShopId(null);
         setVisibleShopId(null);
         setSelectedShopLogoUrl(null);
@@ -451,8 +490,52 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     setSelectedGenre(genre);
   }
 
-  function handlePictoSelect(picto: string) {
-    setSelectedPicto(prev => (prev === picto ? null : picto));
+  function handlePictoSelect(pictoKey: string) {
+    const newKey = selectedPicto === pictoKey ? null : pictoKey;
+
+    if (pictoVisibilityTimerRef.current !== null) {
+      clearTimeout(pictoVisibilityTimerRef.current);
+      pictoVisibilityTimerRef.current = null;
+    }
+
+    setSelectedPicto(newKey);
+
+    if (!newKey) {
+      setVisiblePictoTag(null);
+      return;
+    }
+
+    const tag = PICTO_KEY_TO_TAG[pictoKey];
+    const instances = pictoSettings ? Object.values(pictoSettings.instances).filter(i => i.tag === tag) : [];
+
+    if (instances.length === 0) {
+      setVisiblePictoTag(tag);
+      return;
+    }
+
+    const hasOnCurrentFloor = instances.some(i => i.floor === currentFloor);
+
+    if (!hasOnCurrentFloor) {
+      const getFloorNum = (f: string) => parseInt(f.replace('F', '') || '0');
+      const currentNum = getFloorNum(currentFloor);
+      const sorted = [...new Set(instances.map(i => i.floor))].sort((a, b) => {
+        const da = Math.abs(getFloorNum(a) - currentNum);
+        const db = Math.abs(getFloorNum(b) - currentNum);
+        return da !== db ? da - db : getFloorNum(b) - getFloorNum(a);
+      });
+      const targetFloor = sorted[0];
+      if (targetFloor) {
+        const floorAnimMs = (FLOOR_ANIM_DURATION + 0.05) * 1000;
+        ignoreFloorChangeRef.current = true;
+        setCurrentFloor(targetFloor);
+        pictoVisibilityTimerRef.current = window.setTimeout(() => {
+          pictoVisibilityTimerRef.current = null;
+          setVisiblePictoTag(tag);
+        }, floorAnimMs);
+      }
+    } else {
+      setVisiblePictoTag(tag);
+    }
   }
 
   function handleShopTap(shopId: string, floorKey: string, logoDataUrl: string | null) {
@@ -461,6 +544,13 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       clearTimeout(pinVisibilityTimerRef.current);
       pinVisibilityTimerRef.current = null;
     }
+    // Clear picto selection
+    if (pictoVisibilityTimerRef.current !== null) {
+      clearTimeout(pictoVisibilityTimerRef.current);
+      pictoVisibilityTimerRef.current = null;
+    }
+    setSelectedPicto(null);
+    setVisiblePictoTag(null);
 
     setSelectedShopLogoUrl(logoDataUrl);
     setSelectedShopId(shopId);
@@ -669,6 +759,36 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                               );
                             })()
                           }
+                        </AnimatePresence>
+
+                        {/* ピクトピン: selectedPicto に対応するタグのインスタンスを表示 */}
+                        <AnimatePresence>
+                          {visiblePictoTag && pictoSettings && mapImageMetrics && (() => {
+                            const scaleRatio = mapImageMetrics.displayWidth / HALONG_REFERENCE_MAP_WIDTH;
+                            const assetsKey = PICTO_TAG_TO_ASSETS_KEY[visiblePictoTag];
+                            const iconUrl = assetsKey ? assets.pictoMapIcons[assetsKey] : '';
+                            const instances = Object.values(pictoSettings.instances)
+                              .filter(inst => inst.tag === visiblePictoTag && inst.floor === floor);
+                            return instances.map(inst => {
+                              const x = inst.x <= 1 ? inst.x * 100 : inst.x;
+                              const y = inst.y <= 1 ? inst.y * 100 : inst.y;
+                              const scaledInst = { ...inst, x, y, size: (inst.size ?? 80) * scaleRatio };
+                              const pixelX = Math.round(mapImageMetrics.offsetX + (x / 100) * mapImageMetrics.displayWidth);
+                              const pixelY = Math.round(mapImageMetrics.offsetY + (y / 100) * mapImageMetrics.displayHeight);
+                              return (
+                                <PictoPin
+                                  key={inst.id}
+                                  instance={scaledInst}
+                                  iconUrl={iconUrl}
+                                  isSelected={true}
+                                  usePixelPosition={true}
+                                  pixelX={pixelX}
+                                  pixelY={pixelY}
+                                  delay={0}
+                                />
+                              );
+                            });
+                          })()}
                         </AnimatePresence>
                       </div>
                     ))}

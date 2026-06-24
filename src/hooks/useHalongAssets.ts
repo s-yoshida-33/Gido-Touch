@@ -209,6 +209,14 @@ export interface HalongAssets {
     restroom: { default: string; highlight: string };
     smoking:  { default: string; highlight: string };
   };
+  pictoMapIcons: {
+    atm:      string;
+    elevator: string;
+    lockers:  string;
+    info:     string;
+    restroom: string;
+    smoking:  string;
+  };
   speechBubbleIconSrc: string;
   locationIconSrc: string;
 }
@@ -350,6 +358,14 @@ function getBundled(lang: 'en' | 'ja' | 'vn'): HalongAssets {
     floorButtons: BUNDLED_FLOOR_BUTTONS[lang],
     langButtons: BUNDLED_LANG_BUTTONS,
     pictos: BUNDLED_PICTOS[lang],
+    pictoMapIcons: {
+      atm:      bundledPictoJaAtm,
+      elevator: bundledPictoJaElevator,
+      lockers:  bundledPictoJaLockers,
+      info:     bundledPictoJaInfo,
+      restroom: bundledPictoJaRestroom,
+      smoking:  bundledPictoJaSmoking,
+    },
     speechBubbleIconSrc: bundledSpeechBubbleSvg,
     locationIconSrc: bundledLocationSvg,
   };
@@ -410,6 +426,14 @@ function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn')
       info:     { default: r(`buttons/pictos/${lang}/info.svg`,              fb.pictos.info.default),     highlight: r(`buttons/pictos/${lang}/info-highlight.svg`,              fb.pictos.info.highlight) },
       restroom: { default: r(`buttons/pictos/${lang}/restroom.svg`,          fb.pictos.restroom.default), highlight: r(`buttons/pictos/${lang}/restroom-highlight.svg`,          fb.pictos.restroom.highlight) },
       smoking:  { default: r(`buttons/pictos/${lang}/smoking-room.svg`,      fb.pictos.smoking.default),  highlight: r(`buttons/pictos/${lang}/smoking-room-highlight.svg`,      fb.pictos.smoking.highlight) },
+    },
+    pictoMapIcons: {
+      atm:      r('icons/pictos/atm.svg',               fb.pictoMapIcons.atm),
+      elevator: r('icons/pictos/elevator.svg',          fb.pictoMapIcons.elevator),
+      lockers:  r('icons/pictos/free-coin-lockers.svg', fb.pictoMapIcons.lockers),
+      info:     r('icons/pictos/info.svg',              fb.pictoMapIcons.info),
+      restroom: r('icons/pictos/restroom.svg',          fb.pictoMapIcons.restroom),
+      smoking:  r('icons/pictos/smoking-room.svg',      fb.pictoMapIcons.smoking),
     },
     speechBubbleIconSrc: r(`icons/locations/user-${lang}.svg`, fb.speechBubbleIconSrc),
     locationIconSrc:     r('icons/locations/location.svg',     fb.locationIconSrc),

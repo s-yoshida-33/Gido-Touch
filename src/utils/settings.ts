@@ -14,6 +14,7 @@ import { DEFAULT_IMAGE_SETTINGS } from '../types/imageSettings';
 import { DEFAULT_AUDIO_SETTINGS } from '../types/audioSettings';
 import { DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR } from '../config';
 import { logInfo, logError } from '../logs/logging';
+import type { PictoSettings } from '../types/picto';
 
 // ============================================================================
 // Type definitions
@@ -51,6 +52,7 @@ export interface MallSettingsFile {
   floorLayout: Record<string, { columns: number; rowsPerCol: number; perColumnRows?: number[]; perColumnPadding?: { top?: number; right?: number; bottom?: number; left?: number; }[] }>;
   blackScreenSettings: BlackScreenSettings;
   shopDataMode: 'api' | 'local';
+  pictoSettings?: PictoSettings;
 }
 
 /** Legacy settings structure for migration */
@@ -208,6 +210,7 @@ export async function loadMallSettings(mallId: string): Promise<MallSettingsFile
       floorLayout: raw.floorLayout ?? defaults.floorLayout,
       blackScreenSettings: raw.blackScreenSettings ?? defaults.blackScreenSettings,
       shopDataMode: (raw.shopDataMode ?? 'api') as 'api' | 'local',
+      pictoSettings: raw.pictoSettings,
     };
   } catch (error) {
     logError('CONFIG', 'Failed to load mall settings', {
