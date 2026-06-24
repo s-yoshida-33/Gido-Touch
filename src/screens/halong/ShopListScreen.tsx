@@ -61,8 +61,8 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>('1F');
   const [mapImageMetrics, setMapImageMetrics] = useState<{ displayWidth: number; displayHeight: number; offsetX: number; offsetY: number } | null>(null);
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+  const [visibleShopId, setVisibleShopId] = useState<string | null>(null);
   const [selectedShopLogoUrl, setSelectedShopLogoUrl] = useState<string | null>(null);
-  const [pinDelay, setPinDelay] = useState(0);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -71,6 +71,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const genreScrollRef = useRef<HTMLDivElement>(null);
   const focusDelayRef = useRef(0);
   const ignoreFloorChangeRef = useRef(false);
+  const pinVisibilityTimerRef = useRef<number | null>(null);
   const mapImageMetricsRef = useRef<{ displayWidth: number; displayHeight: number; offsetX: number; offsetY: number } | null>(null);
   const shopListScrollRef = useRef<HTMLDivElement>(null);
   const lastActivityTimeRef = useRef<number>(Date.now());
@@ -339,7 +340,12 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       ignoreFloorChangeRef.current = false;
       return;
     }
+    if (pinVisibilityTimerRef.current !== null) {
+      clearTimeout(pinVisibilityTimerRef.current);
+      pinVisibilityTimerRef.current = null;
+    }
     setSelectedShopId(null);
+    setVisibleShopId(null);
     setSelectedShopLogoUrl(null);
   }, [currentFloor]);
 
@@ -391,11 +397,16 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       setIsRefreshing(true);
 
       setTimeout(() => {
+        if (pinVisibilityTimerRef.current !== null) {
+          clearTimeout(pinVisibilityTimerRef.current);
+          pinVisibilityTimerRef.current = null;
+        }
         setSelectedLang('vn');
         setLangPopupOpen(false);
         setSelectedGenre('all');
         setSelectedPicto(null);
         setSelectedShopId(null);
+        setVisibleShopId(null);
         setSelectedShopLogoUrl(null);
         setCurrentFloor(defaultFloorRef.current);
 
@@ -445,35 +456,43 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   }
 
   function handleShopTap(shopId: string, floorKey: string, logoDataUrl: string | null) {
-    // Set shop first (Mini pattern: selectedShopDetail is set before floor switch)
+    // Cancel any pending pin visibility timer
+    if (pinVisibilityTimerRef.current !== null) {
+      clearTimeout(pinVisibilityTimerRef.current);
+      pinVisibilityTimerRef.current = null;
+    }
+
     setSelectedShopLogoUrl(logoDataUrl);
     setSelectedShopId(shopId);
+    setVisibleShopId(null); // hide any existing pin immediately
 
     const needsFloorSwitch = floorKey !== currentFloor;
     if (needsFloorSwitch) {
-      // Sequence: floor switch → pin drop → focus
-      const pd = FLOOR_ANIM_DURATION + 0.05; // pin starts after floor animation
-      const pinSpringDuration = 0.4;          // approx spring settle time
+      // Strict sequence: floor animates in → pin appears → focus
+      const floorAnimMs = (FLOOR_ANIM_DURATION + 0.05) * 1000; // 400ms
+      const pinSpringMs = 400; // approx spring settle
       ignoreFloorChangeRef.current = true;
-      setPinDelay(pd);
-      focusDelayRef.current = pd + pinSpringDuration; // focus after pin settles
+      focusDelayRef.current = (floorAnimMs + pinSpringMs) / 1000;
       setCurrentFloor(floorKey);
+      // Mount the pin only after floor animation completes
+      pinVisibilityTimerRef.current = window.setTimeout(() => {
+        pinVisibilityTimerRef.current = null;
+        setVisibleShopId(shopId);
+      }, floorAnimMs);
     } else {
-      setPinDelay(0);
       focusDelayRef.current = 0;
+      setVisibleShopId(shopId); // same floor: show immediately
     }
   }
 
-  // Map focus: animate to pin position (Mini pattern)
-  // Runs when shop or floor changes; floor check inside ensures focus only after correct floor is shown
+  // Map focus: fires when selectedShopId/currentFloor changes
   useEffect(() => {
     if (!selectedShopId || !shopPositions || !transformComponentRef.current) return;
 
     const position = shopPositions.positions[selectedShopId];
     if (!position) return;
 
-    const shopFloor = position.floor;
-    if (shopFloor !== currentFloor) return;
+    if (position.floor !== currentFloor) return;
 
     const metrics = mapImageMetricsRef.current;
     const container = mapContainerRef.current;
@@ -492,19 +511,18 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     let newX = containerW / 2 - targetX * scale;
     let newY = containerH / 2 - targetY * scale;
 
-    // Clamp to keep map within bounds (Mini pattern)
     const minX = containerW * (1 - scale);
     const minY = containerH * (1 - scale);
     newX = Math.min(0, Math.max(minX, newX));
     newY = Math.min(0, Math.max(minY, newY));
 
-    const delay = focusDelayRef.current * 1000;
+    const delayMs = focusDelayRef.current * 1000;
     const timer = setTimeout(() => {
       transformComponentRef.current?.setTransform(newX, newY, scale, 1000, "easeOut");
-    }, delay);
+    }, delayMs);
 
     return () => clearTimeout(timer);
-  }, [selectedShopId, currentFloor, pinDelay, shopPositions]);
+  }, [selectedShopId, currentFloor, shopPositions]);
 
   return (
     <div
@@ -623,11 +641,11 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                           </div>
                         )}
 
-                        {/* ショップピン: 該当フロアのレイヤー内に配置してフロアアニメーションと同期 */}
+                        {/* ショップピン: タイマー管理で floor 完了後にマウント */}
                         <AnimatePresence>
-                          {selectedShopId && shopPositions && mapImageMetrics &&
-                            shopPositions.positions[selectedShopId]?.floor === floor && (() => {
-                              const position = shopPositions.positions[selectedShopId];
+                          {visibleShopId && shopPositions && mapImageMetrics &&
+                            shopPositions.positions[visibleShopId]?.floor === floor && (() => {
+                              const position = shopPositions.positions[visibleShopId];
                               const x = position.x <= 1 ? position.x * 100 : position.x;
                               const y = position.y <= 1 ? position.y * 100 : position.y;
                               const scaleRatio = mapImageMetrics.displayWidth / HALONG_REFERENCE_MAP_WIDTH;
@@ -636,17 +654,17 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                               const pixelY = Math.round(mapImageMetrics.offsetY + (y / 100) * mapImageMetrics.displayHeight);
                               return (
                                 <ShopPin
-                                  key={selectedShopId}
+                                  key={visibleShopId}
                                   position={{ ...position, x, y, size: pinSize }}
                                   usePixelPosition={true}
                                   pixelX={pixelX}
                                   pixelY={pixelY}
-                                  shopName={selectedShopId}
+                                  shopName={visibleShopId}
                                   isSelected={true}
                                   shopLogo={selectedShopLogoUrl ?? undefined}
                                   pinSrc={halongShopPinSvg}
                                   logoTopPercent={24.5}
-                                  delay={pinDelay}
+                                  delay={0}
                                 />
                               );
                             })()
