@@ -9,6 +9,7 @@ import { APP_CONFIG } from "../config";
 import { useShops } from "../hooks/useShops";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
 import { useHalongAssets } from "../hooks/useHalongAssets";
+import halongShopPinSvg from "../assets/malls/halong/icons/locations/shop.svg";
 
 import type { LocationIconSettings, LocationIconSettingsPerFloor } from "../types/locationIcon";
 import { LocationIconsOverlay } from "../components/LocationIconsOverlay";
@@ -150,6 +151,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
           speechBubbleSrc={speechBubbleSrc}
           locationSrc={locationSrc}
           language={language}
+          mallId={mallId}
         />
       </div>
     );
@@ -189,6 +191,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
           speechBubbleSrc={speechBubbleSrc}
           locationSrc={locationSrc}
           language={language}
+          mallId={mallId}
         />
 
         <div
@@ -337,7 +340,8 @@ const ShopPinsOverlay: React.FC<{
   speechBubbleSrc?: string;
   locationSrc?: string;
   language?: 'ja' | 'en' | 'vn';
-}> = ({ floor, floorMap, locationIconSettings, shopPositions, shops, selectedShopId, currentFloorSetting: propCurrentFloorSetting, speechBubbleSrc, locationSrc, language }) => {
+  mallId?: string;
+}> = ({ floor, floorMap, locationIconSettings, shopPositions, shops, selectedShopId, currentFloorSetting: propCurrentFloorSetting, speechBubbleSrc, locationSrc, language, mallId }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageMetrics, setImageMetrics] = useState<{ 
@@ -432,6 +436,8 @@ const ShopPinsOverlay: React.FC<{
             isSelected={selectedShopId === shopId}
             shopLogo={shop.shopLogo}
             shopId={shop.shopId || shop.number}
+            pinSrc={mallId === 'halong' ? halongShopPinSvg : undefined}
+            logoTopPercent={mallId === 'halong' ? 50.5 : 42.5}
           />
         );
       });
@@ -493,6 +499,7 @@ const ShopPinsOverlay: React.FC<{
           speechBubbleSrc={speechBubbleSrc}
           locationSrc={locationSrc}
           language={language}
+          mallId={mallId}
         />
       )}
 

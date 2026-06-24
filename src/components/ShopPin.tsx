@@ -36,6 +36,10 @@ interface ShopPinProps {
   pixelX?: number;
   pixelY?: number;
   delay?: number;
+  /** Override the pin background SVG (default: shop.svg) */
+  pinSrc?: string;
+  /** Vertical center of the logo circle as a percentage of pin container height (default: 42.5) */
+  logoTopPercent?: number;
 }
 
 function buildShadowStyle(shadow?: ShopPosition['shadow']): React.CSSProperties {
@@ -135,7 +139,9 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   usePixelPosition = false,
   pixelX,
   pixelY,
-  delay = 0
+  delay = 0,
+  pinSrc,
+  logoTopPercent = 42.5,
 }) => {
   const size = position.size ?? 80;
   const rotation = position.rotation ?? 0;
@@ -246,7 +252,7 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   const fixedLogoSize = size * 0.75;
   const logoStyle: React.CSSProperties = {
     position: "absolute",
-    top: `calc(50% - ${fixedLogoSize / 2 - size * 0.3}px)`,
+    top: `${logoTopPercent}%`,
     left: "50%",
     width: `${fixedLogoSize}px`,
     height: `${fixedLogoSize}px`,
@@ -292,7 +298,7 @@ export const ShopPin: React.FC<ShopPinProps> = ({
       )}
 
       <img
-        src={speechBubbleIcon}
+        src={pinSrc ?? speechBubbleIcon}
         alt={shopName}
         draggable={false}
         style={pinImageStyle}
