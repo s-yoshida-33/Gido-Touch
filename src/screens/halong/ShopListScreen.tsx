@@ -609,46 +609,51 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                           draggable={false}
                           style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
                         />
+
+                        {/* 現在地アイコン: 設定フロアのレイヤー内に配置してフロアアニメーションと同期 */}
+                        {locationIconSettings && floor === currentFloorSetting && (
+                          <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+                            <LocationIconsOverlay
+                              settings={getLocationIconSettingsForFloor(locationIconSettings, floor as FloorId)}
+                              imageMetrics={mapImageMetrics}
+                              speechBubbleSrc={assets.speechBubbleIconSrc}
+                              locationSrc={assets.locationIconSrc}
+                              language={selectedLang}
+                            />
+                          </div>
+                        )}
+
+                        {/* ショップピン: 該当フロアのレイヤー内に配置してフロアアニメーションと同期 */}
+                        <AnimatePresence>
+                          {selectedShopId && shopPositions && mapImageMetrics &&
+                            shopPositions.positions[selectedShopId]?.floor === floor && (() => {
+                              const position = shopPositions.positions[selectedShopId];
+                              const x = position.x <= 1 ? position.x * 100 : position.x;
+                              const y = position.y <= 1 ? position.y * 100 : position.y;
+                              const scaleRatio = mapImageMetrics.displayWidth / HALONG_REFERENCE_MAP_WIDTH;
+                              const pinSize = (position.size ?? 80) * scaleRatio;
+                              const pixelX = Math.round(mapImageMetrics.offsetX + (x / 100) * mapImageMetrics.displayWidth);
+                              const pixelY = Math.round(mapImageMetrics.offsetY + (y / 100) * mapImageMetrics.displayHeight);
+                              return (
+                                <ShopPin
+                                  key={selectedShopId}
+                                  position={{ ...position, x, y, size: pinSize }}
+                                  usePixelPosition={true}
+                                  pixelX={pixelX}
+                                  pixelY={pixelY}
+                                  shopName={selectedShopId}
+                                  isSelected={true}
+                                  shopLogo={selectedShopLogoUrl ?? undefined}
+                                  pinSrc={halongShopPinSvg}
+                                  logoTopPercent={24.5}
+                                  delay={pinDelay}
+                                />
+                              );
+                            })()
+                          }
+                        </AnimatePresence>
                       </div>
                     ))}
-                    {locationIconSettings && currentFloor === currentFloorSetting && (
-                      <LocationIconsOverlay
-                        settings={getLocationIconSettingsForFloor(locationIconSettings, currentFloor as FloorId)}
-                        imageMetrics={mapImageMetrics}
-                        speechBubbleSrc={assets.speechBubbleIconSrc}
-                        locationSrc={assets.locationIconSrc}
-                        language={selectedLang}
-                      />
-                    )}
-                    <AnimatePresence>
-                      {selectedShopId && shopPositions && mapImageMetrics &&
-                        shopPositions.positions[selectedShopId] &&
-                        shopPositions.positions[selectedShopId].floor === currentFloor && (() => {
-                          const position = shopPositions.positions[selectedShopId];
-                          const x = position.x <= 1 ? position.x * 100 : position.x;
-                          const y = position.y <= 1 ? position.y * 100 : position.y;
-                          const scaleRatio = mapImageMetrics.displayWidth / HALONG_REFERENCE_MAP_WIDTH;
-                          const pinSize = (position.size ?? 80) * scaleRatio;
-                          const pixelX = Math.round(mapImageMetrics.offsetX + (x / 100) * mapImageMetrics.displayWidth);
-                          const pixelY = Math.round(mapImageMetrics.offsetY + (y / 100) * mapImageMetrics.displayHeight);
-                          return (
-                            <ShopPin
-                              key={selectedShopId}
-                              position={{ ...position, x, y, size: pinSize }}
-                              usePixelPosition={true}
-                              pixelX={pixelX}
-                              pixelY={pixelY}
-                              shopName={selectedShopId}
-                              isSelected={true}
-                              shopLogo={selectedShopLogoUrl ?? undefined}
-                              pinSrc={halongShopPinSvg}
-                              logoTopPercent={24.5}
-                              delay={pinDelay}
-                            />
-                          );
-                        })()
-                      }
-                    </AnimatePresence>
                   </div>
                 </TransformComponent>
               </TransformWrapper>
