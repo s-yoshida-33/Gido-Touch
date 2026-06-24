@@ -70,6 +70,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const firstFloorImgRef = useRef<HTMLImageElement>(null);
   const transformComponentRef = useRef<ReactZoomPanPinchContentRef>(null);
   const genreScrollRef = useRef<HTMLDivElement>(null);
+  const blockPinClearRef = useRef(false);
   const shopListScrollRef = useRef<HTMLDivElement>(null);
   const lastActivityTimeRef = useRef<number>(Date.now());
   const defaultFloorRef = useRef<string>('1F');
@@ -433,6 +434,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   function handleShopTap(shopId: string, floorKey: string, logoDataUrl: string | null) {
     const needsFloorSwitch = floorKey !== currentFloor;
     if (needsFloorSwitch) {
+      // Block the onTransformed-based pin clear while floor animation + map focus runs
+      blockPinClearRef.current = true;
+      setTimeout(() => { blockPinClearRef.current = false; }, (FLOOR_ANIM_DURATION + 0.1 + 1.5) * 1000);
       setCurrentFloor(floorKey);
       setPinDelay(FLOOR_ANIM_DURATION + 0.1);
     } else {
@@ -553,7 +557,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   setShowHint(isDefault);
                   setShowFloorLabel(isDefault);
                   setCurrentScale(state.scale);
-                  if (isDefault) { setSelectedShopId(null); setSelectedShopLogoUrl(null); }
+                  if (isDefault && !blockPinClearRef.current) { setSelectedShopId(null); setSelectedShopLogoUrl(null); }
                 }}
               >
                 <TransformComponent
@@ -851,7 +855,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                     width: "600px",
                     height: "120px",
                     borderRadius: "10px",
-                    backgroundColor: selectedShopId === String(shop.id) ? "#ffe0e0" : "#ffffff",
+                    backgroundColor: "#ffffff",
                     flexShrink: 0,
                     filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
                     position: "relative",
