@@ -8,6 +8,7 @@ import { useMall } from "../contexts/MallContext";
 import { APP_CONFIG } from "../config";
 import { useShops } from "../hooks/useShops";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
+import { useHalongAssets } from "../hooks/useHalongAssets";
 
 import type { LocationIconSettings, LocationIconSettingsPerFloor } from "../types/locationIcon";
 import { LocationIconsOverlay } from "../components/LocationIconsOverlay";
@@ -63,8 +64,13 @@ const GidoApp: React.FC<GidoAppProps> = ({
   // Use custom hook for data fetching with cache strategy
   const { shops, error: shopsError } = useShops();
   const error = shopsError ? shopsError.message : null;
-  const { assets, isLoading: isAssetsLoading, language: contextLanguage } = useMall();
+  const { assets, isLoading: isAssetsLoading, language: contextLanguage, mallId } = useMall();
   const language = previewLanguage ?? contextLanguage;
+
+  // When previewing halong with a different language, resolve speech bubble src for that language
+  const halongAssets = useHalongAssets(language as 'en' | 'ja' | 'vn');
+  const speechBubbleSrc = mallId === 'halong' ? halongAssets.speechBubbleIconSrc : assets.common.speechBubbleIconSrc;
+  const locationSrc = mallId === 'halong' ? halongAssets.locationIconSrc : assets.common.locationIconSrc;
 
   const [floor, setFloor] = useState<string>(
     previewFloor ?? APP_CONFIG.floor
@@ -141,8 +147,8 @@ const GidoApp: React.FC<GidoAppProps> = ({
           shops={previewShops}
           selectedShopId={selectedShopId}
           currentFloorSetting={propCurrentFloorSetting}
-          speechBubbleSrc={assets.common.speechBubbleIconSrc}
-          locationSrc={assets.common.locationIconSrc}
+          speechBubbleSrc={speechBubbleSrc}
+          locationSrc={locationSrc}
           language={language}
         />
       </div>
@@ -180,8 +186,8 @@ const GidoApp: React.FC<GidoAppProps> = ({
           shops={previewShops}
           selectedShopId={selectedShopId}
           currentFloorSetting={propCurrentFloorSetting}
-          speechBubbleSrc={assets.common.speechBubbleIconSrc}
-          locationSrc={assets.common.locationIconSrc}
+          speechBubbleSrc={speechBubbleSrc}
+          locationSrc={locationSrc}
           language={language}
         />
 
