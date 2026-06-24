@@ -99,16 +99,17 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, 
   // Helper to calculate scale ratio
   const scaleRatio = imageMetrics ? imageMetrics.displayWidth / REFERENCE_MAP_WIDTH : 1;
 
-  // Resolve language-specific speech bubble size, falling back to the shared size
-  const speechBubbleEffectiveSize = (
-    language && settings.speechBubbleLangSizes?.[language] !== undefined
-      ? settings.speechBubbleLangSizes[language]!
-      : speechBubble.size
-  ) * scaleRatio;
+  // Resolve language-specific full config, falling back to the shared speechBubble config
+  const activeSpeechBubble = (
+    (language === 'ja' && settings.speechBubbleJa) ||
+    (language === 'en' && settings.speechBubbleEn) ||
+    (language === 'vn' && settings.speechBubbleVn) ||
+    speechBubble
+  );
 
   // Create keys based on animation settings to force re-mount when settings change
-  const speechBubbleAnimationKey = speechBubble.animation
-    ? `${speechBubble.animation.enabled}-${speechBubble.animation.type}-${speechBubble.animation.duration}-${speechBubble.animation.amplitude}-${speechBubble.animation.rippleColor || ""}-${speechBubble.animation.rippleSize || ""}-${scaleRatio}`
+  const speechBubbleAnimationKey = activeSpeechBubble.animation
+    ? `${activeSpeechBubble.animation.enabled}-${activeSpeechBubble.animation.type}-${activeSpeechBubble.animation.duration}-${activeSpeechBubble.animation.amplitude}-${activeSpeechBubble.animation.rippleColor || ""}-${activeSpeechBubble.animation.rippleSize || ""}-${scaleRatio}`
     : `no-animation-${scaleRatio}`;
 
   const locationAnimationKey = location.animation
@@ -131,7 +132,7 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, 
         transform: "translate(-50%, -50%)",
         transformOrigin: "center center",
         pointerEvents: "none",
-        zIndex: config === speechBubble ? 5 : 6, // Set z-index here
+        zIndex: config !== location ? 5 : 6, // speech bubble below location pin
       };
     } else {
       // Fallback to percentage based (may be inaccurate if image has letterboxing)
@@ -159,8 +160,8 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, 
   };
 
   const speechBubbleWrapperStyle = {
-    ...getPositionStyle(speechBubble),
-    ...buildShadowStyle(speechBubble.shadow),
+    ...getPositionStyle(activeSpeechBubble),
+    ...buildShadowStyle(activeSpeechBubble.shadow),
   };
 
   const locationWrapperStyle = {
@@ -246,7 +247,7 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, 
 
   return (
     <>
-      {speechBubble.enabled && (
+      {activeSpeechBubble.enabled && (
         <motion.div
           key={speechBubbleAnimationKey}
           style={speechBubbleWrapperStyle}
@@ -258,15 +259,15 @@ export const LocationIconsOverlay: React.FC<Props> = ({ settings, imageMetrics, 
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
-              rotate: speechBubble.rotation
+              rotate: activeSpeechBubble.rotation
             }}
-            {...buildAnimationProps(speechBubble.animation, scaleRatio)}
+            {...buildAnimationProps(activeSpeechBubble.animation, scaleRatio)}
           >
-            {renderRippleAnimation(speechBubble, "speech-bubble", speechBubbleEffectiveSize)}
+            {renderRippleAnimation(activeSpeechBubble, "speech-bubble")}
             <img
               src={speechBubbleSrc ?? SpeechBubbleSvg}
               alt="Current location speech bubble"
-              style={getSizeStyle(speechBubble, speechBubbleEffectiveSize)}
+              style={getSizeStyle(activeSpeechBubble)}
             />
           </motion.div>
         </motion.div>

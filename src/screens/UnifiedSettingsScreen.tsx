@@ -98,6 +98,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   // Local shop list for Halon local mode (overrides BG-sourced shops in coordinate settings)
   const [localHalongShops, setLocalHalongShops] = useState<Shop[] | null>(null);
 
+  // Whether local per-language speech bubble assets (user-ja.svg etc.) exist for halong
+  const [halongHasLocalSpeechBubbles, setHalongHasLocalSpeechBubbles] = useState(false);
+
   useEffect(() => {
     if (mallId !== 'halong' || shopDataMode !== 'local') {
       setLocalHalongShops(null);
@@ -282,7 +285,28 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         console.error('Failed to load mall settings for switch:', e);
       }
     }
-  }, [mallId, captureCurrentSnapshot, applySnapshot, applyMallSettingsFile, setContextMallId]);
+
+    // 4. Re-detect local speech bubble assets for halong
+    if (targetMallId === 'halong') {
+      try {
+        const local = await invoke<Record<string, string> | null>('list_mall_assets', {
+          mallId: 'halong',
+          hostname,
+        });
+        setHalongHasLocalSpeechBubbles(
+          local != null && (
+            !!local['icons/locations/user-ja.svg'] ||
+            !!local['icons/locations/user-en.svg'] ||
+            !!local['icons/locations/user-vn.svg']
+          )
+        );
+      } catch {
+        setHalongHasLocalSpeechBubbles(false);
+      }
+    } else {
+      setHalongHasLocalSpeechBubbles(false);
+    }
+  }, [mallId, hostname, captureCurrentSnapshot, applySnapshot, applyMallSettingsFile, setContextMallId]);
 
   // Transform wrapper ref for programmatic control
   const transformRef = useRef<{
@@ -367,6 +391,27 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         const savedHostname = globalSettings.hostname ?? '';
         setHostname(savedHostname);
         setInitialHostname(savedHostname);
+
+        // Detect if halong has local per-language speech bubble assets
+        if (mallId === 'halong') {
+          try {
+            const local = await invoke<Record<string, string> | null>('list_mall_assets', {
+              mallId: 'halong',
+              hostname: savedHostname,
+            });
+            setHalongHasLocalSpeechBubbles(
+              local != null && (
+                !!local['icons/locations/user-ja.svg'] ||
+                !!local['icons/locations/user-en.svg'] ||
+                !!local['icons/locations/user-vn.svg']
+              )
+            );
+          } catch {
+            setHalongHasLocalSpeechBubbles(false);
+          }
+        } else {
+          setHalongHasLocalSpeechBubbles(false);
+        }
       } catch {}
 
       setFloor(initialFloor);
@@ -950,6 +995,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               locationIconSettings={locationIconSettings}
               onChangeLocationIconSettings={setLocationIconSettings}
               hasLangSpecificSpeechBubble={mallId === 'halong'}
+              hasLocalSpeechBubbleAssets={halongHasLocalSpeechBubbles}
             />
           )}
           {activeTab === "floorSettings" && (

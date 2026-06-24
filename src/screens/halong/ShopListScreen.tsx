@@ -31,7 +31,11 @@ const listVariants: Variants = {
   },
 };
 
-export default function HalongShopListScreen() {
+interface HalongShopListScreenProps {
+  locationIconSettings?: LocationIconSettingsPerFloor;
+}
+
+export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp }: HalongShopListScreenProps = {}) {
   const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('vn');
   const [langPopupOpen, setLangPopupOpen] = useState(false);
   const assets = useHalongAssets(selectedLang);
@@ -108,7 +112,14 @@ export default function HalongShopListScreen() {
     });
   }, [allShops, currentFloor, selectedGenre]);
 
-  // 設定からデフォルトフロアと現在地アイコン設定を読み込む
+  // Sync locationIconSettings from prop when provided (after settings save)
+  useEffect(() => {
+    if (locationIconSettingsProp) {
+      setLocationIconSettings(locationIconSettingsProp);
+    }
+  }, [locationIconSettingsProp]);
+
+  // 設定からデフォルトフロアと現在地アイコン設定を読み込む（初回のみ）
   useEffect(() => {
     async function loadFloorSetting() {
       try {
@@ -118,7 +129,7 @@ export default function HalongShopListScreen() {
           setCurrentFloorSetting(mallSettings.currentFloorSetting);
           defaultFloorRef.current = mallSettings.currentFloorSetting;
         }
-        if (mallSettings.locationIcons) {
+        if (mallSettings.locationIcons && !locationIconSettingsProp) {
           setLocationIconSettings(mallSettings.locationIcons);
         }
       } catch {
@@ -126,6 +137,7 @@ export default function HalongShopListScreen() {
       }
     }
     loadFloorSetting();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // objectFit: cover のマップ画像メトリクスを計算（アイコンの正確な位置スケーリング用）

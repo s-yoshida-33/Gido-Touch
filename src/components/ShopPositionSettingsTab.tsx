@@ -341,6 +341,8 @@ export interface ShopPositionSettingsTabProps {
   onChangeLocationIconSettings?: React.Dispatch<React.SetStateAction<LocationIconSettingsPerFloor>>;
   /** ハロンのように言語別の吹き出しアセットが存在するモールの場合 true */
   hasLangSpecificSpeechBubble?: boolean;
+  /** ローカルに言語別の吹き出しアセット（user-ja.svg等）が実際に存在する場合 true */
+  hasLocalSpeechBubbleAssets?: boolean;
 }
 
 export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = ({
@@ -353,6 +355,7 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
   locationIconSettings,
   onChangeLocationIconSettings,
   hasLangSpecificSpeechBubble = false,
+  hasLocalSpeechBubbleAssets = false,
 }) => {
   const floors: FloorId[] = ["1F", "2F", "3F", "4F"];
   const [selectedFloor, setSelectedFloor] = useState<FloorId>(floor);
@@ -640,48 +643,56 @@ export const ShopPositionSettingsTab: React.FC<ShopPositionSettingsTabProps> = (
         {/* Location Icon Settings - per floor */}
         {locationIconSettings && onChangeLocationIconSettings && (() => {
           const currentFloorSettings = getLocationIconSettingsForFloor(locationIconSettings, selectedFloor);
-          const updateLangSize = (lang: 'ja' | 'en' | 'vn', size: number) => {
+          const showLangPanels = hasLangSpecificSpeechBubble && hasLocalSpeechBubbleAssets;
+
+          const updateFloor = (patch: Partial<LocationIconSettings>) =>
             onChangeLocationIconSettings((prev) => ({
               ...prev,
-              [selectedFloor]: {
-                ...currentFloorSettings,
-                speechBubbleLangSizes: {
-                  ...(currentFloorSettings.speechBubbleLangSizes ?? {}),
-                  [lang]: size,
-                },
-              } as LocationIconSettings,
+              [selectedFloor]: { ...currentFloorSettings, ...patch },
             }));
-          };
+
           return (
             <div style={{ marginTop: 24 }}>
               <h4 style={{ color: "#ffffff", fontSize: 16, fontWeight: 600, marginBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: 8 }}>
                 現在地アイコン設定 ({selectedFloor})
               </h4>
-              <IconConfigSection label="現在地 (Speech Bubble)" config={currentFloorSettings.speechBubble} onChange={(next) => onChangeLocationIconSettings((prev) => ({ ...prev, [selectedFloor]: { ...currentFloorSettings, speechBubble: next } }))} showAnimation={true} />
-              {hasLangSpecificSpeechBubble && (
-                <div style={{ marginTop: 12, padding: "12px 16px", background: "rgba(255,255,255,0.04)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <div style={{ fontSize: 12, marginBottom: 10, color: "rgba(255,255,255,0.5)", fontWeight: 500 }}>
-                    言語別サイズ (px) — 未設定の場合は上記サイズを使用
-                  </div>
-                  <div style={{ display: "flex", gap: 12 }}>
-                    {(['ja', 'en', 'vn'] as const).map((lang) => (
-                      <div key={lang} style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>
-                          {lang.toUpperCase()}
-                        </div>
-                        <input
-                          type="number"
-                          min={1}
-                          value={currentFloorSettings.speechBubbleLangSizes?.[lang] ?? currentFloorSettings.speechBubble.size}
-                          onChange={(e) => updateLangSize(lang, Math.max(1, Number(e.target.value) || 1))}
-                          style={{ width: "100%", backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 8px", color: "#ffffff", fontSize: 13 }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+
+              {showLangPanels ? (
+                <>
+                  <IconConfigSection
+                    label="現在地 (Speech Bubble / JA)"
+                    config={currentFloorSettings.speechBubbleJa ?? currentFloorSettings.speechBubble}
+                    onChange={(next) => updateFloor({ speechBubbleJa: next })}
+                    showAnimation={true}
+                  />
+                  <IconConfigSection
+                    label="現在地 (Speech Bubble / EN)"
+                    config={currentFloorSettings.speechBubbleEn ?? currentFloorSettings.speechBubble}
+                    onChange={(next) => updateFloor({ speechBubbleEn: next })}
+                    showAnimation={true}
+                  />
+                  <IconConfigSection
+                    label="現在地 (Speech Bubble / VN)"
+                    config={currentFloorSettings.speechBubbleVn ?? currentFloorSettings.speechBubble}
+                    onChange={(next) => updateFloor({ speechBubbleVn: next })}
+                    showAnimation={true}
+                  />
+                </>
+              ) : (
+                <IconConfigSection
+                  label="現在地 (Speech Bubble)"
+                  config={currentFloorSettings.speechBubble}
+                  onChange={(next) => updateFloor({ speechBubble: next })}
+                  showAnimation={true}
+                />
               )}
-              <IconConfigSection label="現在地 (Location Pin)" config={currentFloorSettings.location} onChange={(next) => onChangeLocationIconSettings((prev) => ({ ...prev, [selectedFloor]: { ...currentFloorSettings, location: next } }))} showAnimation={true} />
+
+              <IconConfigSection
+                label="現在地 (Location Pin)"
+                config={currentFloorSettings.location}
+                onChange={(next) => updateFloor({ location: next })}
+                showAnimation={true}
+              />
             </div>
           );
         })()}
