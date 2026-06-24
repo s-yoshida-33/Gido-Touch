@@ -250,15 +250,16 @@ export const ShopPin: React.FC<ShopPinProps> = ({
   };
 
   const fixedLogoSize = size * 0.75;
-  const logoStyle: React.CSSProperties = {
+  const logoWrapperStyle: React.CSSProperties = {
     position: "absolute",
     top: `${logoTopPercent}%`,
     left: "50%",
     width: `${fixedLogoSize}px`,
     height: `${fixedLogoSize}px`,
-    objectFit: "contain",
     transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
     zIndex: 2,
+    borderRadius: "50%",
+    overflow: "hidden",
   };
 
   const rippleColor = animation?.rippleColor || "#FFFFFF";
@@ -306,16 +307,18 @@ export const ShopPin: React.FC<ShopPinProps> = ({
       />
 
       {logoUrl && !logoLoading && (
-        <img
-          src={logoUrl}
-          alt={`${shopName} logo`}
-          draggable={false}
-          style={logoStyle}
-          decoding="async"
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = "none";
-          }}
-        />
+        <div style={logoWrapperStyle}>
+          <img
+            src={logoUrl}
+            alt={`${shopName} logo`}
+            draggable={false}
+            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+            decoding="async"
+            onError={(e) => {
+              (e.target as HTMLImageElement).parentElement!.style.display = "none";
+            }}
+          />
+        </div>
       )}
     </div>
   );
