@@ -101,6 +101,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   // Whether local per-language speech bubble assets (user-ja.svg etc.) exist for halong
   const [halongHasLocalSpeechBubbles, setHalongHasLocalSpeechBubbles] = useState(false);
 
+  // Preview language override (only used when halong has local speech bubble assets)
+  const [previewLanguage, setPreviewLanguage] = useState<'ja' | 'en' | 'vn'>('ja');
+
   useEffect(() => {
     if (mallId !== 'halong' || shopDataMode !== 'local') {
       setLocalHalongShops(null);
@@ -890,6 +893,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                   selectedShopId={activeTab === "shopPosition" ? selectedShopId : undefined}
                   showOnlyMap={true}
                   currentFloorSetting={currentFloorSetting}
+                  previewLanguage={mallId === 'halong' && halongHasLocalSpeechBubbles ? previewLanguage : undefined}
                 />
               )}
             </TransformComponent>
@@ -962,6 +966,45 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               ↻
             </button>
           </div>
+
+          {/* Language preview toggle — halong with local speech bubble assets only */}
+          {mallId === 'halong' && halongHasLocalSpeechBubbles && activeTab === 'shopPosition' && (
+            <div
+              style={{
+                position: "absolute",
+                top: 12,
+                right: 12,
+                display: "flex",
+                gap: 4,
+                backgroundColor: "rgba(0,0,0,0.6)",
+                borderRadius: 8,
+                padding: "4px",
+                border: "1px solid rgba(255,255,255,0.15)",
+              }}
+            >
+              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, lineHeight: "26px", paddingLeft: 6, paddingRight: 4, userSelect: "none" }}>プレビュー</span>
+              {(['ja', 'en', 'vn'] as const).map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => setPreviewLanguage(lang)}
+                  style={{
+                    width: 36,
+                    height: 26,
+                    borderRadius: 5,
+                    border: "none",
+                    backgroundColor: previewLanguage === lang ? "#007aff" : "transparent",
+                    color: previewLanguage === lang ? "#ffffff" : "rgba(255,255,255,0.6)",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Edit Panel (15%) */}

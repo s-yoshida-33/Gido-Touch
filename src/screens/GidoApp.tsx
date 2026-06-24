@@ -44,6 +44,8 @@ interface GidoAppProps {
   selectedShopId?: string | null;
   showOnlyMap?: boolean;
   currentFloorSetting?: string;
+  /** Override the language used in the preview (settings screen only) */
+  previewLanguage?: 'ja' | 'en' | 'vn';
 }
 
 const GidoApp: React.FC<GidoAppProps> = ({
@@ -56,11 +58,13 @@ const GidoApp: React.FC<GidoAppProps> = ({
   selectedShopId,
   showOnlyMap = false,
   currentFloorSetting: propCurrentFloorSetting,
+  previewLanguage,
 }) => {
   // Use custom hook for data fetching with cache strategy
   const { shops, error: shopsError } = useShops();
   const error = shopsError ? shopsError.message : null;
-  const { assets, isLoading: isAssetsLoading, language } = useMall();
+  const { assets, isLoading: isAssetsLoading, language: contextLanguage } = useMall();
+  const language = previewLanguage ?? contextLanguage;
 
   const [floor, setFloor] = useState<string>(
     previewFloor ?? APP_CONFIG.floor
