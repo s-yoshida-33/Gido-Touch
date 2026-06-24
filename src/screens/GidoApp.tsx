@@ -499,7 +499,6 @@ const ShopPinsOverlay: React.FC<{
           speechBubbleSrc={speechBubbleSrc}
           locationSrc={locationSrc}
           language={language}
-          mallId={mallId}
         />
       )}
 
