@@ -70,7 +70,8 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const firstFloorImgRef = useRef<HTMLImageElement>(null);
   const transformComponentRef = useRef<ReactZoomPanPinchContentRef>(null);
   const genreScrollRef = useRef<HTMLDivElement>(null);
-  const blockPinClearRef = useRef(false);
+  const ignoreFloorChangeRef = useRef(false);
+  const mapImageMetricsRef = useRef<{ displayWidth: number; displayHeight: number; offsetX: number; offsetY: number } | null>(null);
   const shopListScrollRef = useRef<HTMLDivElement>(null);
   const lastActivityTimeRef = useRef<number>(Date.now());
   const defaultFloorRef = useRef<string>('1F');
@@ -186,12 +187,14 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       offsetY = 0;
     }
 
-    setMapImageMetrics({
+    const metrics = {
       displayWidth: Math.round(displayWidth),
       displayHeight: Math.round(displayHeight),
       offsetX: Math.round(offsetX),
       offsetY: Math.round(offsetY),
-    });
+    };
+    mapImageMetricsRef.current = metrics;
+    setMapImageMetrics(metrics);
   }, []);
 
   useEffect(() => {
@@ -330,6 +333,16 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     setShowFloorLabel(true);
   }, [currentFloor]);
 
+  // フロア切り替え時にピンをクリア（ショップタップによる切り替えは ignoreFloorChangeRef でスキップ）
+  useEffect(() => {
+    if (ignoreFloorChangeRef.current) {
+      ignoreFloorChangeRef.current = false;
+      return;
+    }
+    setSelectedShopId(null);
+    setSelectedShopLogoUrl(null);
+  }, [currentFloor]);
+
   // アイドルタイムアウト: 30秒操作なしでデフォルト状態にリセット
   useEffect(() => {
     lastActivityTimeRef.current = Date.now();
@@ -432,47 +445,61 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   }
 
   function handleShopTap(shopId: string, floorKey: string, logoDataUrl: string | null) {
+    // Set shop first (Mini pattern: selectedShopDetail is set before floor switch)
+    setSelectedShopLogoUrl(logoDataUrl);
+    setSelectedShopId(shopId);
+
     const needsFloorSwitch = floorKey !== currentFloor;
     if (needsFloorSwitch) {
-      // Block the onTransformed-based pin clear while floor animation + map focus runs
-      blockPinClearRef.current = true;
-      setTimeout(() => { blockPinClearRef.current = false; }, (FLOOR_ANIM_DURATION + 0.1 + 1.5) * 1000);
+      ignoreFloorChangeRef.current = true;
+      setPinDelay(FLOOR_ANIM_DURATION + 0.05);
       setCurrentFloor(floorKey);
-      setPinDelay(FLOOR_ANIM_DURATION + 0.1);
     } else {
       setPinDelay(0);
     }
-    setSelectedShopLogoUrl(logoDataUrl);
-    setSelectedShopId(shopId);
   }
 
-  // Map focus: animate to pin position when selectedShopId changes and metrics are ready
+  // Map focus: animate to pin position (Mini pattern)
+  // Runs when shop or floor changes; floor check inside ensures focus only after correct floor is shown
   useEffect(() => {
-    if (!selectedShopId || !mapImageMetrics || !shopPositions || !transformComponentRef.current) return;
+    if (!selectedShopId || !shopPositions || !transformComponentRef.current) return;
 
     const position = shopPositions.positions[selectedShopId];
     if (!position) return;
 
+    const shopFloor = position.floor;
+    if (shopFloor !== currentFloor) return;
+
+    const metrics = mapImageMetricsRef.current;
+    const container = mapContainerRef.current;
+    if (!metrics || !container) return;
+
     const x = position.x <= 1 ? position.x * 100 : position.x;
     const y = position.y <= 1 ? position.y * 100 : position.y;
 
-    const pinContentX = mapImageMetrics.offsetX + (x / 100) * mapImageMetrics.displayWidth;
-    const pinContentY = mapImageMetrics.offsetY + (y / 100) * mapImageMetrics.displayHeight;
+    const containerW = container.clientWidth;
+    const containerH = container.clientHeight;
 
-    const container = mapContainerRef.current;
-    if (!container) return;
+    const targetX = metrics.offsetX + (x / 100) * metrics.displayWidth;
+    const targetY = metrics.offsetY + (y / 100) * metrics.displayHeight;
 
-    const scale = 2.0;
-    const newX = -(pinContentX * scale - container.clientWidth / 2);
-    const newY = -(pinContentY * scale - container.clientHeight / 2);
+    const scale = 1.6;
+    let newX = containerW / 2 - targetX * scale;
+    let newY = containerH / 2 - targetY * scale;
 
-    const focusDelay = pinDelay > 0 ? (FLOOR_ANIM_DURATION + 0.1) * 1000 : 0;
+    // Clamp to keep map within bounds (Mini pattern)
+    const minX = containerW * (1 - scale);
+    const minY = containerH * (1 - scale);
+    newX = Math.min(0, Math.max(minX, newX));
+    newY = Math.min(0, Math.max(minY, newY));
+
+    const delay = pinDelay > 0 ? pinDelay * 1000 : 0;
     const timer = setTimeout(() => {
-      transformComponentRef.current?.setTransform(newX, newY, scale, 800, "easeOut");
-    }, focusDelay);
+      transformComponentRef.current?.setTransform(newX, newY, scale, 1000, "easeOut");
+    }, delay);
 
     return () => clearTimeout(timer);
-  }, [selectedShopId, mapImageMetrics, shopPositions, pinDelay]);
+  }, [selectedShopId, currentFloor, pinDelay, shopPositions]);
 
   return (
     <div
@@ -557,7 +584,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   setShowHint(isDefault);
                   setShowFloorLabel(isDefault);
                   setCurrentScale(state.scale);
-                  if (isDefault && !blockPinClearRef.current) { setSelectedShopId(null); setSelectedShopLogoUrl(null); }
                 }}
               >
                 <TransformComponent
@@ -590,32 +616,36 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                         language={selectedLang}
                       />
                     )}
-                    {selectedShopId && shopPositions && mapImageMetrics && (() => {
-                      const position = shopPositions.positions[selectedShopId];
-                      if (!position || position.floor !== currentFloor) return null;
-                      const x = position.x <= 1 ? position.x * 100 : position.x;
-                      const y = position.y <= 1 ? position.y * 100 : position.y;
-                      const scaleRatio = mapImageMetrics.displayWidth / HALONG_REFERENCE_MAP_WIDTH;
-                      const pinSize = (position.size ?? 80) * scaleRatio;
-                      const pixelX = Math.round(mapImageMetrics.offsetX + (x / 100) * mapImageMetrics.displayWidth);
-                      const pixelY = Math.round(mapImageMetrics.offsetY + (y / 100) * mapImageMetrics.displayHeight);
-                      return (
-                        <ShopPin
-                          key={selectedShopId}
-                          position={{ ...position, x, y, size: pinSize }}
-                          usePixelPosition={true}
-                          pixelX={pixelX}
-                          pixelY={pixelY}
-                          shopName={selectedShopId}
-                          isSelected={true}
-                          shopLogo={selectedShopLogoUrl ?? undefined}
-                          transformScale={currentScale}
-                          pinSrc={halongShopPinSvg}
-                          logoTopPercent={24.5}
-                          delay={pinDelay}
-                        />
-                      );
-                    })()}
+                    <AnimatePresence>
+                      {selectedShopId && shopPositions && mapImageMetrics &&
+                        shopPositions.positions[selectedShopId] &&
+                        shopPositions.positions[selectedShopId].floor === currentFloor && (() => {
+                          const position = shopPositions.positions[selectedShopId];
+                          const x = position.x <= 1 ? position.x * 100 : position.x;
+                          const y = position.y <= 1 ? position.y * 100 : position.y;
+                          const scaleRatio = mapImageMetrics.displayWidth / HALONG_REFERENCE_MAP_WIDTH;
+                          const pinSize = (position.size ?? 80) * scaleRatio;
+                          const pixelX = Math.round(mapImageMetrics.offsetX + (x / 100) * mapImageMetrics.displayWidth);
+                          const pixelY = Math.round(mapImageMetrics.offsetY + (y / 100) * mapImageMetrics.displayHeight);
+                          return (
+                            <ShopPin
+                              key={selectedShopId}
+                              position={{ ...position, x, y, size: pinSize }}
+                              usePixelPosition={true}
+                              pixelX={pixelX}
+                              pixelY={pixelY}
+                              shopName={selectedShopId}
+                              isSelected={true}
+                              shopLogo={selectedShopLogoUrl ?? undefined}
+                              transformScale={currentScale}
+                              pinSrc={halongShopPinSvg}
+                              logoTopPercent={24.5}
+                              delay={pinDelay}
+                            />
+                          );
+                        })()
+                      }
+                    </AnimatePresence>
                   </div>
                 </TransformComponent>
               </TransformWrapper>
