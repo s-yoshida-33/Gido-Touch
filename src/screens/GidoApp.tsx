@@ -437,7 +437,7 @@ const ShopPinsOverlay: React.FC<{
             shopLogo={shop.shopLogo}
             shopId={shop.shopId || shop.number}
             pinSrc={mallId === 'halong' ? halongShopPinSvg : undefined}
-            logoTopPercent={mallId === 'halong' ? 50.5 : 42.5}
+            logoTopPercent={mallId === 'halong' ? 24.5 : 42.5}
           />
         );
       });

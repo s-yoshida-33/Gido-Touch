@@ -607,7 +607,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                           shopLogo={selectedShopLogoUrl ?? undefined}
                           transformScale={currentScale}
                           pinSrc={halongShopPinSvg}
-                          logoTopPercent={50.5}
+                          logoTopPercent={24.5}
                           delay={pinDelay}
                         />
                       );
