@@ -64,12 +64,12 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const [selectedShopLogoUrl, setSelectedShopLogoUrl] = useState<string | null>(null);
   const [pinDelay, setPinDelay] = useState(0);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings | null>(null);
-  const [currentScale, setCurrentScale] = useState(1);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const firstFloorImgRef = useRef<HTMLImageElement>(null);
   const transformComponentRef = useRef<ReactZoomPanPinchContentRef>(null);
   const genreScrollRef = useRef<HTMLDivElement>(null);
+  const focusDelayRef = useRef(0);
   const ignoreFloorChangeRef = useRef(false);
   const mapImageMetricsRef = useRef<{ displayWidth: number; displayHeight: number; offsetX: number; offsetY: number } | null>(null);
   const shopListScrollRef = useRef<HTMLDivElement>(null);
@@ -451,11 +451,16 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
 
     const needsFloorSwitch = floorKey !== currentFloor;
     if (needsFloorSwitch) {
+      // Sequence: floor switch → pin drop → focus
+      const pd = FLOOR_ANIM_DURATION + 0.05; // pin starts after floor animation
+      const pinSpringDuration = 0.4;          // approx spring settle time
       ignoreFloorChangeRef.current = true;
-      setPinDelay(FLOOR_ANIM_DURATION + 0.05);
+      setPinDelay(pd);
+      focusDelayRef.current = pd + pinSpringDuration; // focus after pin settles
       setCurrentFloor(floorKey);
     } else {
       setPinDelay(0);
+      focusDelayRef.current = 0;
     }
   }
 
@@ -493,7 +498,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     newX = Math.min(0, Math.max(minX, newX));
     newY = Math.min(0, Math.max(minY, newY));
 
-    const delay = pinDelay > 0 ? pinDelay * 1000 : 0;
+    const delay = focusDelayRef.current * 1000;
     const timer = setTimeout(() => {
       transformComponentRef.current?.setTransform(newX, newY, scale, 1000, "easeOut");
     }, delay);
@@ -583,7 +588,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   const isDefault = Math.abs(state.scale - 1) < 0.01 && Math.abs(state.positionX) < 1 && Math.abs(state.positionY) < 1;
                   setShowHint(isDefault);
                   setShowFloorLabel(isDefault);
-                  setCurrentScale(state.scale);
                 }}
               >
                 <TransformComponent
@@ -637,7 +641,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                               shopName={selectedShopId}
                               isSelected={true}
                               shopLogo={selectedShopLogoUrl ?? undefined}
-                              transformScale={currentScale}
                               pinSrc={halongShopPinSvg}
                               logoTopPercent={24.5}
                               delay={pinDelay}
