@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import type { FloorId } from "../types/floorLayout";
 import type { ImageSettings } from "../types/imageSettings";
-import type { HalongBannerSettings, HalongBannerEntry } from "../types/bannerSettings";
+import type { HalongBannerSettings, HalongBannerEntry, HalongBannerDisplayMode } from "../types/bannerSettings";
 import { mergeBannerEntries } from "../types/bannerSettings";
 import type { HalongBannerFile } from "../hooks/useHalongBanners";
 import { useMapForceFetch } from "../hooks/useMapForceFetch";
@@ -418,155 +418,131 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
       </div>
 
       {/* バナー画像設定（halong のみ） */}
-      {mallId === 'halong' && onChangeBannerSettings && (
-        <div style={{ marginTop: 40 }}>
-          <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, color: "#E0E0E0" }}>
-            バナー画像設定
-          </h3>
-          <p style={{ margin: "0 0 12px", fontSize: 12, color: "#9E9E9E" }}>
-            medias/halong/assets/banners/ のファイルを読み込みます。最大3枚が表示されます。
-          </p>
+      {mallId === 'halong' && onChangeBannerSettings && (() => {
+        const bs = bannerSettings ?? { entries: [], displayMode: 'equal' as HalongBannerDisplayMode, bannerHeight: 200, topMargin: 0, bannerGap: 20, carouselDurationSec: 5 };
+        const mode = bs.displayMode ?? 'equal';
+        const update = (patch: Partial<typeof bs>) => onChangeBannerSettings({ ...bs, ...patch });
+        const mergedEntries: HalongBannerEntry[] = mergeBannerEntries(bs.entries, availableBanners);
 
-          {onReloadBanners && (
-            <button
-              onClick={onReloadBanners}
-              style={{
-                width: "100%",
-                padding: "10px 16px",
-                backgroundColor: "#37474F",
-                border: "none",
-                borderRadius: 4,
-                color: "#ffffff",
-                cursor: "pointer",
-                fontSize: 14,
-                fontWeight: 500,
-                marginBottom: 16,
-              }}
-            >
-              バナーを再読み込み
-            </button>
-          )}
+        const numStyle: React.CSSProperties = {
+          width: "100%", padding: "6px 10px", backgroundColor: "#2A2A2A",
+          border: "1px solid #4A4A4A", borderRadius: 4, color: "#fff", fontSize: 13,
+          boxSizing: "border-box",
+        };
+        const labelStyle: React.CSSProperties = { display: "block", marginBottom: 6, fontSize: 13, color: "#B0B0B0" };
+        const sectionStyle: React.CSSProperties = { marginBottom: 16 };
 
-          {availableBanners.length === 0 ? (
-            <p style={{ fontSize: 12, color: "#757575" }}>
-              バナーファイルが見つかりません。
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {(() => {
-                const mergedEntries: HalongBannerEntry[] = mergeBannerEntries(
-                  bannerSettings?.entries ?? [],
-                  availableBanners,
-                );
-                return mergedEntries.map((entry, idx) => {
+        return (
+          <div style={{ marginTop: 40 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, color: "#E0E0E0" }}>
+              バナー画像設定
+            </h3>
+
+            {/* バナーを再読み込み */}
+            {onReloadBanners && (
+              <div style={sectionStyle}>
+                <button
+                  onClick={onReloadBanners}
+                  style={{ width: "100%", padding: "10px 16px", backgroundColor: "#37474F", border: "none", borderRadius: 4, color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 500 }}
+                >
+                  バナーを再読み込み
+                </button>
+              </div>
+            )}
+
+            {/* 表示モード選択 */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>表示モード</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {([ ['equal', '均等配置'], ['custom', '任意間隔'], ['carousel', 'カルーセル'] ] as [HalongBannerDisplayMode, string][]).map(([m, label]) => (
+                  <button
+                    key={m}
+                    onClick={() => update({ displayMode: m })}
+                    style={{
+                      flex: 1, padding: "8px 4px", fontSize: 12, fontWeight: 500, border: "none", borderRadius: 4, cursor: "pointer",
+                      backgroundColor: mode === m ? "#4A9EFF" : "#3A3A3A",
+                      color: mode === m ? "#fff" : "#B0B0B0",
+                    }}
+                  >{label}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* モード別設定 */}
+            {mode === 'equal' && (
+              <div style={sectionStyle}>
+                <label style={labelStyle}>バナー高さ (px)</label>
+                <input type="number" min={50} max={700} value={bs.bannerHeight ?? 200} style={numStyle}
+                  onChange={(e) => update({ bannerHeight: Math.max(50, Number(e.target.value)) })} />
+              </div>
+            )}
+
+            {mode === 'custom' && (
+              <>
+                <div style={sectionStyle}>
+                  <label style={labelStyle}>バナー高さ (px)</label>
+                  <input type="number" min={50} max={700} value={bs.bannerHeight ?? 200} style={numStyle}
+                    onChange={(e) => update({ bannerHeight: Math.max(50, Number(e.target.value)) })} />
+                </div>
+                <div style={sectionStyle}>
+                  <label style={labelStyle}>上部余白 (px)</label>
+                  <input type="number" min={0} max={600} value={bs.topMargin ?? 0} style={numStyle}
+                    onChange={(e) => update({ topMargin: Math.max(0, Number(e.target.value)) })} />
+                </div>
+                <div style={sectionStyle}>
+                  <label style={labelStyle}>バナー間隔 (px)</label>
+                  <input type="number" min={0} max={300} value={bs.bannerGap ?? 20} style={numStyle}
+                    onChange={(e) => update({ bannerGap: Math.max(0, Number(e.target.value)) })} />
+                </div>
+              </>
+            )}
+
+            {mode === 'carousel' && (
+              <div style={sectionStyle}>
+                <label style={labelStyle}>表示秒数（1枚あたり）</label>
+                <input type="number" min={1} max={60} value={bs.carouselDurationSec ?? 5} style={numStyle}
+                  onChange={(e) => update({ carouselDurationSec: Math.max(1, Number(e.target.value)) })} />
+              </div>
+            )}
+
+            {/* バナー一覧 */}
+            <div style={{ marginBottom: 8 }}>
+              <label style={labelStyle}>
+                バナー一覧 {availableBanners.length === 0 ? "（ファイルなし）" : `（${availableBanners.length}件）`}
+              </label>
+            </div>
+            {availableBanners.length === 0 ? (
+              <p style={{ fontSize: 12, color: "#757575" }}>medias/halong/assets/banners/ にファイルが見つかりません。</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {mergedEntries.map((entry, idx) => {
                   const bannerFile = availableBanners.find((b) => b.filename === entry.filename);
                   return (
-                    <div
-                      key={entry.filename}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "8px",
-                        backgroundColor: "#1A1A1A",
-                        borderRadius: 4,
-                        border: "1px solid #3A3A3A",
-                      }}
-                    >
-                      {/* サムネイル */}
-                      <div
-                        style={{
-                          width: 64,
-                          height: 36,
-                          flexShrink: 0,
-                          backgroundColor: "#2A2A2A",
-                          borderRadius: 2,
-                          overflow: "hidden",
-                        }}
-                      >
-                        {bannerFile && (
-                          <img
-                            src={bannerFile.url}
-                            alt={entry.filename}
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                          />
-                        )}
+                    <div key={entry.filename} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px", backgroundColor: "#1A1A1A", borderRadius: 4, border: "1px solid #3A3A3A" }}>
+                      <div style={{ width: 64, height: 36, flexShrink: 0, backgroundColor: "#2A2A2A", borderRadius: 2, overflow: "hidden" }}>
+                        {bannerFile && <img src={bannerFile.url} alt={entry.filename} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
                       </div>
-
-                      {/* ファイル名 */}
-                      <span style={{ flex: 1, fontSize: 11, color: "#B0B0B0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {entry.filename}
-                      </span>
-
-                      {/* 表示/非表示 */}
+                      <span style={{ flex: 1, fontSize: 11, color: "#B0B0B0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.filename}</span>
                       <button
-                        onClick={() => {
-                          const next = mergedEntries.map((e, i) =>
-                            i === idx ? { ...e, enabled: !e.enabled } : e,
-                          );
-                          onChangeBannerSettings({ entries: next });
-                        }}
-                        style={{
-                          padding: "4px 8px",
-                          backgroundColor: entry.enabled ? "#1B5E20" : "#424242",
-                          border: "none",
-                          borderRadius: 3,
-                          color: "#fff",
-                          cursor: "pointer",
-                          fontSize: 11,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {entry.enabled ? "表示" : "非表示"}
-                      </button>
-
-                      {/* ▲ */}
-                      <button
-                        disabled={idx === 0}
-                        onClick={() => {
-                          const next = [...mergedEntries];
-                          [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-                          onChangeBannerSettings({ entries: next });
-                        }}
-                        style={{
-                          padding: "4px 6px",
-                          backgroundColor: "#2A2A2A",
-                          border: "1px solid #3A3A3A",
-                          borderRadius: 3,
-                          color: idx === 0 ? "#555" : "#ccc",
-                          cursor: idx === 0 ? "default" : "pointer",
-                          fontSize: 11,
-                          flexShrink: 0,
-                        }}
+                        onClick={() => { const next = mergedEntries.map((e, i) => i === idx ? { ...e, enabled: !e.enabled } : e); update({ entries: next }); }}
+                        style={{ padding: "4px 8px", backgroundColor: entry.enabled ? "#1B5E20" : "#424242", border: "none", borderRadius: 3, color: "#fff", cursor: "pointer", fontSize: 11, flexShrink: 0 }}
+                      >{entry.enabled ? "表示" : "非表示"}</button>
+                      <button disabled={idx === 0}
+                        onClick={() => { const next = [...mergedEntries]; [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]; update({ entries: next }); }}
+                        style={{ padding: "4px 6px", backgroundColor: "#2A2A2A", border: "1px solid #3A3A3A", borderRadius: 3, color: idx === 0 ? "#555" : "#ccc", cursor: idx === 0 ? "default" : "pointer", fontSize: 11, flexShrink: 0 }}
                       >▲</button>
-
-                      {/* ▼ */}
-                      <button
-                        disabled={idx === mergedEntries.length - 1}
-                        onClick={() => {
-                          const next = [...mergedEntries];
-                          [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
-                          onChangeBannerSettings({ entries: next });
-                        }}
-                        style={{
-                          padding: "4px 6px",
-                          backgroundColor: "#2A2A2A",
-                          border: "1px solid #3A3A3A",
-                          borderRadius: 3,
-                          color: idx === mergedEntries.length - 1 ? "#555" : "#ccc",
-                          cursor: idx === mergedEntries.length - 1 ? "default" : "pointer",
-                          fontSize: 11,
-                          flexShrink: 0,
-                        }}
+                      <button disabled={idx === mergedEntries.length - 1}
+                        onClick={() => { const next = [...mergedEntries]; [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]; update({ entries: next }); }}
+                        style={{ padding: "4px 6px", backgroundColor: "#2A2A2A", border: "1px solid #3A3A3A", borderRadius: 3, color: idx === mergedEntries.length - 1 ? "#555" : "#ccc", cursor: idx === mergedEntries.length - 1 ? "default" : "pointer", fontSize: 11, flexShrink: 0 }}
                       >▼</button>
                     </div>
                   );
-                });
-              })()}
-            </div>
-          )}
-        </div>
-      )}
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };

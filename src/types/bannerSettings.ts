@@ -1,3 +1,5 @@
+export type HalongBannerDisplayMode = 'equal' | 'custom' | 'carousel';
+
 export interface HalongBannerEntry {
   filename: string;
   enabled: boolean;
@@ -5,10 +7,20 @@ export interface HalongBannerEntry {
 
 export interface HalongBannerSettings {
   entries: HalongBannerEntry[];
+  displayMode: HalongBannerDisplayMode;
+  bannerHeight: number;         // px（equal / custom モード）
+  topMargin: number;            // px（custom モード: 上部余白）
+  bannerGap: number;            // px（custom モード: バナー間隔）
+  carouselDurationSec: number;  // 秒（carousel モード: スライド表示時間）
 }
 
 export const DEFAULT_HALONG_BANNER_SETTINGS: HalongBannerSettings = {
   entries: [],
+  displayMode: 'equal',
+  bannerHeight: 200,
+  topMargin: 0,
+  bannerGap: 20,
+  carouselDurationSec: 5,
 };
 
 export function mergeBannerEntries(
