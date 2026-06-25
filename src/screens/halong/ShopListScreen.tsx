@@ -849,8 +849,15 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               boxSizing: "border-box",
             }}
           >
-            {/* スペーサー */}
-            <div style={{ flex: 1 }} />
+            {/* バナーコンテナ群 */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "30px", flex: 1 }}>
+              <div style={{ width: "555px", flex: 1, backgroundColor: "#ffffff", borderRadius: "8px" }} />
+              <div style={{ width: "555px", flex: 1, backgroundColor: "#ffffff", borderRadius: "8px" }} />
+              <div style={{ width: "555px", flex: 1, backgroundColor: "#ffffff", borderRadius: "8px" }} />
+            </div>
+
+            {/* バナーとピクトの間隔 */}
+            <div style={{ height: "30px", flexShrink: 0 }} />
 
             {/* ピクトボタン行（左上） */}
             <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0 }}>
@@ -928,7 +935,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
 
             {/* フロアボタン（下・中央）上から 4F→3F→2F→1F */}
             <div
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "50px", flexShrink: 0, marginTop: "50px" }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "30px", flexShrink: 0, marginTop: "30px" }}
             >
               {((['4F', '3F', '2F', '1F'] as const)).map(floor => (
                 <div
