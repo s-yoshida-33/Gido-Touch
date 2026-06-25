@@ -931,32 +931,57 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 />
               )}
               {activeTab === "picto" && mallId === 'halong' && (() => {
-                const mapSrc = halongMaps[floor as keyof typeof halongMaps] ?? halongMaps['1F'];
                 const contentW = window.screen.width >= 3840 ? 3840 : 1920;
                 const contentH = window.screen.height >= 2160 ? 2160 : 1080;
+                // Replicate halong screen layout so map dimensions match the actual app
+                // Halong screen: 3840×2160, left area 3140px (padding 50px), map container = 2385×2060,
+                // op panel 655px, info panel 700px.
+                const sc = contentW / 3840;
+                const padding = Math.round(50 * sc);
+                const opW = Math.round(655 * sc);
+                const infoW = Math.round(700 * sc);
+                const mapSrc = halongMaps[floor as keyof typeof halongMaps] ?? halongMaps['1F'];
+                // Map container will be exactly 2385*sc × 2060*sc — same aspect ratio as the SVG (2385:2060),
+                // so objectFit:cover produces zero offset, and percentage positioning is pixel-accurate.
+                const mapDisplayW = Math.round(2385 * sc);
+                const HALONG_REF_W = 1920;
+                const scaleRatio = mapDisplayW / HALONG_REF_W;
                 return (
-                  <div style={{ position: 'relative', width: contentW, height: contentH, overflow: 'hidden' }}>
-                    <img src={mapSrc} alt={floor} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <AnimatePresence>
-                      {Object.values(pictoSettings.instances)
-                        .filter(inst => inst.floor === floor)
-                        .map(inst => {
-                          const x = inst.x <= 1 ? inst.x * 100 : inst.x;
-                          const y = inst.y <= 1 ? inst.y * 100 : inst.y;
-                          const assetsKey = PICTO_TAG_TO_ASSETS_KEY[inst.tag];
-                          const iconUrl = assetsKey ? halongAssets.pictoMapIcons[assetsKey] : '';
-                          return (
-                            <PictoPin
-                              key={inst.id}
-                              instance={{ ...inst, x, y }}
-                              iconUrl={iconUrl}
-                              isSelected={inst.id === selectedPictoId}
-                              delay={0}
-                            />
-                          );
-                        })
-                      }
-                    </AnimatePresence>
+                  <div style={{ display: 'flex', flexDirection: 'row', width: contentW, height: contentH, backgroundColor: '#ffffff', overflow: 'hidden' }}>
+                    {/* Left area (3140*sc wide, inner padding 50*sc) */}
+                    <div style={{ width: Math.round(3140 * sc), height: contentH, padding, boxSizing: 'border-box' }}>
+                      {/* Main container: flex row, border-radius matches halong */}
+                      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'row', borderRadius: Math.round(40 * sc), overflow: 'hidden' }}>
+                        {/* Map container — flex:1 gives exactly 2385*sc wide */}
+                        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                          <img src={mapSrc} alt={floor} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          <AnimatePresence>
+                            {Object.values(pictoSettings.instances)
+                              .filter(inst => inst.floor === floor)
+                              .map(inst => {
+                                const x = inst.x <= 1 ? inst.x * 100 : inst.x;
+                                const y = inst.y <= 1 ? inst.y * 100 : inst.y;
+                                const assetsKey = PICTO_TAG_TO_ASSETS_KEY[inst.tag];
+                                const iconUrl = assetsKey ? halongAssets.pictoMapIcons[assetsKey] : '';
+                                return (
+                                  <PictoPin
+                                    key={inst.id}
+                                    instance={{ ...inst, x, y, size: (inst.size ?? 80) * scaleRatio }}
+                                    iconUrl={iconUrl}
+                                    isSelected={inst.id === selectedPictoId}
+                                    delay={0}
+                                  />
+                                );
+                              })
+                            }
+                          </AnimatePresence>
+                        </div>
+                        {/* Dummy operation panel */}
+                        <div style={{ width: opW, height: '100%', backgroundColor: '#DDDDDD', flexShrink: 0 }} />
+                      </div>
+                    </div>
+                    {/* Info panel */}
+                    <div style={{ width: infoW, height: contentH, backgroundColor: '#555555', flexShrink: 0 }} />
                   </div>
                 );
               })()}

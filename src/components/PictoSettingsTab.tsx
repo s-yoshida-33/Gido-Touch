@@ -312,11 +312,13 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
                       <div>
                         <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>タイプ</div>
                         <select value={selectedInstance.animation?.type ?? "bounce"} onChange={(e) => updateAnimation({ type: e.target.value as AnimationType })} style={{ width: "100%", padding: "8px", ...inputStyle }}>
-                          <option value="floating" style={{ backgroundColor: "#2C2C2C" }}>Floating</option>
-                          <option value="pulse"    style={{ backgroundColor: "#2C2C2C" }}>Pulse</option>
-                          <option value="bounce"   style={{ backgroundColor: "#2C2C2C" }}>Bounce</option>
-                          <option value="blink"    style={{ backgroundColor: "#2C2C2C" }}>Blink (Ripple)</option>
-                          <option value="none"     style={{ backgroundColor: "#2C2C2C" }}>None</option>
+                          <option value="floating"   style={{ backgroundColor: "#2C2C2C" }}>Floating</option>
+                          <option value="pulse"      style={{ backgroundColor: "#2C2C2C" }}>Pulse</option>
+                          <option value="bounce"     style={{ backgroundColor: "#2C2C2C" }}>Bounce</option>
+                          <option value="spin-float" style={{ backgroundColor: "#2C2C2C" }}>スピン上昇</option>
+                          <option value="spin-loop"  style={{ backgroundColor: "#2C2C2C" }}>スピンループ</option>
+                          <option value="blink"      style={{ backgroundColor: "#2C2C2C" }}>Blink (Ripple)</option>
+                          <option value="none"       style={{ backgroundColor: "#2C2C2C" }}>None</option>
                         </select>
                       </div>
                       <div style={{ display: "flex", gap: 10 }}>
@@ -324,11 +326,27 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
                           <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>期間 (秒)</div>
                           <input type="number" value={selectedInstance.animation?.duration ?? 2} onChange={(e) => updateAnimation({ duration: Math.max(0.1, Number(e.target.value) || 2) })} min={0.1} step={0.1} style={{ width: "100%", ...inputStyle }} />
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅</div>
-                          <input type="number" value={selectedInstance.animation?.amplitude ?? 15} onChange={(e) => updateAnimation({ amplitude: Number(e.target.value) || 0 })} style={{ width: "100%", ...inputStyle }} />
-                        </div>
+                        {(["floating", "bounce", "spin-float"] as string[]).includes(selectedInstance.animation?.type ?? "bounce") && (
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>振幅</div>
+                            <input type="number" value={selectedInstance.animation?.amplitude ?? 15} onChange={(e) => updateAnimation({ amplitude: Number(e.target.value) || 0 })} style={{ width: "100%", ...inputStyle }} />
+                          </div>
+                        )}
                       </div>
+                      {selectedInstance.animation?.type === "spin-float" && (
+                        <div>
+                          <div style={{ fontSize: 12, marginBottom: 6, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>繰り返し</div>
+                          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedInstance.animation?.spinRepeat !== false}
+                              onChange={(e) => updateAnimation({ spinRepeat: e.target.checked })}
+                              style={{ width: 16, height: 16, accentColor: "#007aff" }}
+                            />
+                            <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 13 }}>ループ (オフ = 1回のみ)</span>
+                          </label>
+                        </div>
+                      )}
                       {selectedInstance.animation?.type === "blink" && (
                         <>
                           <div>

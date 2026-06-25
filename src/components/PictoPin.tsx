@@ -31,11 +31,13 @@ function buildShadowStyle(shadow: PictoInstance["shadow"]): React.CSSProperties 
 
 function getAnimationClass(type: string): string {
   switch (type) {
-    case "floating": return "anim-floating";
-    case "pulse":    return "anim-pulse";
-    case "bounce":   return "anim-bounce";
-    case "blink":    return "";
-    default:         return "";
+    case "floating":   return "anim-floating";
+    case "pulse":      return "anim-pulse";
+    case "bounce":     return "anim-bounce";
+    case "spin-float": return "anim-spin-float";
+    case "spin-loop":  return "anim-spin-loop";
+    case "blink":      return "";
+    default:           return "";
   }
 }
 
@@ -145,12 +147,35 @@ export const PictoPin: React.FC<PictoPinProps> = ({
     if (!isReady) return null;
     if (isSelected && animation?.enabled && animation.type !== "none") {
       const animClass = getAnimationClass(animation.type);
-      const style = {
-        ...innerContainerStyle,
+      const isSpinAnim = animation.type === "spin-float" || animation.type === "spin-loop";
+      const animStyle: React.CSSProperties = {
         "--anim-duration": `${animation.duration}s`,
         "--anim-amplitude": `-${fixedAmplitude}px`,
+        ...(animation.type === "spin-float" && {
+          "--anim-iteration": animation.spinRepeat === false ? "1" : "infinite",
+        }),
+        ...(isSpinAnim
+          ? { position: "relative", transformStyle: "preserve-3d" as const }
+          : { ...innerContainerStyle }
+        ),
       } as React.CSSProperties;
-      return <div className={animClass} style={style}>{renderContent()}</div>;
+
+      if (isSpinAnim) {
+        return (
+          <div style={{ perspective: "600px" }}>
+            <div className={animClass} style={animStyle}>
+              <div style={{ backfaceVisibility: "hidden" }}>{renderContent()}</div>
+              <div style={{
+                backfaceVisibility: "hidden",
+                transform: "rotateY(180deg)",
+                position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                display: "flex", justifyContent: "center", alignItems: "center",
+              }}>{renderContent()}</div>
+            </div>
+          </div>
+        );
+      }
+      return <div className={animClass} style={animStyle}>{renderContent()}</div>;
     }
     return <div style={innerContainerStyle}>{renderContent()}</div>;
   };
