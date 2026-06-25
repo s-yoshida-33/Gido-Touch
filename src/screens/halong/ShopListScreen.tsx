@@ -857,28 +857,27 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
             {/* バナーコンテナ群（16:9固定、555×312px） */}
             {(() => {
               const mergedEntries = mergeBannerEntries(bannerSettingsProp?.entries ?? [], availableBanners);
-              const displayBanners = mergedEntries.filter((e) => e.enabled).slice(0, 3);
+              const displayBanners = mergedEntries
+                .filter((e) => e.enabled)
+                .slice(0, 3)
+                .map((e) => availableBanners.find((b) => b.filename === e.filename))
+                .filter((f): f is NonNullable<typeof f> => !!f);
+              if (displayBanners.length === 0) return null;
               return (
                 <div style={{ display: "flex", flexDirection: "column", gap: "30px", flexShrink: 0 }}>
-                  {[0, 1, 2].map((slotIdx) => {
-                    const entry = displayBanners[slotIdx];
-                    const file = entry ? availableBanners.find((b) => b.filename === entry.filename) : undefined;
-                    return (
-                      <div
-                        key={slotIdx}
-                        style={{ width: "555px", height: "312px", backgroundColor: "#ffffff", borderRadius: "8px", flexShrink: 0, overflow: "hidden" }}
-                      >
-                        {file && (
-                          <img
-                            src={file.url}
-                            alt={`banner${slotIdx + 1}`}
-                            draggable={false}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
+                  {displayBanners.map((file, idx) => (
+                    <div
+                      key={idx}
+                      style={{ width: "555px", height: "312px", backgroundColor: "#ffffff", borderRadius: "26px", flexShrink: 0, overflow: "hidden" }}
+                    >
+                      <img
+                        src={file.url}
+                        alt={`banner${idx + 1}`}
+                        draggable={false}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      />
+                    </div>
+                  ))}
                 </div>
               );
             })()}
