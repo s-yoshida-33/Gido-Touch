@@ -890,7 +890,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
 
               if (mode === 'carousel') {
                 return (
-                  <div style={{ flex: 1, position: "relative", overflow: "hidden", borderRadius: "26px", flexShrink: 0 }}>
+                  <div style={{ width: "555px", height: "312px", position: "relative", overflow: "hidden", borderRadius: "26px", flexShrink: 0 }}>
                     {displayBanners.map((file, idx) => (
                       <img
                         key={idx}
