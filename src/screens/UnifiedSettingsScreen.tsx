@@ -32,6 +32,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { PictoSettingsTab } from '../components/PictoSettingsTab';
 import type { PictoSettings } from '../types/picto';
 import { DEFAULT_PICTO_SETTINGS } from '../types/picto';
+import type { HalongBannerSettings } from '../types/bannerSettings';
+import { DEFAULT_HALONG_BANNER_SETTINGS } from '../types/bannerSettings';
+import { useHalongBanners } from '../hooks/useHalongBanners';
 import { useHalongMaps } from '../hooks/useHalongMaps';
 import { useHalongAssets } from '../hooks/useHalongAssets';
 import { PictoPin } from '../components/PictoPin';
@@ -91,6 +94,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
   const [pictoSettings, setPictoSettings] = useState<PictoSettings>(DEFAULT_PICTO_SETTINGS);
   const [selectedPictoId, setSelectedPictoId] = useState<string | null>(null);
+  const [bannerSettings, setBannerSettings] = useState<HalongBannerSettings>(DEFAULT_HALONG_BANNER_SETTINGS);
+  const { banners: availableBanners, reload: reloadBanners } = useHalongBanners();
 
   // Black screen settings
   const [blackScreenSettings, setBlackScreenSettings] = useState<BlackScreenSettings>(DEFAULT_BLACK_SCREEN_SETTINGS);
@@ -219,6 +224,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     blackScreenSettings: BlackScreenSettings;
     shopDataMode: 'api' | 'local';
     pictoSettings: PictoSettings;
+    bannerSettings: HalongBannerSettings;
   };
   const mallEditingCache = useRef<Map<MallId, MallEditingSnapshot>>(new Map());
 
@@ -238,7 +244,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     blackScreenSettings,
     shopDataMode,
     pictoSettings,
-  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings, shopDataMode, pictoSettings]);
+    bannerSettings,
+  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings, shopDataMode, pictoSettings, bannerSettings]);
 
   // Apply a snapshot to all editing state
   const applySnapshot = useCallback((snap: MallEditingSnapshot) => {
@@ -256,6 +263,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setBlackScreenSettings(snap.blackScreenSettings);
     setShopDataMode(snap.shopDataMode);
     setPictoSettings(snap.pictoSettings);
+    setBannerSettings(snap.bannerSettings);
   }, []);
 
   // Apply MallSettingsFile loaded from disk to all editing state
@@ -273,6 +281,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setBlackScreenSettings(mallSettings.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
     setShopDataMode(mallSettings.shopDataMode ?? 'api');
     setPictoSettings(mallSettings.pictoSettings ?? DEFAULT_PICTO_SETTINGS);
+    setBannerSettings(mallSettings.bannerSettings ?? DEFAULT_HALONG_BANNER_SETTINGS);
 
     // Genre settings with fallback
     const gs = mallSettings.genreSettings;
@@ -521,6 +530,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setBlackScreenSettings(DEFAULT_BLACK_SCREEN_SETTINGS);
     setShopDataMode('api');
     setPictoSettings(DEFAULT_PICTO_SETTINGS);
+    setBannerSettings(DEFAULT_HALONG_BANNER_SETTINGS);
     setErrors({});
 
     // Reset transform
@@ -554,6 +564,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         blackScreenSettings: snap.blackScreenSettings,
         shopDataMode: snap.shopDataMode ?? 'api',
         pictoSettings: snap.pictoSettings,
+        bannerSettings: snap.bannerSettings,
       });
 
       // Save cached malls first (other malls that were edited during this session)
@@ -1114,6 +1125,11 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onChangeImageSettings={setImageSettings}
               onMapsFetchedFromS3={() => setMapsFetchedFromS3(true)}
               hostname={hostname}
+              mallId={mallId}
+              bannerSettings={bannerSettings}
+              availableBanners={availableBanners}
+              onChangeBannerSettings={setBannerSettings}
+              onReloadBanners={reloadBanners}
             />
           )}
           {activeTab === "shopPosition" && (

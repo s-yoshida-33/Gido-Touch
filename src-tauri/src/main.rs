@@ -786,6 +786,34 @@ fn list_mall_maps(mall_id: String, hostname: String) -> Result<Option<HashMap<St
     Ok(Some(result))
 }
 
+/// List banner image files under medias/halong/assets/banners/.
+/// Returns sorted list of { filename, absPath } for use with convertFileSrc on the frontend.
+#[tauri::command]
+fn list_halong_banners() -> Result<Vec<serde_json::Value>, String> {
+    let banners_dir = get_media_base_dir()?.join("halong").join("assets").join("banners");
+    if !banners_dir.exists() {
+        return Ok(vec![]);
+    }
+    let mut entries: Vec<serde_json::Value> = fs::read_dir(&banners_dir)
+        .map_err(|e| format!("Failed to read banners directory: {}", e))?
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            if !path.is_file() {
+                return None;
+            }
+            let fname = path.file_name()?.to_str()?.to_string();
+            if fname.starts_with('.') {
+                return None;
+            }
+            let abs = path.canonicalize().unwrap_or(path).to_string_lossy().to_string();
+            Some(serde_json::json!({ "filename": fname, "absPath": abs }))
+        })
+        .collect();
+    entries.sort_by_key(|e| e["filename"].as_str().unwrap_or("").to_string());
+    Ok(entries)
+}
+
 /// Load shop data JSON from media_base/shops/{mall_id}.json.
 /// Returns null if the file does not exist.
 #[tauri::command]
@@ -1819,6 +1847,7 @@ fn main() {
             notify_shop_change,
             minimize_window,
             list_mall_maps,
+            list_halong_banners,
             load_shop_data,
             load_local_shoplist,
             get_local_shop_logo,

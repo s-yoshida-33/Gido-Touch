@@ -15,6 +15,7 @@ import { DEFAULT_AUDIO_SETTINGS } from '../types/audioSettings';
 import { DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR } from '../config';
 import { logInfo, logError } from '../logs/logging';
 import type { PictoSettings } from '../types/picto';
+import type { HalongBannerSettings } from '../types/bannerSettings';
 
 // ============================================================================
 // Type definitions
@@ -53,6 +54,7 @@ export interface MallSettingsFile {
   blackScreenSettings: BlackScreenSettings;
   shopDataMode: 'api' | 'local';
   pictoSettings?: PictoSettings;
+  bannerSettings?: HalongBannerSettings;
 }
 
 /** Legacy settings structure for migration */
@@ -211,6 +213,7 @@ export async function loadMallSettings(mallId: string): Promise<MallSettingsFile
       blackScreenSettings: raw.blackScreenSettings ?? defaults.blackScreenSettings,
       shopDataMode: (raw.shopDataMode ?? 'api') as 'api' | 'local',
       pictoSettings: raw.pictoSettings,
+      bannerSettings: raw.bannerSettings,
     };
   } catch (error) {
     logError('CONFIG', 'Failed to load mall settings', {

@@ -17,6 +17,9 @@ import { PictoPin } from '../../components/PictoPin';
 import halongShopPinSvg from '../../assets/malls/halong/icons/locations/shop.svg';
 import type { ShopPositionSettings } from '../../types/shopPosition';
 import type { PictoSettings } from '../../types/picto';
+import type { HalongBannerSettings } from '../../types/bannerSettings';
+import { mergeBannerEntries } from '../../types/bannerSettings';
+import { useHalongBanners } from '../../hooks/useHalongBanners';
 
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
 
@@ -60,9 +63,10 @@ interface HalongShopListScreenProps {
   locationIconSettings?: LocationIconSettingsPerFloor;
   shopPositions?: ShopPositionSettings;
   pictoSettings?: PictoSettings;
+  bannerSettings?: HalongBannerSettings;
 }
 
-export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp }: HalongShopListScreenProps = {}) {
+export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp }: HalongShopListScreenProps = {}) {
   const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('vn');
   const [langPopupOpen, setLangPopupOpen] = useState(false);
   const assets = useHalongAssets(selectedLang);
@@ -87,6 +91,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings | null>(null);
   const [pictoSettings, setPictoSettings] = useState<PictoSettings | null>(pictoSettingsProp ?? null);
   const [visiblePictoTag, setVisiblePictoTag] = useState<string | null>(null);
+  const { banners: availableBanners } = useHalongBanners();
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const firstFloorImgRef = useRef<HTMLImageElement>(null);
@@ -849,15 +854,37 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               boxSizing: "border-box",
             }}
           >
-            {/* バナーコンテナ群 */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "30px", flex: 1 }}>
-              <div style={{ width: "555px", flex: 1, backgroundColor: "#ffffff", borderRadius: "8px" }} />
-              <div style={{ width: "555px", flex: 1, backgroundColor: "#ffffff", borderRadius: "8px" }} />
-              <div style={{ width: "555px", flex: 1, backgroundColor: "#ffffff", borderRadius: "8px" }} />
-            </div>
+            {/* バナーコンテナ群（16:9固定、555×312px） */}
+            {(() => {
+              const mergedEntries = mergeBannerEntries(bannerSettingsProp?.entries ?? [], availableBanners);
+              const displayBanners = mergedEntries.filter((e) => e.enabled).slice(0, 3);
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: "30px", flexShrink: 0 }}>
+                  {[0, 1, 2].map((slotIdx) => {
+                    const entry = displayBanners[slotIdx];
+                    const file = entry ? availableBanners.find((b) => b.filename === entry.filename) : undefined;
+                    return (
+                      <div
+                        key={slotIdx}
+                        style={{ width: "555px", height: "312px", backgroundColor: "#ffffff", borderRadius: "8px", flexShrink: 0, overflow: "hidden" }}
+                      >
+                        {file && (
+                          <img
+                            src={file.url}
+                            alt={`banner${slotIdx + 1}`}
+                            draggable={false}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {/* バナーとピクトの間隔 */}
-            <div style={{ height: "30px", flexShrink: 0 }} />
+            <div style={{ height: "5px", flexShrink: 0 }} />
 
             {/* ピクトボタン行（左上） */}
             <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0 }}>
@@ -867,9 +894,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 onClick={() => handlePictoSelect('info')}
               >
                 <img src={assets.pictos.info.default} alt="info" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
+                  style={{ width: "100px", height: "100px", display: "block" }} />
                 <img src={assets.pictos.info.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "100px", height: "100px", display: "block",
                     opacity: selectedPicto === 'info' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
               {/* restroom */}
@@ -878,9 +905,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 onClick={() => handlePictoSelect('restroom')}
               >
                 <img src={assets.pictos.restroom.default} alt="restroom" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
+                  style={{ width: "100px", height: "100px", display: "block" }} />
                 <img src={assets.pictos.restroom.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "100px", height: "100px", display: "block",
                     opacity: selectedPicto === 'restroom' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
               {/* smoking */}
@@ -889,24 +916,24 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 onClick={() => handlePictoSelect('smoking')}
               >
                 <img src={assets.pictos.smoking.default} alt="smoking" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
+                  style={{ width: "100px", height: "100px", display: "block" }} />
                 <img src={assets.pictos.smoking.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "100px", height: "100px", display: "block",
                     opacity: selectedPicto === 'smoking' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
             </div>
 
             {/* ピクトボタン行2（コインロッカー・ATM・エレベーター） */}
-            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0, marginTop: "30px" }}>
+            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0, marginTop: "5px" }}>
               {/* lockers */}
               <div
                 style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
                 onClick={() => handlePictoSelect('lockers')}
               >
                 <img src={assets.pictos.lockers.default} alt="lockers" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
+                  style={{ width: "100px", height: "100px", display: "block" }} />
                 <img src={assets.pictos.lockers.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "100px", height: "100px", display: "block",
                     opacity: selectedPicto === 'lockers' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
               {/* atm */}
@@ -915,9 +942,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 onClick={() => handlePictoSelect('atm')}
               >
                 <img src={assets.pictos.atm.default} alt="atm" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
+                  style={{ width: "100px", height: "100px", display: "block" }} />
                 <img src={assets.pictos.atm.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "100px", height: "100px", display: "block",
                     opacity: selectedPicto === 'atm' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
               {/* elevator */}
@@ -926,16 +953,16 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 onClick={() => handlePictoSelect('elevator')}
               >
                 <img src={assets.pictos.elevator.default} alt="elevator" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
+                  style={{ width: "100px", height: "100px", display: "block" }} />
                 <img src={assets.pictos.elevator.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                  style={{ position: "absolute", top: 0, left: 0, width: "100px", height: "100px", display: "block",
                     opacity: selectedPicto === 'elevator' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
               </div>
             </div>
 
             {/* フロアボタン（下・中央）上から 4F→3F→2F→1F */}
             <div
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "30px", flexShrink: 0, marginTop: "30px" }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "15px", flexShrink: 0, marginTop: "10px" }}
             >
               {((['4F', '3F', '2F', '1F'] as const)).map(floor => (
                 <div

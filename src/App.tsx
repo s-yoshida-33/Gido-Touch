@@ -34,6 +34,8 @@ import {
 import type { MallSettingsFile, GlobalSettings } from "./utils/settings";
 import type { PictoSettings } from "./types/picto";
 import { DEFAULT_PICTO_SETTINGS } from "./types/picto";
+import type { HalongBannerSettings } from "./types/bannerSettings";
+import { DEFAULT_HALONG_BANNER_SETTINGS } from "./types/bannerSettings";
 import { DEFAULT_CATEGORY_MAPPINGS, DEFAULT_IGNORED_GENRE_KEYWORDS } from "./utils/genreUtils";
 import { getVersion } from "@tauri-apps/api/app";
 import { useHeartbeat } from "./hooks/useHeartbeat";
@@ -191,6 +193,9 @@ const App: React.FC = () => {
   // Picto settings (halong only)
   const [pictoSettings, setPictoSettings] = useState<PictoSettings>(DEFAULT_PICTO_SETTINGS);
 
+  // Banner settings (halong only)
+  const [bannerSettings, setBannerSettings] = useState<HalongBannerSettings>(DEFAULT_HALONG_BANNER_SETTINGS);
+
   // SSE Status Subscription
   useEffect(() => {
     try {
@@ -319,6 +324,7 @@ const App: React.FC = () => {
     setFloorLayout(saved.floorLayout || DEFAULT_FLOOR_LAYOUT);
     setBlackScreenSettings(saved.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
     if (saved.pictoSettings) setPictoSettings(saved.pictoSettings);
+    if (saved.bannerSettings) setBannerSettings(saved.bannerSettings);
     addDebug("App: Settings saved and applied");
   };
 
@@ -358,6 +364,7 @@ const App: React.FC = () => {
       setFloorLayout(mallData.floorLayout || DEFAULT_FLOOR_LAYOUT);
       setBlackScreenSettings(mallData.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
       if (mallData.pictoSettings) setPictoSettings(mallData.pictoSettings);
+      if (mallData.bannerSettings) setBannerSettings(mallData.bannerSettings);
 
       // 5. Load shop data
       await loadData(true);
@@ -501,6 +508,7 @@ const App: React.FC = () => {
         setFloorLayout(mallData.floorLayout || DEFAULT_FLOOR_LAYOUT);
         setBlackScreenSettings(mallData.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
         if (mallData.pictoSettings) setPictoSettings(mallData.pictoSettings);
+        if (mallData.bannerSettings) setBannerSettings(mallData.bannerSettings);
 
         addDebug(`Mall settings loaded for ${currentMallId}`);
         logInfo("APP", "Settings loaded", {
@@ -694,7 +702,7 @@ const App: React.FC = () => {
         onOpenVersionInfo={() => setIsVersionInfoOpen(true)}
       >
         {mallId === "halong" ? (
-          <HalongShopListScreen locationIconSettings={locationSettings} shopPositions={shopPositions} pictoSettings={pictoSettings} />
+          <HalongShopListScreen locationIconSettings={locationSettings} shopPositions={shopPositions} pictoSettings={pictoSettings} bannerSettings={bannerSettings} />
         ) : (
           <ShopListScreen
             currentFloorSetting={currentFloorSetting}

@@ -1,6 +1,9 @@
 import React, { useRef, useState } from "react";
 import type { FloorId } from "../types/floorLayout";
 import type { ImageSettings } from "../types/imageSettings";
+import type { HalongBannerSettings, HalongBannerEntry } from "../types/bannerSettings";
+import { mergeBannerEntries } from "../types/bannerSettings";
+import type { HalongBannerFile } from "../hooks/useHalongBanners";
 import { useMapForceFetch } from "../hooks/useMapForceFetch";
 
 export interface ImageSettingsTabProps {
@@ -10,6 +13,11 @@ export interface ImageSettingsTabProps {
   onChangeImageSettings: (settings: ImageSettings) => void;
   onMapsFetchedFromS3: () => void;
   hostname: string;
+  mallId?: string;
+  bannerSettings?: HalongBannerSettings;
+  availableBanners?: HalongBannerFile[];
+  onChangeBannerSettings?: (settings: HalongBannerSettings) => void;
+  onReloadBanners?: () => void;
 }
 
 const FLOORS: FloorId[] = ["1F", "2F", "3F", "4F"];
@@ -21,6 +29,11 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
   onChangeImageSettings,
   onMapsFetchedFromS3,
   hostname,
+  mallId,
+  bannerSettings,
+  availableBanners = [],
+  onChangeBannerSettings,
+  onReloadBanners,
 }) => {
   const floorMapInputRef = useRef<HTMLInputElement>(null);
   const openTimeInputRef = useRef<HTMLInputElement>(null);
@@ -403,6 +416,157 @@ export const ImageSettingsTab: React.FC<ImageSettingsTabProps> = ({
           </div>
         )}
       </div>
+
+      {/* バナー画像設定（halong のみ） */}
+      {mallId === 'halong' && onChangeBannerSettings && (
+        <div style={{ marginTop: 40 }}>
+          <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, color: "#E0E0E0" }}>
+            バナー画像設定
+          </h3>
+          <p style={{ margin: "0 0 12px", fontSize: 12, color: "#9E9E9E" }}>
+            medias/halong/assets/banners/ のファイルを読み込みます。最大3枚が表示されます。
+          </p>
+
+          {onReloadBanners && (
+            <button
+              onClick={onReloadBanners}
+              style={{
+                width: "100%",
+                padding: "10px 16px",
+                backgroundColor: "#37474F",
+                border: "none",
+                borderRadius: 4,
+                color: "#ffffff",
+                cursor: "pointer",
+                fontSize: 14,
+                fontWeight: 500,
+                marginBottom: 16,
+              }}
+            >
+              バナーを再読み込み
+            </button>
+          )}
+
+          {availableBanners.length === 0 ? (
+            <p style={{ fontSize: 12, color: "#757575" }}>
+              バナーファイルが見つかりません。
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(() => {
+                const mergedEntries: HalongBannerEntry[] = mergeBannerEntries(
+                  bannerSettings?.entries ?? [],
+                  availableBanners,
+                );
+                return mergedEntries.map((entry, idx) => {
+                  const bannerFile = availableBanners.find((b) => b.filename === entry.filename);
+                  return (
+                    <div
+                      key={entry.filename}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px",
+                        backgroundColor: "#1A1A1A",
+                        borderRadius: 4,
+                        border: "1px solid #3A3A3A",
+                      }}
+                    >
+                      {/* サムネイル */}
+                      <div
+                        style={{
+                          width: 64,
+                          height: 36,
+                          flexShrink: 0,
+                          backgroundColor: "#2A2A2A",
+                          borderRadius: 2,
+                          overflow: "hidden",
+                        }}
+                      >
+                        {bannerFile && (
+                          <img
+                            src={bannerFile.url}
+                            alt={entry.filename}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        )}
+                      </div>
+
+                      {/* ファイル名 */}
+                      <span style={{ flex: 1, fontSize: 11, color: "#B0B0B0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {entry.filename}
+                      </span>
+
+                      {/* 表示/非表示 */}
+                      <button
+                        onClick={() => {
+                          const next = mergedEntries.map((e, i) =>
+                            i === idx ? { ...e, enabled: !e.enabled } : e,
+                          );
+                          onChangeBannerSettings({ entries: next });
+                        }}
+                        style={{
+                          padding: "4px 8px",
+                          backgroundColor: entry.enabled ? "#1B5E20" : "#424242",
+                          border: "none",
+                          borderRadius: 3,
+                          color: "#fff",
+                          cursor: "pointer",
+                          fontSize: 11,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {entry.enabled ? "表示" : "非表示"}
+                      </button>
+
+                      {/* ▲ */}
+                      <button
+                        disabled={idx === 0}
+                        onClick={() => {
+                          const next = [...mergedEntries];
+                          [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                          onChangeBannerSettings({ entries: next });
+                        }}
+                        style={{
+                          padding: "4px 6px",
+                          backgroundColor: "#2A2A2A",
+                          border: "1px solid #3A3A3A",
+                          borderRadius: 3,
+                          color: idx === 0 ? "#555" : "#ccc",
+                          cursor: idx === 0 ? "default" : "pointer",
+                          fontSize: 11,
+                          flexShrink: 0,
+                        }}
+                      >▲</button>
+
+                      {/* ▼ */}
+                      <button
+                        disabled={idx === mergedEntries.length - 1}
+                        onClick={() => {
+                          const next = [...mergedEntries];
+                          [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                          onChangeBannerSettings({ entries: next });
+                        }}
+                        style={{
+                          padding: "4px 6px",
+                          backgroundColor: "#2A2A2A",
+                          border: "1px solid #3A3A3A",
+                          borderRadius: 3,
+                          color: idx === mergedEntries.length - 1 ? "#555" : "#ccc",
+                          cursor: idx === mergedEntries.length - 1 ? "default" : "pointer",
+                          fontSize: 11,
+                          flexShrink: 0,
+                        }}
+                      >▼</button>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
