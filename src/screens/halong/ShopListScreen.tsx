@@ -890,23 +890,25 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
 
               if (mode === 'carousel') {
                 return (
-                  <div style={{ width: "555px", height: "312px", overflow: "hidden", borderRadius: "26px", flexShrink: 0 }}>
-                    <div style={{
-                      display: "flex",
-                      width: `${555 * displayBanners.length}px`,
-                      height: "100%",
-                      transform: `translateX(${-carouselSlide * 555}px)`,
-                      transition: "transform 0.6s ease-in-out",
-                    }}>
-                      {displayBanners.map((file, idx) => (
-                        <img
-                          key={idx}
-                          src={file.url}
-                          alt={`banner${idx + 1}`}
-                          draggable={false}
-                          style={{ width: "555px", height: "312px", objectFit: "cover", display: "block", flexShrink: 0 }}
-                        />
-                      ))}
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", flexShrink: 0, overflow: "hidden" }}>
+                    <div style={{ width: "555px", height: "312px", overflow: "hidden", borderRadius: "26px", flexShrink: 0 }}>
+                      <div style={{
+                        display: "flex",
+                        width: `${555 * displayBanners.length}px`,
+                        height: "100%",
+                        transform: `translateX(${-carouselSlide * 555}px)`,
+                        transition: "transform 0.6s ease-in-out",
+                      }}>
+                        {displayBanners.map((file, idx) => (
+                          <img
+                            key={idx}
+                            src={file.url}
+                            alt={`banner${idx + 1}`}
+                            draggable={false}
+                            style={{ width: "555px", height: "312px", objectFit: "cover", display: "block", flexShrink: 0 }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
                 );
