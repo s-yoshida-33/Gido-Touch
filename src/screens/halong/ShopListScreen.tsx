@@ -20,6 +20,8 @@ import type { PictoSettings } from '../../types/picto';
 import type { HalongBannerSettings } from '../../types/bannerSettings';
 import { mergeBannerEntries } from '../../types/bannerSettings';
 import { useHalongBanners } from '../../hooks/useHalongBanners';
+import { CloseButton } from '../../components/CloseButton';
+import type { HalongShop } from '../../hooks/useHalongShops';
 
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
 
@@ -88,6 +90,8 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const [visibleShopId, setVisibleShopId] = useState<string | null>(null);
   const [selectedShopLogoUrl, setSelectedShopLogoUrl] = useState<string | null>(null);
+  const [selectedShopDetail, setSelectedShopDetail] = useState<HalongShop | null>(null);
+  const [closeDetailPressed, setCloseDetailPressed] = useState(false);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings | null>(null);
   const [pictoSettings, setPictoSettings] = useState<PictoSettings | null>(pictoSettingsProp ?? null);
   const [visiblePictoTag, setVisiblePictoTag] = useState<string | null>(null);
@@ -452,6 +456,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         selectedGenre === 'all' &&
         selectedPicto === null &&
         selectedShopId === null &&
+        selectedShopDetail === null &&
         currentFloor === defaultFloorRef.current &&
         showHint && showFloorLabel &&
         !isGenreScrolled &&
@@ -481,6 +486,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         setSelectedShopId(null);
         setVisibleShopId(null);
         setSelectedShopLogoUrl(null);
+        setSelectedShopDetail(null);
         setCurrentFloor(defaultFloorRef.current);
 
         if (transformComponentRef.current) {
@@ -509,7 +515,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       if (genreEl) genreEl.removeEventListener('scroll', handleActivity);
       if (throttleTimeout !== null) window.clearTimeout(throttleTimeout);
     };
-  }, [isRefreshing, selectedLang, langPopupOpen, selectedGenre, selectedPicto, selectedShopId, currentFloor, showHint, showFloorLabel]);
+  }, [isRefreshing, selectedLang, langPopupOpen, selectedGenre, selectedPicto, selectedShopId, selectedShopDetail, currentFloor, showHint, showFloorLabel]);
 
   function handleFloorSelect(floor: string) {
     setGenreDirection(0);
@@ -1100,91 +1106,132 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
             overflow: "hidden",
           }}
         >
+          {/* ショップリスト */}
           <AnimatePresence initial={false} custom={genreDirection}>
-            <motion.div
-              key={`${selectedGenre}-${currentFloor}`}
-              ref={shopListScrollRef}
-              custom={genreDirection}
-              variants={listVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="halong-shop-list-scroll"
-              transition={{
-                x: { type: "tween", duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5, ease: "easeInOut" },
-                opacity: { duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5 },
-              }}
-              style={{
-                position: "absolute",
-                inset: 0,
-                overflowY: "auto",
-                scrollbarWidth: "none",
-                padding: "25px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "25px",
-                boxSizing: "border-box",
-              }}
-            >
-              {filteredShops.map(shop => (
-                <div
-                  key={shop.id}
-                  onClick={() => handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl)}
-                  style={{
-                    width: "600px",
-                    height: "120px",
-                    borderRadius: "10px",
-                    backgroundColor: "#ffffff",
-                    flexShrink: 0,
-                    filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
-                    position: "relative",
-                    cursor: "pointer",
-                    touchAction: "none",
-                  }}
-                >
-                  {/* ロゴエリア 120×120 */}
-                  <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden", borderRadius: "10px 0 0 10px" }}>
-                    {shop.logoDataUrl && (
-                      <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
-                        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-                    )}
-                  </div>
-
-                  {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
-                  <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
-                    display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
-                  </div>
-
-                  {/* 区画番号ラベル グレー（幅は言語ごとの最大テキスト幅に動的変更） */}
-                  {shop.section && (
-                    <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: "#888888",
-                      display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
-                    </div>
-                  )}
-
-                  {/* ショップ名 */}
+            {!selectedShopDetail && (
+              <motion.div
+                key={`list-${selectedGenre}-${currentFloor}`}
+                ref={shopListScrollRef}
+                custom={genreDirection}
+                variants={listVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="halong-shop-list-scroll"
+                transition={{
+                  x: { type: "tween", duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5, ease: "easeInOut" },
+                  opacity: { duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5 },
+                }}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  overflowY: "auto",
+                  scrollbarWidth: "none",
+                  padding: "25px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "25px",
+                  boxSizing: "border-box",
+                }}
+              >
+                {filteredShops.map(shop => (
                   <div
+                    key={shop.id}
+                    onClick={() => { handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
                     style={{
-                      position: "absolute",
-                      left: "140px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      fontSize: "24px",
-                      fontWeight: "bold",
-                      color: "#000000",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      maxWidth: "440px",
+                      width: "600px",
+                      height: "120px",
+                      borderRadius: "10px",
+                      backgroundColor: "#ffffff",
+                      flexShrink: 0,
+                      filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
+                      position: "relative",
+                      cursor: "pointer",
+                      touchAction: "none",
                     }}
                   >
-                    {getDisplayName(shop, selectedLang)}
+                    {/* ロゴエリア 120×120 */}
+                    <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden", borderRadius: "10px 0 0 10px" }}>
+                      {shop.logoDataUrl && (
+                        <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
+                          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                      )}
+                    </div>
+
+                    {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
+                    <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
+                      display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
+                    </div>
+
+                    {/* 区画番号ラベル グレー（幅は言語ごとの最大テキスト幅に動的変更） */}
+                    {shop.section && (
+                      <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: "#888888",
+                        display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
+                      </div>
+                    )}
+
+                    {/* ショップ名 */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: "140px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        fontSize: "24px",
+                        fontWeight: "bold",
+                        color: "#000000",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: "440px",
+                      }}
+                    >
+                      {getDisplayName(shop, selectedLang)}
+                    </div>
                   </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ショップ詳細パネル（白紙・フェードイン） */}
+          <AnimatePresence>
+            {selectedShopDetail && (
+              <motion.div
+                key="shop-detail"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundColor: "#ffffff",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "40px",
+                }}
+              >
+                {/* 店舗名 */}
+                <div style={{ fontSize: "32px", fontWeight: "bold", color: "#000000", textAlign: "center", padding: "0 40px" }}>
+                  {getDisplayName(selectedShopDetail, selectedLang)}
                 </div>
-              ))}
-            </motion.div>
+
+                {/* 閉じるボタン */}
+                <CloseButton
+                  onClick={() => setSelectedShopDetail(null)}
+                  onTouchStart={() => setCloseDetailPressed(true)}
+                  onTouchEnd={() => setCloseDetailPressed(false)}
+                  onTouchCancel={() => setCloseDetailPressed(false)}
+                  isPressed={closeDetailPressed}
+                  style={{ width: "120px", height: "120px" }}
+                />
+              </motion.div>
+            )}
           </AnimatePresence>
 
           {/* インナーシャドウオーバーレイ */}
