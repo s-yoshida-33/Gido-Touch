@@ -769,6 +769,22 @@ fn get_local_shop_logo(mall_id: String, shop_id: String) -> Result<Option<String
     Ok(file_to_data_url(&path))
 }
 
+/// %LOCALAPPDATA%\com.tti.gido-touch\data\{mall_id}\files\shops\{shopId}\thumbW640_photo{n}.webp
+/// Returns the file as a data-URL, or None if the file does not exist.
+#[tauri::command]
+fn get_local_shop_photo(mall_id: String, shop_id: String, photo_num: u8) -> Result<Option<String>, String> {
+    let filename = format!("thumbW640_photo{}.webp", photo_num);
+    let path = get_app_data_dir()?
+        .join("data")
+        .join(&mall_id)
+        .join("files")
+        .join("shops")
+        .join(&shop_id)
+        .join(filename);
+
+    Ok(file_to_data_url(&path))
+}
+
 /// List map files for a specific mall and hostname.
 /// Scans media_base/{mall_id}/maps/{hostname}/ and returns filename → data-URL.
 #[tauri::command]
@@ -1851,6 +1867,7 @@ fn main() {
             load_shop_data,
             load_local_shoplist,
             get_local_shop_logo,
+            get_local_shop_photo,
         ]);
 
     let app = builder

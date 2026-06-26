@@ -20,8 +20,8 @@ import type { PictoSettings } from '../../types/picto';
 import type { HalongBannerSettings } from '../../types/bannerSettings';
 import { mergeBannerEntries } from '../../types/bannerSettings';
 import { useHalongBanners } from '../../hooks/useHalongBanners';
-import { CloseButton } from '../../components/CloseButton';
 import type { HalongShop } from '../../hooks/useHalongShops';
+import { ShopDetailPanel } from './ShopDetailPanel';
 
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
 
@@ -91,7 +91,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const [visibleShopId, setVisibleShopId] = useState<string | null>(null);
   const [selectedShopLogoUrl, setSelectedShopLogoUrl] = useState<string | null>(null);
   const [selectedShopDetail, setSelectedShopDetail] = useState<HalongShop | null>(null);
-  const [closeDetailPressed, setCloseDetailPressed] = useState(false);
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings | null>(null);
   const [pictoSettings, setPictoSettings] = useState<PictoSettings | null>(pictoSettingsProp ?? null);
   const [visiblePictoTag, setVisiblePictoTag] = useState<string | null>(null);
@@ -1196,7 +1195,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
             )}
           </AnimatePresence>
 
-          {/* ショップ詳細パネル（白紙・フェードイン） */}
+          {/* ショップ詳細パネル（フェードイン） */}
           <AnimatePresence>
             {selectedShopDetail && (
               <motion.div
@@ -1205,30 +1204,12 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  backgroundColor: "#ffffff",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "40px",
-                }}
+                style={{ position: "absolute", inset: 0 }}
               >
-                {/* 店舗名 */}
-                <div style={{ fontSize: "32px", fontWeight: "bold", color: "#000000", textAlign: "center", padding: "0 40px" }}>
-                  {getDisplayName(selectedShopDetail, selectedLang)}
-                </div>
-
-                {/* 閉じるボタン */}
-                <CloseButton
-                  onClick={() => setSelectedShopDetail(null)}
-                  onTouchStart={() => setCloseDetailPressed(true)}
-                  onTouchEnd={() => setCloseDetailPressed(false)}
-                  onTouchCancel={() => setCloseDetailPressed(false)}
-                  isPressed={closeDetailPressed}
-                  style={{ width: "120px", height: "120px" }}
+                <ShopDetailPanel
+                  shop={selectedShopDetail}
+                  lang={selectedLang}
+                  onClose={() => setSelectedShopDetail(null)}
                 />
               </motion.div>
             )}

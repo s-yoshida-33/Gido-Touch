@@ -10,6 +10,7 @@ import { loadMallSettings } from '../utils/settings';
 
 export interface HalongShop {
   id: number;
+  shopId: string;    // 元の shopId 文字列（ファイルパス構築用）
   name: string;      // shopName（現地語ベース）
   nameJa: string;    // shopNameJapan（空なら name にフォールバック）
   nameEn: string;    // shopNameEnglish（空なら name にフォールバック）
@@ -22,6 +23,11 @@ export interface HalongShop {
   section: string;
   genre: string;
   logoDataUrl: string | null;
+  openTime: string;    // 営業時間（現地語ベース）
+  openTimeJa: string;  // 営業時間（日本語）
+  openTimeEn: string;  // 営業時間（英語）
+  openTimeVn: string;  // 営業時間（ベトナム語）
+  tel: string;         // 電話番号
 }
 
 /** 言語に応じた表示名を返す（対応フィールドが空なら name にフォールバック） */
@@ -38,6 +44,24 @@ export function getFloorDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn'): str
   return shop.floorVn || shop.floor;
 }
 
+/** 言語に応じた営業時間テキストを返す（対応フィールドが空なら openTime にフォールバック） */
+export function getOpenTimeDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn'): string {
+  if (lang === 'ja') return shop.openTimeJa || shop.openTime;
+  if (lang === 'en') return shop.openTimeEn || shop.openTime;
+  return shop.openTimeVn || shop.openTime;
+}
+
+/** ジャンルキーから言語別表示名を返す */
+export function getGenreDisplay(genre: string, lang: 'en' | 'ja' | 'vn'): string {
+  const map: Record<string, Record<string, string>> = {
+    gourmet: { vn: 'Ẩm Thực',   en: 'Gourmet',  ja: 'グルメ' },
+    fashion: { vn: 'Thời Trang', en: 'Fashion',  ja: 'ファッション' },
+    goods:   { vn: 'Tạp Hóa',   en: 'Goods',    ja: 'グッズ' },
+    service: { vn: 'Dịch Vụ',   en: 'Service',  ja: 'サービス' },
+  };
+  return map[genre]?.[lang] ?? genre;
+}
+
 /** BG shoplist.json の1エントリ（Ha Long フォーマット） */
 interface BgShopEntry {
   shopId: string;
@@ -52,6 +76,11 @@ interface BgShopEntry {
   number: string;
   genre: string;
   genreEnglish?: string;
+  openTime?: string;
+  openTimeJapan?: string;
+  openTimeEnglish?: string;
+  openTimeVietnam?: string;
+  tel?: string;
   closeFlg?: string;
   webStatus?: string;
 }
@@ -123,6 +152,7 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
       const floorJa = s.floorJapan?.trim() ?? '';
       return {
         id: parseInt(s.shopId, 10),
+        shopId: s.shopId,
         name: s.shopName,
         nameJa: s.shopNameJapan?.trim() ?? '',
         nameEn: s.shopNameEnglish?.trim() ?? '',
@@ -135,6 +165,11 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
         section: s.number ?? '',
         genre: mapGenre(s.genre, s.genreEnglish),
         logoDataUrl,
+        openTime: s.openTime?.trim() ?? '',
+        openTimeJa: s.openTimeJapan?.trim() ?? '',
+        openTimeEn: s.openTimeEnglish?.trim() ?? '',
+        openTimeVn: s.openTimeVietnam?.trim() ?? '',
+        tel: s.tel?.trim() ?? '',
       };
     })
   );
