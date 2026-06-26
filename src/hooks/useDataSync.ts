@@ -9,7 +9,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { BaseDirectory, exists, readTextFile, writeTextFile, mkdir } from '@tauri-apps/plugin-fs';
 import { logInfo, logWarn, logError } from '../logs/logging';
-import { loadGlobalSettings } from '../utils/settings';
+import { loadGlobalSettings, loadMallSettings } from '../utils/settings';
 
 interface MediaProgressPayload {
   phase: string;
@@ -143,6 +143,13 @@ export const useDataSync = () => {
         if (!mallId) {
           logWarn('DATA_SYNC', 'No mallId configured, skipping data check');
           setDataSyncStatus({ status: 'done', progress: 100, message: 'モールIDが未設定です' });
+          return;
+        }
+
+        const mallSettings = await loadMallSettings(mallId);
+        if (mallSettings.shopDataMode !== 'local') {
+          logInfo('DATA_SYNC', `shopDataMode is "${mallSettings.shopDataMode}", skipping data check`, { mallId });
+          setDataSyncStatus({ status: 'done', progress: 100, message: 'データ同期はスキップされました' });
           return;
         }
 
