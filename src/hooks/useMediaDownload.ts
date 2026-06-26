@@ -30,8 +30,8 @@ interface VideoMeta {
 
 const S3_MEDIAS_BASE = 'https://dl.tti.ninja/gido-touch/medias';
 
-// video sync は未実装のため一時的に無効（再開する場合は true に戻す）
-const VIDEO_SYNC_ENABLED = false;
+// video sync が未実装のモール（実装後はここから削除する）
+const MALLS_WITHOUT_VIDEO_SYNC = ['halong'];
 
 async function fetchVideoVersionFromS3(mallId: string): Promise<{ zip: string | null; updated_at: string | null }> {
   try {
@@ -111,8 +111,8 @@ export const useMediaDownload = () => {
           return;
         }
 
-        if (!VIDEO_SYNC_ENABLED) {
-          logInfo('MEDIA_DOWNLOAD', 'Video sync is disabled, skipping');
+        if (MALLS_WITHOUT_VIDEO_SYNC.includes(mallId)) {
+          logInfo('MEDIA_DOWNLOAD', `Video sync is not implemented for ${mallId}, skipping`);
           setMediaStatus({ status: 'done', progress: 100, message: 'メディア同期はスキップされました' });
           return;
         }

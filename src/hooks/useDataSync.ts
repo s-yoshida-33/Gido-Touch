@@ -35,8 +35,13 @@ const S3_DATA_BASE = 'https://dl.tti.ninja/gido-touch/data';
 const DATA_SUBTYPES = ['shops', 'news', 'events', 'json'] as const;
 type DataSubtype = typeof DATA_SUBTYPES[number];
 
-// news/events は未実装のため一時的に除外（再開する場合は DATA_SUBTYPES に戻す）
-const ACTIVE_SUBTYPES: DataSubtype[] = ['shops', 'json'];
+// news/events が未実装のモール（実装後はここから削除する）
+const MALLS_WITHOUT_NEWS_EVENTS = ['halong'];
+
+function getActiveSubtypes(mallId: string): DataSubtype[] {
+  if (MALLS_WITHOUT_NEWS_EVENTS.includes(mallId)) return ['shops', 'json'];
+  return [...DATA_SUBTYPES];
+}
 
 const META_NAMES: Record<DataSubtype, string> = {
   shops:  '.shop-meta.json',
@@ -145,9 +150,10 @@ export const useDataSync = () => {
         setDataSyncStatus({ status: 'checking', progress: 0, message: 'ショップデータの更新を確認中...' });
 
         let anyDownloaded = false;
+        const activeSubtypes = getActiveSubtypes(mallId);
 
-        for (let i = 0; i < ACTIVE_SUBTYPES.length; i++) {
-          const subtype = ACTIVE_SUBTYPES[i];
+        for (let i = 0; i < activeSubtypes.length; i++) {
+          const subtype = activeSubtypes[i];
 
           const localMeta = await readLocalMeta(mallId, subtype);
           const localZipName = localMeta?.lastZipName ?? null;
@@ -184,7 +190,7 @@ export const useDataSync = () => {
           let unlisten: UnlistenFn | null = null;
           try {
             const subtypeIndex = i;
-            const subtypeCount = ACTIVE_SUBTYPES.length;
+            const subtypeCount = activeSubtypes.length;
 
             unlisten = await listen<MediaProgressPayload>('media-download-progress', (event) => {
               const { phase, percent, message } = event.payload;
