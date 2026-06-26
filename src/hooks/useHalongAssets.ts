@@ -151,6 +151,10 @@ import bundledPictoVnRestroomHighlight from '../assets/malls/halong/buttons/pict
 import bundledPictoVnSmoking          from '../assets/malls/halong/buttons/pictos/vn/smoking-room.svg';
 import bundledPictoVnSmokingHighlight from '../assets/malls/halong/buttons/pictos/vn/smoking-room-highlight.svg';
 
+// クローズボタン（詳細パネル用）
+import bundledClose          from '../assets/malls/halong/buttons/close.svg';
+import bundledCloseHighlight from '../assets/malls/halong/buttons/close-highlight.svg';
+
 // 言語選択ボタン
 import bundledLangEn from '../assets/malls/halong/buttons/languages/en.svg';
 import bundledLangJa from '../assets/malls/halong/buttons/languages/ja.svg';
@@ -219,6 +223,8 @@ export interface HalongAssets {
   };
   speechBubbleIconSrc: string;
   locationIconSrc: string;
+  close: string;
+  closeHighlight: string;
 }
 
 // ── 言語別バンドルアセットテーブル ───────────────────────────────
@@ -368,6 +374,8 @@ function getBundled(lang: 'en' | 'ja' | 'vn'): HalongAssets {
     },
     speechBubbleIconSrc: bundledSpeechBubbleSvg,
     locationIconSrc: bundledLocationSvg,
+    close: bundledClose,
+    closeHighlight: bundledCloseHighlight,
   };
 }
 
@@ -437,6 +445,8 @@ function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn')
     },
     speechBubbleIconSrc: r(`icons/locations/user-${lang}.svg`, fb.speechBubbleIconSrc),
     locationIconSrc:     r('icons/locations/location.svg',     fb.locationIconSrc),
+    close:               r('buttons/close.svg',                fb.close),
+    closeHighlight:      r('buttons/close-highlight.svg',      fb.closeHighlight),
   };
 }
 

@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { HalongShop } from '../../hooks/useHalongShops';
 import { getDisplayName, getFloorDisplay, getOpenTimeDisplay, getGenreDisplay } from '../../hooks/useHalongShops';
+import { useHalongAssets } from '../../hooks/useHalongAssets';
 
 interface ShopDetailPanelProps {
   shop: HalongShop;
@@ -19,6 +20,7 @@ const LABEL: Record<string, Record<string, string>> = {
 const AUTO_SLIDE_MS = 10000;
 
 export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, onClose }) => {
+  const assets = useHalongAssets(lang);
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [slideDir, setSlideDir] = useState<1 | -1>(1);
@@ -234,11 +236,8 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
       <div
         style={{
           position: 'absolute', left: '30px', top: '1258px',
-          width: '590px', height: '50px', borderRadius: '25px',
-          backgroundColor: closePressed ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.75)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: '590px', height: '50px',
           cursor: 'pointer',
-          transition: 'background-color 0.1s',
         }}
         onClick={onClose}
         onMouseDown={() => setClosePressed(true)}
@@ -248,9 +247,11 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
         onTouchEnd={() => { setClosePressed(false); onClose(); }}
         onTouchCancel={() => setClosePressed(false)}
       >
-        <svg width="32" height="32" viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M88.4327 90L50 51.5673L51.5673 50L90 88.4327L88.4327 90ZM51.5673 90L50 88.4327L88.4327 50L90 51.5673L51.5673 90Z" fill="white"/>
-        </svg>
+        <img
+          src={closePressed ? assets.closeHighlight : assets.close}
+          draggable={false}
+          style={{ width: '590px', height: '50px', objectFit: 'contain', display: 'block', pointerEvents: 'none' }}
+        />
       </div>
     </div>
   );
