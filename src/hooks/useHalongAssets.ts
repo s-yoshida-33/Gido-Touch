@@ -445,8 +445,8 @@ function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn')
     },
     speechBubbleIconSrc: r(`icons/locations/user-${lang}.svg`, fb.speechBubbleIconSrc),
     locationIconSrc:     r('icons/locations/location.svg',     fb.locationIconSrc),
-    close:               r('buttons/close.svg',                fb.close),
-    closeHighlight:      r('buttons/close-highlight.svg',      fb.closeHighlight),
+    close:               r(`buttons/closes/${lang}.svg`,           fb.close),
+    closeHighlight:      r(`buttons/closes/${lang}-highlight.svg`, fb.closeHighlight),
   };
 }
 
