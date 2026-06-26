@@ -214,7 +214,7 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
       </svg>
 
       {/* ── 場所アイコン ── */}
-      <img src={ICON_LOCATION} draggable={false} style={{ ...iconStyle, left: '30px', top: '830px' }} />
+      <img src={ICON_LOCATION} draggable={false} style={{ ...iconStyle, left: '30px', top: '835px' }} />
 
       {/* ── 場所タイトル ── */}
       <div style={{
@@ -233,7 +233,7 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
       </div>
 
       {/* ── 営業時間アイコン ── */}
-      <img src={ICON_HOURS} draggable={false} style={{ ...iconStyle, left: '30px', top: '930px' }} />
+      <img src={ICON_HOURS} draggable={false} style={{ ...iconStyle, left: '30px', top: '935px' }} />
 
       {/* ── 営業時間タイトル ── */}
       <div style={{
@@ -258,7 +258,7 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
       {shop.tel && (
         <>
           <img src={ICON_PHONE} draggable={false}
-            style={{ ...iconStyle, left: '30px', top: `${phoneTitleY}px` }} />
+            style={{ ...iconStyle, left: '30px', top: `${phoneTitleY + 5}px` }} />
           <div style={{
             position: 'absolute', left: '64px', top: `${phoneTitleY}px`,
             fontSize: '24px', fontWeight: 'normal', color: '#888888',

@@ -624,7 +624,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     }
   }
 
-  // 詳細パネルを閉じてマップをタップ前の状態に戻す
+  // 詳細パネルを閉じてマップをタップ前の状態に戻す（フロアは現在のまま維持）
   function handleCloseDetail() {
     setSelectedShopDetail(null);
     setSelectedShopId(null);
@@ -635,17 +635,12 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     prevMapStateRef.current = null;
     if (!prev) return;
 
-    if (prev.floor !== currentFloor) {
-      // フロアを戻す（ピンクリアの副作用は ignoreFloorChangeRef でスキップ）
-      ignoreFloorChangeRef.current = true;
-      setCurrentFloor(prev.floor);
-      // フロアアニメーション完了後にトランスフォームを復元
-      const floorAnimMs = (FLOOR_ANIM_DURATION + 0.1) * 1000;
-      setTimeout(() => {
-        transformComponentRef.current?.setTransform(prev.positionX, prev.positionY, prev.scale, 500, 'easeOut');
-      }, floorAnimMs);
-    } else {
+    if (prev.floor === currentFloor) {
+      // フロアが変わっていない → タップ前の zoom/pan に戻す
       transformComponentRef.current?.setTransform(prev.positionX, prev.positionY, prev.scale, 500, 'easeOut');
+    } else {
+      // フロアが変わっている → 現在のフロアのままデフォルト位置にリセット
+      transformComponentRef.current?.setTransform(0, 0, 1, 500, 'easeOut');
     }
   }
 
