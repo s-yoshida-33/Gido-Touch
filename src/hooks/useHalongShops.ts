@@ -23,11 +23,11 @@ export interface HalongShop {
   section: string;
   genre: string;
   logoDataUrl: string | null;
-  openTime: string;    // 営業時間（現地語ベース）
-  openTimeJa: string;  // 営業時間（日本語）
-  openTimeEn: string;  // 営業時間（英語）
-  openTimeVn: string;  // 営業時間（ベトナム語）
-  tel: string;         // 電話番号
+  openingHours: string;    // 営業時間（現地語ベース）
+  openingHoursJa: string;  // 営業時間（日本語）
+  openingHoursEn: string;  // 営業時間（英語）
+  openingHoursVn: string;  // 営業時間（ベトナム語）
+  tel: string;             // 電話番号
 }
 
 /** 言語に応じた表示名を返す（対応フィールドが空なら name にフォールバック） */
@@ -44,11 +44,11 @@ export function getFloorDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn'): str
   return shop.floorVn || shop.floor;
 }
 
-/** 言語に応じた営業時間テキストを返す（対応フィールドが空なら openTime にフォールバック） */
-export function getOpenTimeDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn'): string {
-  if (lang === 'ja') return shop.openTimeJa || shop.openTime;
-  if (lang === 'en') return shop.openTimeEn || shop.openTime;
-  return shop.openTimeVn || shop.openTime;
+/** 言語に応じた営業時間テキストを返す（対応フィールドが空なら openingHours にフォールバック） */
+export function getOpeningHoursDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn'): string {
+  if (lang === 'ja') return shop.openingHoursJa || shop.openingHours;
+  if (lang === 'en') return shop.openingHoursEn || shop.openingHours;
+  return shop.openingHoursVn || shop.openingHours;
 }
 
 /** ジャンルキーから言語別表示名を返す */
@@ -76,10 +76,10 @@ interface BgShopEntry {
   number: string;
   genre: string;
   genreEnglish?: string;
-  openTime?: string;
-  openTimeJapan?: string;
-  openTimeEnglish?: string;
-  openTimeVietnam?: string;
+  openingHours?: string;
+  openingHoursJapan?: string;
+  openingHoursEnglish?: string;
+  openingHoursVietnam?: string;
   tel?: string;
   closeFlg?: string;
   webStatus?: string;
@@ -165,10 +165,10 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
         section: s.number ?? '',
         genre: mapGenre(s.genre, s.genreEnglish),
         logoDataUrl,
-        openTime: s.openTime?.trim() ?? '',
-        openTimeJa: s.openTimeJapan?.trim() ?? '',
-        openTimeEn: s.openTimeEnglish?.trim() ?? '',
-        openTimeVn: s.openTimeVietnam?.trim() ?? '',
+        openingHours: s.openingHours?.trim() ?? '',
+        openingHoursJa: s.openingHoursJapan?.trim() ?? '',
+        openingHoursEn: s.openingHoursEnglish?.trim() ?? '',
+        openingHoursVn: s.openingHoursVietnam?.trim() ?? '',
         tel: s.tel?.trim() ?? '',
       };
     })

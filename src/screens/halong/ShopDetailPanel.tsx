@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { HalongShop } from '../../hooks/useHalongShops';
-import { getDisplayName, getFloorDisplay, getOpenTimeDisplay, getGenreDisplay } from '../../hooks/useHalongShops';
+import { getDisplayName, getFloorDisplay, getOpeningHoursDisplay, getGenreDisplay } from '../../hooks/useHalongShops';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
 
 interface ShopDetailPanelProps {
@@ -94,7 +94,7 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
   };
 
   const floorText  = getFloorDisplay(shop, lang);
-  const openTime   = getOpenTimeDisplay(shop, lang);
+  const openTime   = getOpeningHoursDisplay(shop, lang);
   const genreText  = getGenreDisplay(shop.genre, lang);
 
   // 営業時間の行数に応じて電話番号セクションをずらす
