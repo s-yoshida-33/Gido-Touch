@@ -30,6 +30,9 @@ interface VideoMeta {
 
 const S3_MEDIAS_BASE = 'https://dl.tti.ninja/gido-touch/medias';
 
+// video sync は未実装のため一時的に無効（再開する場合は true に戻す）
+const VIDEO_SYNC_ENABLED = false;
+
 async function fetchVideoVersionFromS3(mallId: string): Promise<{ zip: string | null; updated_at: string | null }> {
   try {
     const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
@@ -105,6 +108,12 @@ export const useMediaDownload = () => {
         if (!mallId) {
           logWarn('MEDIA_DOWNLOAD', 'No mallId configured, skipping media check');
           setMediaStatus({ status: 'done', progress: 100, message: 'モールIDが未設定です' });
+          return;
+        }
+
+        if (!VIDEO_SYNC_ENABLED) {
+          logInfo('MEDIA_DOWNLOAD', 'Video sync is disabled, skipping');
+          setMediaStatus({ status: 'done', progress: 100, message: 'メディア同期はスキップされました' });
           return;
         }
 
