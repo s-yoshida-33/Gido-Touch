@@ -13,7 +13,7 @@ interface ShopDetailPanelProps {
 
 const LABEL: Record<string, Record<string, string>> = {
   location: { vn: 'Vị trí', en: 'Location', ja: '場所' },
-  hours:    { vn: 'Giờ hoạt động', en: 'Hours of Operation', ja: '営業時間' },
+  hours:    { vn: 'Giờ mở cửa', en: 'Hours of Operation', ja: '営業時間' },
   hotline:  { vn: 'Đường dây nóng', en: 'Hotline', ja: '電話番号' },
 };
 
@@ -194,7 +194,7 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
         position: 'absolute', left: '64px', top: '871px',
         fontSize: '24px', fontWeight: 'bold', color: '#000000',
       }}>
-        {floorText}{shop.section ? `　${shop.section}` : ''}
+        {floorText}
       </div>
 
       {/* ── 営業時間 ── */}
