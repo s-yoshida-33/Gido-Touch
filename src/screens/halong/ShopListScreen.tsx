@@ -140,6 +140,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const floorLayerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const isInitialFloorRenderRef = useRef(true);
   const prevFloorRef = useRef<string | null>(null);
+  const prevMapStateRef = useRef<{ floor: string; positionX: number; positionY: number; scale: number } | null>(null);
 
   const ALL_FLOORS = useMemo(() => ['1F', '2F', '3F', '4F'] as const, []);
   const FLOOR_ORDER = ['1F', '2F', '3F', '4F'];
@@ -578,6 +579,15 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   }
 
   function handleShopTap(shopId: string, floorKey: string, logoDataUrl: string | null) {
+    // タップ前のマップ状態を保存（詳細パネルを閉じる際に復元）
+    const ts = transformComponentRef.current?.instance?.transformState;
+    prevMapStateRef.current = {
+      floor: currentFloor,
+      positionX: ts?.positionX ?? 0,
+      positionY: ts?.positionY ?? 0,
+      scale: ts?.scale ?? 1,
+    };
+
     // Cancel any pending pin visibility timer
     if (pinVisibilityTimerRef.current !== null) {
       clearTimeout(pinVisibilityTimerRef.current);
@@ -611,6 +621,31 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     } else {
       focusDelayRef.current = 0;
       setVisibleShopId(shopId); // same floor: show immediately
+    }
+  }
+
+  // 詳細パネルを閉じてマップをタップ前の状態に戻す
+  function handleCloseDetail() {
+    setSelectedShopDetail(null);
+    setSelectedShopId(null);
+    setVisibleShopId(null);
+    setSelectedShopLogoUrl(null);
+
+    const prev = prevMapStateRef.current;
+    prevMapStateRef.current = null;
+    if (!prev) return;
+
+    if (prev.floor !== currentFloor) {
+      // フロアを戻す（ピンクリアの副作用は ignoreFloorChangeRef でスキップ）
+      ignoreFloorChangeRef.current = true;
+      setCurrentFloor(prev.floor);
+      // フロアアニメーション完了後にトランスフォームを復元
+      const floorAnimMs = (FLOOR_ANIM_DURATION + 0.1) * 1000;
+      setTimeout(() => {
+        transformComponentRef.current?.setTransform(prev.positionX, prev.positionY, prev.scale, 500, 'easeOut');
+      }, floorAnimMs);
+    } else {
+      transformComponentRef.current?.setTransform(prev.positionX, prev.positionY, prev.scale, 500, 'easeOut');
     }
   }
 
@@ -1209,7 +1244,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 <ShopDetailPanel
                   shop={selectedShopDetail}
                   lang={selectedLang}
-                  onClose={() => setSelectedShopDetail(null)}
+                  onClose={handleCloseDetail}
                 />
               </motion.div>
             )}
