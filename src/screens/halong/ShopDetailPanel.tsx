@@ -97,9 +97,15 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
   const openTime   = getOpeningHoursDisplay(shop, lang);
   const genreText  = getGenreDisplay(shop.genre, lang);
 
-  // 営業時間の行数に応じて電話番号セクションをずらす
+  // 場所ボディ末尾(Y905) → 営業時間タイトル(Y930) のギャップ = 25px を統一基準に使用
+  const SECTION_GAP   = 25;
   const openTimeLines = countLines(openTime);
-  const phoneYOffset  = Math.max(0, openTimeLines - 1) * LINE_HEIGHT_PX;
+  // 営業時間セクション末尾 Y（本文あり: ボディ開始 + 行数分, 本文なし: タイトル分のみ）
+  const hoursSectionBottomY = openTime
+    ? 971 + openTimeLines * LINE_HEIGHT_PX
+    : 930 + LINE_HEIGHT_PX;
+  // 電話番号タイトルの Y 座標（ギャップを統一）
+  const phoneTitleY = hoursSectionBottomY + SECTION_GAP;
 
   const slideVariants = {
     enter:  (dir: number) => ({ x: dir > 0 ?  590 : -590, opacity: 0 }),
@@ -208,7 +214,7 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
       </svg>
 
       {/* ── 場所アイコン ── */}
-      <img src={ICON_LOCATION} draggable={false} style={{ ...iconStyle, left: '30px', top: '833px' }} />
+      <img src={ICON_LOCATION} draggable={false} style={{ ...iconStyle, left: '30px', top: '830px' }} />
 
       {/* ── 場所タイトル ── */}
       <div style={{
@@ -227,7 +233,7 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
       </div>
 
       {/* ── 営業時間アイコン ── */}
-      <img src={ICON_HOURS} draggable={false} style={{ ...iconStyle, left: '30px', top: '933px' }} />
+      <img src={ICON_HOURS} draggable={false} style={{ ...iconStyle, left: '30px', top: '930px' }} />
 
       {/* ── 営業時間タイトル ── */}
       <div style={{
@@ -248,19 +254,19 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
         </div>
       )}
 
-      {/* ── 電話番号（営業時間行数に応じてY座標をオフセット） ── */}
+      {/* ── 電話番号（営業時間末尾から SECTION_GAP 分下） ── */}
       {shop.tel && (
         <>
           <img src={ICON_PHONE} draggable={false}
-            style={{ ...iconStyle, left: '30px', top: `${1062 + phoneYOffset}px` }} />
+            style={{ ...iconStyle, left: '30px', top: `${phoneTitleY}px` }} />
           <div style={{
-            position: 'absolute', left: '64px', top: `${1059 + phoneYOffset}px`,
+            position: 'absolute', left: '64px', top: `${phoneTitleY}px`,
             fontSize: '24px', fontWeight: 'normal', color: '#888888',
           }}>
             {LABEL.phone[lang]}
           </div>
           <div style={{
-            position: 'absolute', left: '64px', top: `${1100 + phoneYOffset}px`,
+            position: 'absolute', left: '64px', top: `${phoneTitleY + 41}px`,
             fontSize: '24px', fontWeight: 'bold', color: '#000000',
           }}>
             {shop.tel}
