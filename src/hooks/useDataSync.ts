@@ -35,6 +35,9 @@ const S3_DATA_BASE = 'https://dl.tti.ninja/gido-touch/data';
 const DATA_SUBTYPES = ['shops', 'news', 'events', 'json'] as const;
 type DataSubtype = typeof DATA_SUBTYPES[number];
 
+// news/events は未実装のため一時的に除外（再開する場合は DATA_SUBTYPES に戻す）
+const ACTIVE_SUBTYPES: DataSubtype[] = ['shops', 'json'];
+
 const META_NAMES: Record<DataSubtype, string> = {
   shops:  '.shop-meta.json',
   news:   '.news-meta.json',
@@ -143,8 +146,8 @@ export const useDataSync = () => {
 
         let anyDownloaded = false;
 
-        for (let i = 0; i < DATA_SUBTYPES.length; i++) {
-          const subtype = DATA_SUBTYPES[i];
+        for (let i = 0; i < ACTIVE_SUBTYPES.length; i++) {
+          const subtype = ACTIVE_SUBTYPES[i];
 
           const localMeta = await readLocalMeta(mallId, subtype);
           const localZipName = localMeta?.lastZipName ?? null;
@@ -181,7 +184,7 @@ export const useDataSync = () => {
           let unlisten: UnlistenFn | null = null;
           try {
             const subtypeIndex = i;
-            const subtypeCount = DATA_SUBTYPES.length;
+            const subtypeCount = ACTIVE_SUBTYPES.length;
 
             unlisten = await listen<MediaProgressPayload>('media-download-progress', (event) => {
               const { phase, percent, message } = event.payload;
