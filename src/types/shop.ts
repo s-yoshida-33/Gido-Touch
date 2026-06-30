@@ -37,6 +37,8 @@ export interface Shop {
   description?: string;
   openTime?: string;
   tel?: string;
+  takeOut?: string;
+  alcohol?: string;
   position?: ShopPosition; // 位置情報（オプショナル）
 }
 

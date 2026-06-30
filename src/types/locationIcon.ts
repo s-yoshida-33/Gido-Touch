@@ -11,7 +11,7 @@ export interface ShadowConfig {
   opacity: number;
 }
 
-export type AnimationType = "floating" | "pulse" | "bounce" | "blink" | "none";
+export type AnimationType = "floating" | "pulse" | "bounce" | "blink" | "spin-float" | "spin-loop" | "none";
 
 export interface AnimationConfig {
   enabled: boolean;
@@ -19,7 +19,7 @@ export interface AnimationConfig {
   type: AnimationType;
   // Animation duration in seconds
   duration: number;
-  // Animation amplitude (movement distance in px, for floating)
+  // Animation amplitude (movement distance in px, for floating / spin-float)
   amplitude: number;
   // Ripple color for blink animation (RGB/HEX, default: "#FFFFFF")
   rippleColor?: string;
@@ -27,6 +27,8 @@ export interface AnimationConfig {
   rippleSize?: number;
   // Ripple center size (initial scale, default: 0.95)
   rippleCenterSize?: number;
+  // Repeat toggle for spin-float: true = loop infinitely, false = play once (default: true)
+  spinRepeat?: boolean;
 }
 
 export interface IconPositionConfig {
@@ -46,6 +48,10 @@ export interface IconPositionConfig {
   
   export interface LocationIconSettings {
     speechBubble: IconPositionConfig;
+    /** Per-language speech bubble configs (used when language-specific local assets exist) */
+    speechBubbleJa?: IconPositionConfig;
+    speechBubbleEn?: IconPositionConfig;
+    speechBubbleVn?: IconPositionConfig;
     location: IconPositionConfig;
   }
 

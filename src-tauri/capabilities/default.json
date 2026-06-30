@@ -1,0 +1,29 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for Gido Touch",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "fs:default",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-exists",
+    "fs:allow-mkdir",
+    "fs:allow-read-dir",
+    "fs:allow-remove",
+    "process:default",
+    "dialog:default",
+    "updater:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        "http://localhost:8090/**",
+        "http://localhost:48080/**",
+        "https://api.github.com/**",
+        "https://github.com/**",
+        "https://*.githubusercontent.com/**",
+        "https://dl.tti.ninja/**"
+      ]
+    }
+  ]
+}

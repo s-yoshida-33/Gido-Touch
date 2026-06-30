@@ -5,3 +5,7 @@ declare module '*.svg' {
   export default content;
 }
 
+interface ImportMetaEnv {
+  readonly VITE_DEV_MALL_ID?: string;
+}
+

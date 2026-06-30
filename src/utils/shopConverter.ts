@@ -3,12 +3,35 @@ import { APP_CONFIG } from "../config";
 import { parseFloorsFromBridge } from "../api/bridgeClient";
 import { logWarn } from "../logs/logging";
 
-export function convertSseShopDataToShop(item: any): Shop {
+interface SseShopData {
+  shopId?: string | number;
+  shopName?: string;
+  shopNameEnglish?: string;
+  shopLogo?: string;
+  shopLogoLocalPath?: string;
+  genre?: string;
+  genreSub?: string;
+  genreMemo?: string;
+  genreMemoEnglish?: string;
+  number?: string;
+  floors?: unknown;
+  photo1?: string;
+  photo1LocalPath?: string;
+  photo2?: string;
+  photo2LocalPath?: string;
+  description?: string;
+  openTime?: string;
+  tel?: string;
+  takeOut?: string;
+  alcohol?: string;
+}
+
+export function convertSseShopDataToShop(item: SseShopData): Shop {
   const defaultFloor = APP_CONFIG.floor;
   const floors = parseFloorsFromBridge(item.floors, defaultFloor);
 
   if (floors.length === 0) {
-    logWarn("SHOP_MAP", "Shop has no floors after normalization", {
+    logWarn("DATA_SYNC", "Shop has no floors after normalization", {
       shopId: item.shopId,
       name: item.shopName,
       rawFloors: item.floors,
@@ -43,5 +66,7 @@ export function convertSseShopDataToShop(item: any): Shop {
     description: item.description || "",
     openTime: item.openTime || "",
     tel: item.tel || "",
+    takeOut: item.takeOut,
+    alcohol: item.alcohol,
   };
 }

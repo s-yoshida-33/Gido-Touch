@@ -1,5 +1,5 @@
 // src/components/ShopList.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import type { Shop } from "../types/shop";
 import {
   APP_CONFIG,
@@ -26,6 +26,7 @@ interface ShopListProps {
   rowsPerColumn?: number;
   perColumnRows?: number[]; // Column-by-column row overrides
   perColumnPadding?: ColumnPadding[]; // Column-by-column padding
+  maxRows?: number;
 }
 
 // Internal representation of a single line item (header or shop row)
@@ -92,13 +93,15 @@ const ShopList: React.FC<ShopListProps> = ({
   rowsPerColumn,
   perColumnRows,
   perColumnPadding,
+  maxRows,
 }) => {
   const normalizedFloor = normalizeFloor(floor);
 
   // ---------------------------------------------------------------------------
   // Floor filtering (supports floors: FloorId[] + legacy floor/floors string)
+  // Memoized to avoid re-filtering on unrelated parent re-renders
   // ---------------------------------------------------------------------------
-  const floorShops = shops.filter((s) => {
+  const floorShops = useMemo(() => shops.filter((s) => {
     const tokens: string[] = [];
 
     // 1) Official field: floors: FloorId[]
@@ -129,7 +132,7 @@ const ShopList: React.FC<ShopListProps> = ({
 
     const normalizedTokens = tokens.map((v) => normalizeFloor(v));
     return normalizedTokens.includes(normalizedFloor);
-  });
+  }), [shops, normalizedFloor]);
 
   // ---------------------------------------------------------------------------
   // Normal layout rendering (wrapped in try/catch for fallback safety)
@@ -191,6 +194,7 @@ const ShopList: React.FC<ShopListProps> = ({
 
     // Determine base rows per column
     const baseRowsPerCol = (() => {
+      if (maxRows && maxRows > 0) return maxRows;
       if (rowsPerColumn && rowsPerColumn > 0) return rowsPerColumn;
       if (defaultRowsPerCol && defaultRowsPerCol > 0) return defaultRowsPerCol;
       const auto = Math.ceil(totalLines / effectiveColumns);
@@ -250,7 +254,7 @@ const ShopList: React.FC<ShopListProps> = ({
 
     // Logging
     if (floorShops.length > 0) {
-      logInfo("SHOP_MAP", "ShopList rendered", {
+      logInfo("SHOPLIST", "ShopList rendered", {
         floor: normalizedFloor,
         floorShopsCount: floorShops.length,
         totalLines,
@@ -448,7 +452,7 @@ const ShopList: React.FC<ShopListProps> = ({
   try {
     content = renderNormalLayout();
   } catch (error) {
-    logError("SHOP_MAP", "ShopList render failed, using fallback layout", {
+    logError("SHOPLIST", "ShopList render failed, using fallback layout", {
       floor: normalizedFloor,
       error: String(error),
     });
@@ -529,4 +533,4 @@ const ShopList: React.FC<ShopListProps> = ({
   );
 };
 
-export default ShopList;
+export default React.memo(ShopList);

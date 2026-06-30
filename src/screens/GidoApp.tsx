@@ -1,5 +1,5 @@
 // src/screens/GidoApp.tsx
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 
 import ShopList from "../components/ShopList";
 import type { Shop } from "../types/shop";
@@ -8,16 +8,18 @@ import { useMall } from "../contexts/MallContext";
 import { APP_CONFIG } from "../config";
 import { useShops } from "../hooks/useShops";
 import VerticalVideoSlot from "../components/VerticalVideoSlot";
+import { useHalongAssets } from "../hooks/useHalongAssets";
+import halongShopPinSvg from "../assets/malls/halong/icons/locations/shop.svg";
 
 import type { LocationIconSettings, LocationIconSettingsPerFloor } from "../types/locationIcon";
 import { LocationIconsOverlay } from "../components/LocationIconsOverlay";
 import { getLocationIconSettingsForFloor } from "../config";
 import type { ImageSettings } from "../types/imageSettings";
-import type { FloorId } from "../types/floorLayout";
+import type { FloorId, FloorLayout } from "../types/floorLayout";
 import type { ShopPositionSettings } from "../types/shopPosition";
 import { ShopPin } from "../components/ShopPin";
 
-import { logInfo, logError } from "../logs/logging";
+import { logInfo, logError, logDebug } from "../logs/logging";
 
 const LIST_HEIGHT_VH = APP_CONFIG.listHeightVh;
 const TOP_HEIGHT_VH = 100 - LIST_HEIGHT_VH;
@@ -26,22 +28,6 @@ const TOP_HEIGHT_VH = 100 - LIST_HEIGHT_VH;
 // We use 1920px as the standard reference width (Full HD).
 const REFERENCE_MAP_WIDTH = 1920;
 const DEFAULT_PIN_SIZE = 80;
-
-type ColumnPadding = {
-  top?: number;
-  right?: number;
-  bottom?: number;
-  left?: number;
-};
-
-type FloorLayoutPerFloor = {
-  columns: number;
-  rowsPerCol: number;
-  perColumnRows?: number[];
-  perColumnPadding?: ColumnPadding[];
-};
-
-type FloorLayout = Record<string, FloorLayoutPerFloor>;
 
 const DEFAULT_FLOOR_LAYOUT: FloorLayout = {
   "1F": { columns: 3, rowsPerCol: 20 },
@@ -60,6 +46,8 @@ interface GidoAppProps {
   selectedShopId?: string | null;
   showOnlyMap?: boolean;
   currentFloorSetting?: string;
+  /** Override the language used in the preview (settings screen only) */
+  previewLanguage?: 'ja' | 'en' | 'vn';
 }
 
 const GidoApp: React.FC<GidoAppProps> = ({
@@ -72,11 +60,18 @@ const GidoApp: React.FC<GidoAppProps> = ({
   selectedShopId,
   showOnlyMap = false,
   currentFloorSetting: propCurrentFloorSetting,
+  previewLanguage,
 }) => {
   // Use custom hook for data fetching with cache strategy
   const { shops, error: shopsError } = useShops();
   const error = shopsError ? shopsError.message : null;
-  const { assets, isLoading: isAssetsLoading } = useMall();
+  const { assets, isLoading: isAssetsLoading, language: contextLanguage, mallId } = useMall();
+  const language = previewLanguage ?? contextLanguage;
+
+  // When previewing halong with a different language, resolve speech bubble src for that language
+  const halongAssets = useHalongAssets(language as 'en' | 'ja' | 'vn');
+  const speechBubbleSrc = mallId === 'halong' ? halongAssets.speechBubbleIconSrc : assets?.common.speechBubbleIconSrc;
+  const locationSrc = mallId === 'halong' ? halongAssets.locationIconSrc : assets?.common.locationIconSrc;
 
   const [floor, setFloor] = useState<string>(
     previewFloor ?? APP_CONFIG.floor
@@ -86,67 +81,11 @@ const GidoApp: React.FC<GidoAppProps> = ({
     previewFloorLayout ?? DEFAULT_FLOOR_LAYOUT
   );
 
-  useEffect(() => {
-    if (previewFloor || !window.electronAPI?.getFloor) {
-      return;
-    }
+  // Floor is now managed via props from App.tsx settings.
+  // No need for Electron IPC subscriptions.
 
-    let cancelled = false;
-
-    const init = async () => {
-      try {
-        const current = await window.electronAPI!.getFloor();
-        if (!cancelled && current) {
-          setFloor(current);
-        }
-      } catch (e) {
-        console.error("Failed to get floor from Electron", e);
-      }
-    };
-
-    init();
-
-    window.electronAPI.onFloorChanged((nextFloor) => {
-      if (!cancelled) {
-        setFloor(nextFloor);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [previewFloor]);
-
-  useEffect(() => {
-    const api = window.electronAPI;
-    if (previewFloorLayout || !api) return;
-
-    let cancelled = false;
-
-    const init = async () => {
-      try {
-        const layout = await api.getFloorLayout();
-        if (!cancelled && layout) {
-          setFloorLayout(layout);
-        }
-      } catch (e) {
-        console.error("Failed to get floor layout from Electron", e);
-      }
-    };
-
-    init();
-
-    const unsubscribe = api.onFloorLayoutChanged((layout) => {
-      if (!cancelled) {
-        setFloorLayout(layout);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe && unsubscribe();
-    };
-  }, [previewFloorLayout]);
+  // Floor layout is now managed via props from App.tsx settings.
+  // No need for Electron IPC subscriptions.
 
   useEffect(() => {
     if (previewFloor !== undefined) {
@@ -209,6 +148,10 @@ const GidoApp: React.FC<GidoAppProps> = ({
           shops={previewShops}
           selectedShopId={selectedShopId}
           currentFloorSetting={propCurrentFloorSetting}
+          speechBubbleSrc={speechBubbleSrc}
+          locationSrc={locationSrc}
+          language={language}
+          mallId={mallId}
         />
       </div>
     );
@@ -222,6 +165,9 @@ const GidoApp: React.FC<GidoAppProps> = ({
         overflow: "visible",
         fontFamily: "'Rounded Mplus 1c', sans-serif",
         fontWeight: 700,
+        overscrollBehavior: "none",
+        touchAction: "none",
+        position: "fixed",
       }}
     >
       <div
@@ -242,6 +188,10 @@ const GidoApp: React.FC<GidoAppProps> = ({
           shops={previewShops}
           selectedShopId={selectedShopId}
           currentFloorSetting={propCurrentFloorSetting}
+          speechBubbleSrc={speechBubbleSrc}
+          locationSrc={locationSrc}
+          language={language}
+          mallId={mallId}
         />
 
         <div
@@ -294,6 +244,7 @@ const GidoApp: React.FC<GidoAppProps> = ({
               rowsPerColumn={currentLayout.rowsPerCol}
               perColumnRows={currentLayout.perColumnRows}
               perColumnPadding={currentLayout.perColumnPadding}
+              maxRows={currentLayout.maxRows}
             />
           )}
         </div>
@@ -386,7 +337,11 @@ const ShopPinsOverlay: React.FC<{
   shops?: Shop[];
   selectedShopId?: string | null;
   currentFloorSetting?: string;
-}> = ({ floor, floorMap, locationIconSettings, shopPositions, shops, selectedShopId, currentFloorSetting: propCurrentFloorSetting }) => {
+  speechBubbleSrc?: string;
+  locationSrc?: string;
+  language?: 'ja' | 'en' | 'vn';
+  mallId?: string;
+}> = ({ floor, floorMap, locationIconSettings, shopPositions, shops, selectedShopId, currentFloorSetting: propCurrentFloorSetting, speechBubbleSrc, locationSrc, language, mallId }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageMetrics, setImageMetrics] = useState<{ 
@@ -442,6 +397,52 @@ const ShopPinsOverlay: React.FC<{
   const safeShops = shops || [];
   const positions = safeShopPositions.positions || {};
 
+  // Memoize the rendered shop pins to avoid recalculating on every render
+  const shopPins = useMemo(() => {
+    if (!shopPositions || !imageMetrics) return null;
+    return Object.entries(positions)
+      .filter(([shopId]) => {
+        if (selectedShopId) return shopId === selectedShopId;
+        return false;
+      })
+      .map(([shopId, position]) => {
+        if (!position || !position.floor || position.floor !== normalizedFloor) return null;
+        const shop = safeShops.find((s) => (s.shopId || s.number) === shopId);
+        if (!shop || !shop.name) return null;
+
+        const normalizedPosition = {
+          ...position,
+          x: position.x <= 1 ? position.x * 100 : position.x,
+          y: position.y <= 1 ? position.y * 100 : position.y,
+        };
+
+        const scaleRatio = imageMetrics.displayWidth / REFERENCE_MAP_WIDTH;
+        const basePinSize = normalizedPosition.size ?? DEFAULT_PIN_SIZE;
+        const renderPosition = { ...normalizedPosition, size: basePinSize * scaleRatio };
+
+        const xPercent = renderPosition.x / 100;
+        const yPercent = renderPosition.y / 100;
+        const pixelX = Math.round(imageMetrics.offsetX + xPercent * imageMetrics.displayWidth);
+        const pixelY = Math.round(imageMetrics.offsetY + yPercent * imageMetrics.displayHeight);
+
+        return (
+          <ShopPin
+            key={shopId}
+            position={renderPosition}
+            usePixelPosition={true}
+            pixelX={pixelX}
+            pixelY={pixelY}
+            shopName={shop.name}
+            isSelected={selectedShopId === shopId}
+            shopLogo={shop.shopLogo}
+            shopId={shop.shopId || shop.number}
+            pinSrc={mallId === 'halong' ? halongShopPinSvg : undefined}
+            logoTopPercent={mallId === 'halong' ? 24.5 : 42.5}
+          />
+        );
+      });
+  }, [positions, selectedShopId, safeShops, imageMetrics, normalizedFloor]);
+
   // Check if we should show location icons
   const [currentFloorSetting, setCurrentFloorSetting] = useState<string>(propCurrentFloorSetting || "1F");
   
@@ -482,68 +483,26 @@ const ShopPinsOverlay: React.FC<{
           display: "block"
         }}
         onLoad={() => {
-          logInfo("SYS_INIT", "Floor map image loaded", { floor, src: floorMap });
+          logDebug("SYS_INIT", "Floor map image loaded", { floor, src: floorMap?.startsWith('data:') ? `data:...(${floorMap.length} chars)` : floorMap });
           updateMetrics();
         }}
         onError={(event) => {
-          logError("SYS_INIT", "Failed to load floor map image", { floor, src: floorMap });
+          logError("SYS_INIT", "Failed to load floor map image", { floor, src: floorMap?.startsWith('data:') ? `data:...(${floorMap.length} chars)` : floorMap });
           (event.target as HTMLImageElement).style.visibility = "hidden";
         }}
       />
 
-      {showLocationIcons && <LocationIconsOverlay settings={locationIconSettings} imageMetrics={imageMetrics} />}
+      {showLocationIcons && (
+        <LocationIconsOverlay
+          settings={locationIconSettings}
+          imageMetrics={imageMetrics}
+          speechBubbleSrc={speechBubbleSrc}
+          locationSrc={locationSrc}
+          language={language}
+        />
+      )}
 
-      {shopPositions && imageMetrics && Object.entries(positions)
-        .filter(([shopId]) => {
-          if (selectedShopId) return shopId === selectedShopId;
-          return false;
-        })
-        .map(([shopId, position]) => {
-          if (!position || !position.floor || position.floor !== normalizedFloor) return null;
-          const shop = safeShops.find((s) => (s.shopId || s.number) === shopId);
-          if (!shop || !shop.name) return null;
-          
-          const normalizedPosition = {
-            ...position,
-            x: position.x <= 1 ? position.x * 100 : position.x,
-            y: position.y <= 1 ? position.y * 100 : position.y,
-          };
-
-          // --- Consistent Scaling Logic ---
-          // Scale pin size based on the map width ratio (Current / 1920)
-          const scaleRatio = imageMetrics.displayWidth / REFERENCE_MAP_WIDTH;
-          const basePinSize = normalizedPosition.size ?? DEFAULT_PIN_SIZE;
-          const scaledPinSize = basePinSize * scaleRatio;
-          
-          // Apply scaled size to the render position
-          const renderPosition = {
-            ...normalizedPosition,
-            size: scaledPinSize
-          };
-
-          // Calculate Pixel Coordinates directly mapped to image dimensions.
-          // Removed the containment logic that shifted pins inward.
-          // Now: 0% = Image Left Edge, 100% = Image Right Edge.
-          const xPercent = renderPosition.x / 100;
-          const yPercent = renderPosition.y / 100;
-
-          const pixelX = Math.round(imageMetrics.offsetX + (xPercent * imageMetrics.displayWidth));
-          const pixelY = Math.round(imageMetrics.offsetY + (yPercent * imageMetrics.displayHeight));
-
-          return (
-            <ShopPin
-              key={shopId}
-              position={renderPosition}
-              usePixelPosition={true}
-              pixelX={pixelX}
-              pixelY={pixelY}
-              shopName={shop.name}
-              isSelected={selectedShopId === shopId}
-              shopLogo={shop.shopLogo}
-              shopId={shop.shopId || shop.number}
-            />
-          );
-        })}
+      {shopPins}
     </div>
   );
 };

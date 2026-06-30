@@ -1,4 +1,93 @@
-  .location-icon-shadow {
-    filter: drop-shadow(4px 4px 4px rgba(0, 0, 0, 0.5));
+.location-icon-shadow {
+  filter: drop-shadow(4px 4px 4px rgba(0, 0, 0, 0.5));
+}
+
+@keyframes ripple-animation {
+  0% {
+    transform: translate(-50%, -50%) scale(var(--ripple-center-size, 0.8));
+    opacity: 1;
   }
-  
+  90% {
+    opacity: 0.1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(calc(var(--ripple-size, 1.6) * 1.2));
+    opacity: 0;
+  }
+}
+
+.ripple-effect {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  animation: ripple-animation var(--ripple-duration, 2s) ease-out infinite;
+  /* will-change removed to avoid blurriness on high DPI screens */
+  backface-visibility: hidden;
+}
+
+.ripple-effect-delay {
+  animation-delay: calc(var(--ripple-duration, 2s) / 2);
+}
+
+/* CSS Idle Animations */
+@keyframes float-animation {
+  0%   { transform: translateY(0); }
+  50%  { transform: translateY(var(--anim-amplitude, -18px)); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes pulse-animation {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes bounce-animation {
+  0%   { transform: translateY(0); }
+  40%  { transform: translateY(var(--anim-amplitude, -18px)); }
+  100% { transform: translateY(0); }
+}
+
+.anim-floating {
+  animation: float-animation var(--anim-duration, 2.2s) ease-in-out infinite;
+}
+
+.anim-pulse {
+  animation: pulse-animation var(--anim-duration, 2s) ease-in-out infinite;
+}
+
+.anim-bounce {
+  animation: bounce-animation var(--anim-duration, 2s) ease-out infinite;
+}
+
+/* Spin-float: rises while flipping 360° on Y-axis; front/back faces handled in React */
+@keyframes spin-float-animation {
+  0%   { transform: translateY(0) rotateY(0deg); }
+  50%  { transform: translateY(var(--anim-amplitude, -18px)) rotateY(180deg); }
+  100% { transform: translateY(0) rotateY(360deg); }
+}
+
+/* Spin-loop: continuous in-place Y-axis flip */
+@keyframes spin-loop-animation {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(360deg); }
+}
+
+.anim-spin-float {
+  animation-name: spin-float-animation;
+  animation-duration: var(--anim-duration, 3s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: var(--anim-iteration, infinite);
+}
+
+.anim-spin-loop {
+  animation-name: spin-loop-animation;
+  animation-duration: var(--anim-duration, 3s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}

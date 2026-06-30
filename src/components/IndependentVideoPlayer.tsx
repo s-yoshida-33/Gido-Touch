@@ -1,10 +1,13 @@
 // src/components/IndependentVideoPlayer.tsx
 import React from 'react';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { useIndependentVideo } from '../hooks/useIndependentVideo';
-import { useAudioSettings } from '../hooks/useAudioSettings';
-import { logInfo, logError, logWarn } from '../logs/logging';
+import { useAudioSettingsContext } from '../contexts/AudioSettingsContext';
+import { useMall } from '../contexts/MallContext';
+import { logInfo, logError, logWarn, logDebug } from '../logs/logging';
 import type { Shop } from '../types/shop';
 import { getDefaultMediaSettings } from '../utils/localMediaUtils';
+import { getShopImageDataUrl } from '../utils/imageUtils';
 
 /**
  * Check if a URL is a video file
@@ -52,6 +55,37 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
+ * Filter media files to only include those whose shopId matches an active shop.
+ * Prevents playback of videos from shops that have left (退店).
+ * Files whose filename (without extension) does not match any shop's shopId are excluded.
+ */
+function filterByActiveShops(files: string[], shops: Shop[]): string[] {
+  if (shops.length === 0) return files; // If shops not yet loaded, don't filter
+  const filtered = files.filter(file => {
+    const filename = extractFilename(file);
+    const shopId = filename.replace(/\.[^/.]+$/, "");
+    const matched = shops.some(s => String(s.shopId) === String(shopId));
+    if (!matched) {
+      logWarn('VIDEO', `Skipped local media: shopId not found`, {
+        shopId,
+        filename,
+        file,
+      });
+    }
+    return matched;
+  });
+  if (filtered.length < files.length) {
+    const skippedCount = files.length - filtered.length;
+    logInfo('MEDIA_FILTER', `Filtered out ${skippedCount} media file(s) with no matching shop`, {
+      total: files.length,
+      active: filtered.length,
+      skipped: skippedCount,
+    });
+  }
+  return filtered;
+}
+
+/**
  * Build image path using shop_id if photo is relative or filename only
  * Copied from ShopListScreen.tsx for consistency
  */
@@ -88,27 +122,28 @@ function buildImagePath(photo: string | undefined, shopId: string | undefined): 
 }
 
 /**
- * Convert a local file path to a file:// URL for Electron
+ * Convert a local file path to an asset protocol URL for Tauri WebView.
+ * Uses Tauri's convertFileSrc to generate an asset:// URL.
  */
-function toFileUrl(filePath: string): string {
+function toAssetUrl(filePath: string): string {
   if (!filePath) return "";
-  if (filePath.startsWith("file://") || filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:")) {
+  if (filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:") || filePath.startsWith("asset:")) {
     return filePath;
   }
-  const normalized = filePath.replace(/\\/g, "/");
-  if (normalized.match(/^[A-Za-z]:\//)) {
-    return `file:///${normalized}`;
+  // Strip file:// prefix if present
+  let cleaned = filePath;
+  if (cleaned.startsWith("file:///")) {
+    cleaned = cleaned.slice(8);
+  } else if (cleaned.startsWith("file://")) {
+    cleaned = cleaned.slice(7);
   }
-  if (normalized.startsWith("/")) {
-    return `file://${normalized}`;
-  }
-  return `file:///${normalized}`;
+  return convertFileSrc(cleaned);
 }
 
 interface IndependentVideoPlayerProps {
   forceReload?: number;
   videoHeight?: string | number;
-  language?: "ja" | "en";
+  language?: "ja" | "en" | "vn";
   shops?: Shop[];
   overrideShopId?: string | null;
 }
@@ -121,7 +156,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   overrideShopId = null,
 }) => {
   const { videoSettings, isLoading } = useIndependentVideo();
-  const { settings: audioSettings } = useAudioSettings();
+  const { audioSettings } = useAudioSettingsContext();
+  const { mallId } = useMall();
   
   // Double buffering refs
   const videoRefA = React.useRef<HTMLVideoElement>(null);
@@ -130,12 +166,29 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
   const imgRef = React.useRef<HTMLImageElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
-  
+
   // Media files list and current index
   const [mediaFiles, setMediaFiles] = React.useState<string[]>([]);
   const [playlist, setPlaylist] = React.useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [isLoadingMedia, setIsLoadingMedia] = React.useState(true);
+
+  // Refs mirroring state values for use in callbacks (watchdog, event listeners)
+  // to avoid stale closures between state updates and effect re-setup.
+  const activePlayerIdRef = React.useRef(activePlayerId);
+  activePlayerIdRef.current = activePlayerId;
+  const currentIndexRef = React.useRef(currentIndex);
+  currentIndexRef.current = currentIndex;
+  const playlistRef = React.useRef(playlist);
+  playlistRef.current = playlist;
+  const mediaFilesRef = React.useRef(mediaFiles);
+  mediaFilesRef.current = mediaFiles;
+  const shopsRef = React.useRef(shops);
+  shopsRef.current = shops;
+  const overrideShopIdRef = React.useRef(overrideShopId);
+  overrideShopIdRef.current = overrideShopId;
+  const audioMutedRef = React.useRef(audioSettings.localMediaMuted);
+  audioMutedRef.current = audioSettings.localMediaMuted;
   
   // Override image state
   const [overrideImage, setOverrideImage] = React.useState<string | null>(null);
@@ -145,7 +198,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   const currentSrcRef = React.useRef<string | null>(null);
   
   // Local reload trigger for when mall ID changes
-  const [localReload, setLocalReload] = React.useState(0);
+  const [localReload] = React.useState(0);
   
   // Save previous state for override
   const savedStateRef = React.useRef<{ playlist: string[], index: number, currentTime: number } | null>(null);
@@ -153,15 +206,38 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
   // Seek wait time
   const pendingSeekTimeRef = React.useRef<number | null>(null);
   
+  // Video error retry
+  const MAX_RETRY_COUNT = 3;
+  const retryCountRef = React.useRef<number>(0);
+
+  // Transition guard to prevent concurrent handleNext() calls
+  const isTransitioningRef = React.useRef<boolean>(false);
+
+  // Error retry timer (for cleanup)
+  const errorRetryTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Watchdog refs
   const lastTimeRef = React.useRef<number>(0);
   const freezeCounterRef = React.useRef<number>(0);
   const lastHeartbeatTimeRef = React.useRef<number>(Date.now());
   const lastGoodStateTimeRef = React.useRef<number>(Date.now());
 
-  // Helper to get active/inactive video refs
-  const getActiveVideo = () => activePlayerId === 'A' ? videoRefA.current : videoRefB.current;
-  const getInactiveVideo = () => activePlayerId === 'A' ? videoRefB.current : videoRefA.current;
+  // Cleanup video elements on unmount to prevent memory leaks from long-running playback
+  React.useEffect(() => {
+    return () => {
+      [videoRefA.current, videoRefB.current].forEach(video => {
+        if (video) {
+          video.pause();
+          video.removeAttribute('src');
+          video.load(); // Forces release of media resources
+        }
+      });
+    };
+  }, []);
+
+  // Helper to get active/inactive video refs (reads from ref for latest value)
+  const getActiveVideo = () => activePlayerIdRef.current === 'A' ? videoRefA.current : videoRefB.current;
+  const getInactiveVideo = () => activePlayerIdRef.current === 'A' ? videoRefB.current : videoRefA.current;
 
   // Helper to format buffered ranges
   const getBufferedRanges = (video: HTMLVideoElement) => {
@@ -235,16 +311,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     </div>
   );
 
-  // Listen for Mall ID updates
-  React.useEffect(() => {
-    const unsubscribe = window.electronAPI?.onMallIdUpdated?.(() => {
-      logInfo('SYS_INIT', 'Mall ID updated, reloading media files');
-      setLocalReload(prev => prev + 1);
-    });
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
+  // Mall ID changes are now handled via props/context, no IPC subscription needed
+  // The component will re-render when mallId changes in context
 
   // Update playlist when overrideShopId changes
   React.useEffect(() => {
@@ -264,7 +332,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       });
 
       if (shopFiles.length > 0) {
-        logInfo('MEDIA_SWAP', `Overriding playlist for shop: ${overrideShopId}`, { count: shopFiles.length });
+        logDebug('MEDIA_SWAP', `Overriding playlist for shop: ${overrideShopId}`, { count: shopFiles.length });
         
         // Save current state before overriding, if not already saved
         // IMPORTANT: Only save if we are transitioning from a non-override state
@@ -297,21 +365,16 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 const imagePath = buildImagePath(photoToUse, overrideShopId);
                 
                 if (imagePath) {
-                   const electronAPI = window.electronAPI;
-                   if (electronAPI && electronAPI.getShopImage) {
-                      try {
-                         const dataUrl = await electronAPI.getShopImage(imagePath);
-                         if (dataUrl) {
-                            setOverrideImage(dataUrl);
-                         } else {
-                            setOverrideImage(toFileUrl(imagePath));
-                         }
-                      } catch (e) {
-                         console.error("Failed to load shop image", e);
-                         setOverrideImage(toFileUrl(imagePath));
+                   try {
+                      const dataUrl = await getShopImageDataUrl(imagePath);
+                      if (dataUrl) {
+                         setOverrideImage(dataUrl);
+                      } else {
+                         setOverrideImage(toAssetUrl(imagePath));
                       }
-                   } else {
-                      setOverrideImage(toFileUrl(imagePath));
+                   } catch (e) {
+                      console.error("Failed to load shop image", e);
+                      setOverrideImage(toAssetUrl(imagePath));
                    }
                 }
                 setIsOverrideImageLoading(false);
@@ -330,7 +393,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
              setPlaylist([]); // Clear playlist to stop playing previous
           } else {
             // No photo available
-            logInfo('MEDIA_SWAP', `No shop photo found for shop: ${overrideShopId}`);
+            logWarn('MEDIA_SWAP', `No shop photo found for shop: ${overrideShopId}`);
             setOverrideImage(null);
           }
         }
@@ -340,7 +403,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
       setOverrideImage(null);
       
       if (savedStateRef.current) {
-         logInfo('MEDIA_SWAP', 'Restoring playlist from override');
+         logDebug('MEDIA_SWAP', 'Restoring playlist from override');
          
          const restoredPlaylist = savedStateRef.current.playlist;
          setPlaylist(restoredPlaylist);
@@ -357,8 +420,8 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
              // If videoSettings is enabled, empty playlist allows fallback to it.
              // If videoSettings is NOT enabled, we should play mediaFiles.
              if (!videoSettings?.enabled || !videoSettings.source) {
-                 logInfo('MEDIA_SWAP', 'Restored empty playlist but have media files, starting loop');
-                 setPlaylist(shuffleArray(mediaFiles));
+                 logDebug('MEDIA_SWAP', 'Restored empty playlist but have media files, starting loop');
+                 setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
                  setCurrentIndex(0);
              }
          }
@@ -368,13 +431,13 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         if (playlist.length === 0 && mediaFiles.length > 0) {
             // Check legacy video settings
             if (!videoSettings?.enabled || !videoSettings.source) {
-               setPlaylist(shuffleArray(mediaFiles));
+               setPlaylist(shuffleArray(filterByActiveShops(mediaFiles, shops)));
                setCurrentIndex(0);
             }
         }
       }
     }
-  }, [overrideShopId, mediaFiles]); // Removed 'shops' from deps to avoid loop
+  }, [overrideShopId, mediaFiles]); // 'shops' intentionally omitted to avoid loop
 
   // Load media files from local directory
   React.useEffect(() => {
@@ -382,26 +445,19 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
 
     const loadMediaFiles = async () => {
       try {
-        if (!window.electronAPI?.getLocalMediaFiles) {
-          logWarn('SYS_INIT', 'electronAPI.getLocalMediaFiles is not available');
-          if (isMounted) {
-            setIsLoadingMedia(false);
-          }
-          return;
-        }
-
-        const files = await window.electronAPI.getLocalMediaFiles();
+        const files = await invoke<string[]>('list_media_files', { mallId });
         
         if (!isMounted) return;
 
         if (files.length === 0) {
-          logWarn('SYS_INIT', 'No media files found in local directory');
+          logWarn('SYS_INIT', 'No media files found in local directory', { mallId });
           setIsLoadingMedia(false);
           return;
         }
 
         logInfo('SYS_INIT', 'Loaded media files from local directory', {
           count: files.length,
+          mallId,
           forceReload,
           localReload
         });
@@ -409,7 +465,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
         setMediaFiles(files);
         // Only shuffle and set playlist if NOT in override mode
         if (!overrideShopId) {
-            setPlaylist(shuffleArray(files));
+            setPlaylist(shuffleArray(filterByActiveShops(files, shops)));
             setCurrentIndex(0);
         }
         
@@ -430,318 +486,349 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [forceReload, localReload]);
+  }, [forceReload, localReload, mallId]);
 
-  // Double buffering and playback management
-  React.useEffect(() => {
-    // If we have an override image, do not play video/playlist
-    if (overrideImage) {
-        // Pause both videos
-        const vA = videoRefA.current;
-        const vB = videoRefB.current;
-        if (vA) vA.pause();
-        if (vB) vB.pause();
-        return;
+  // Stable handleNext — reads exclusively from refs, so no closure staleness.
+  // Can be used by event listeners and watchdog without triggering effect re-runs.
+  const handleNext = React.useCallback(() => {
+    if (isTransitioningRef.current) {
+      logDebug('MEDIA_SWAP', 'handleNext skipped: transition already in progress');
+      return;
+    }
+    isTransitioningRef.current = true;
+
+    const latestPlaylist = playlistRef.current;
+    const latestIndex = currentIndexRef.current;
+    const latestActivePlayerId = activePlayerIdRef.current;
+    const latestShops = shopsRef.current;
+    const latestOverrideShopId = overrideShopIdRef.current;
+    const latestMediaFiles = mediaFilesRef.current;
+
+    // Reset watchdog refs
+    lastTimeRef.current = 0;
+    freezeCounterRef.current = 0;
+    lastHeartbeatTimeRef.current = Date.now();
+    lastGoodStateTimeRef.current = Date.now();
+
+    // Release decoded video frames from the outgoing player
+    const outgoingVideo = getActiveVideo();
+    if (outgoingVideo) {
+      outgoingVideo.pause();
+      outgoingVideo.removeAttribute('src');
+      outgoingVideo.load();
     }
 
-    if (playlist.length === 0 || isLoadingMedia) return;
+    if (latestPlaylist.length > 1) {
+      const nextIndex = latestIndex + 1;
+      const prevPlayer = latestActivePlayerId;
+      const nextPlayer = latestActivePlayerId === 'A' ? 'B' : 'A';
+      const nextFileObj = latestPlaylist[nextIndex >= latestPlaylist.length ? 0 : nextIndex];
 
-    const currentFile = playlist[currentIndex];
-    if (!currentFile) return;
+      const nextFilename = extractFilename(nextFileObj);
+      const nextShopId = nextFilename.replace(/\.[^/.]+$/, "");
+      const isMatched = latestShops.some(s => String(s.shopId) === nextShopId || String(s.number) === nextShopId);
+      const nextVideoElement = nextPlayer === 'A' ? videoRefA.current : videoRefB.current;
+      const nextReadyState = nextVideoElement ? nextVideoElement.readyState : 'null';
 
-    const isVideo = isVideoFile(currentFile);
-    const isImage = isImageFile(currentFile);
+      retryCountRef.current = 0;
 
-    // VIDEO HANDLING WITH DOUBLE BUFFERING
-    if (isVideo) {
-      const activeVideo = getActiveVideo();
-      const inactiveVideo = getInactiveVideo();
-      
-      // Calculate next file for preloading
-      let nextFile = "";
-      if (playlist.length > 0) {
-          const nextIndex = (currentIndex + 1) % playlist.length;
-          nextFile = playlist[nextIndex];
-      }
-
-      // Logic to move to next item
-      const handleNext = () => {
-        // Reset watchdog refs
-        lastTimeRef.current = 0;
-        freezeCounterRef.current = 0;
-        lastHeartbeatTimeRef.current = Date.now();
-        lastGoodStateTimeRef.current = Date.now();
-
-        if (playlist.length > 1) {
-          const nextIndex = currentIndex + 1;
-          const prevPlayer = activePlayerId;
-          const nextPlayer = activePlayerId === 'A' ? 'B' : 'A';
-          const nextFileObj = playlist[nextIndex >= playlist.length ? 0 : nextIndex];
-
-          // Check if matched with shop data
-          const nextFilename = extractFilename(nextFileObj);
-          const nextShopId = nextFilename.replace(/\.[^/.]+$/, "");
-          const isMatched = shops.some(s => String(s.shopId) === nextShopId || String(s.number) === nextShopId);
-          
-          // Get next player ready state
-          const nextVideoElement = nextPlayer === 'A' ? videoRefA.current : videoRefB.current;
-          const nextReadyState = nextVideoElement ? nextVideoElement.readyState : 'null';
-
-          // Log detailed swap info
-          logInfo('MEDIA_SWAP', 'Local media player swapped', {
-            activePlayer: nextPlayer,
-            fromPlayer: prevPlayer,
-            file: nextFilename,
-            shopId: nextShopId,
-            isMatched,
-            readyState: nextReadyState,
-            playlistLength: playlist.length
-          });
-
-          if (nextIndex >= playlist.length) {
-            // Reached end of playlist
-            logInfo('MEDIA_SWAP', 'Playlist cycle completed');
-            
-            if (overrideShopId) {
-               // In override mode, just loop back
-               setCurrentIndex(0);
-            } else {
-               // Normal mode: reshuffle and restart
-               setPlaylist(shuffleArray(mediaFiles));
-               setCurrentIndex(0);
-            }
-          } else {
-            setCurrentIndex(nextIndex);
-          }
-          
-          // Switch active player for the NEXT render cycle
-          // Using callback to ensure we toggle from current state
-          setActivePlayerId(prev => prev === 'A' ? 'B' : 'A');
-        } else if (playlist.length === 1) {
-            // Single file loop - just replay current
-            if (activeVideo) {
-                activeVideo.currentTime = 0;
-                activeVideo.play().catch(e => logError('VIDEO', 'Replay failed', { error: e.message }));
-            }
-        }
-      };
-
-      // Playback Logic
-      if (activeVideo) {
-          // If source changed or not set
-          const fileUrl = toFileUrl(currentFile);
-          
-          // Check if src needs update. 
-          // Note: src might be fully qualified or relative, so simple check might fail. 
-          // But if we use toFileUrl consistently it should be fine.
-          // We check if the current src ends with the filename to be safe against base URL diffs
-          const filename = extractFilename(currentFile);
-          const srcDecoded = decodeURIComponent(activeVideo.src);
-          
-          // If the video source doesn't contain the expected filename, or is empty
-          if (!activeVideo.src || !srcDecoded.includes(filename)) {
-              activeVideo.src = fileUrl;
-              activeVideo.load();
-              
-              // Handle seek if pending
-              if (pendingSeekTimeRef.current !== null) {
-                activeVideo.currentTime = pendingSeekTimeRef.current;
-                pendingSeekTimeRef.current = null;
-              }
-          }
-
-          // Ensure audio settings
-          activeVideo.muted = audioSettings.localMediaMuted;
-          // Single video loop handling
-          activeVideo.loop = playlist.length === 1; 
-          
-          const playPromise = activeVideo.play();
-          if (playPromise !== undefined) {
-              playPromise.catch(e => {
-                  // Ignore abort errors caused by swapping
-                  if (e.name !== 'AbortError') {
-                      logError('VIDEO', 'Auto-play failed', { error: e.message, file: currentFile });
-                  }
-              });
-          }
-
-          // Preload Next Video on the Inactive Player
-          if (inactiveVideo && nextFile && playlist.length > 1 && isVideoFile(nextFile)) {
-              const nextFileUrl = toFileUrl(nextFile);
-              const nextFilename = extractFilename(nextFile);
-              const nextSrcDecoded = decodeURIComponent(inactiveVideo.src);
-
-              if (!inactiveVideo.src || !nextSrcDecoded.includes(nextFilename)) {
-                  inactiveVideo.src = nextFileUrl;
-                  inactiveVideo.load(); // Load metadata/data in background
-                  inactiveVideo.muted = audioSettings.localMediaMuted; // Prepare mute state
-              }
-          }
-      }
-
-      // Event Listeners
-      const onEnded = () => handleNext();
-      const onStalled = () => logWarn('VIDEO', 'Playback stalled', { file: currentFile });
-      
-      // Error handling for active video
-      const onError = (e: Event) => {
-          const target = e.currentTarget as HTMLVideoElement;
-          logError('VIDEO', 'Video playback error', {
-              file: extractFilename(currentFile), // Use extractFilename for better readability
-              error: target.error?.message,
-              code: target.error?.code,
-              readyState: target.readyState,
-              networkState: target.networkState,
-              currentTime: target.currentTime.toFixed(2),
-              duration: target.duration?.toFixed(2),
-              buffered: getBufferedRanges(target)
-          });
-          // Force skip to next
-          handleNext();
-      };
-
-      if (activeVideo) {
-          activeVideo.addEventListener('ended', onEnded);
-          activeVideo.addEventListener('stalled', onStalled);
-          activeVideo.addEventListener('error', onError);
-      }
-
-      // Watchdog implementation (targeting activeVideo)
-      const watchdogInterval = setInterval(() => {
-        if (!activeVideo) return;
-        
-        const now = Date.now();
-        const currentTime = activeVideo.currentTime;
-        const duration = activeVideo.duration;
-        const isReady = activeVideo.readyState >= 3;
-
-        // Heartbeat
-        if (now - lastHeartbeatTimeRef.current > 60000) {
-            if (!activeVideo.paused && !activeVideo.ended && isReady) {
-                logInfo('WATCHDOG', 'Playback status: Normal', { 
-                    file: extractFilename(currentFile), 
-                    currentTime: currentTime.toFixed(1)
-                });
-            }
-            lastHeartbeatTimeRef.current = now;
-        }
-
-        // Freeze detection
-        if (!activeVideo.paused && !activeVideo.ended) {
-            if (isReady) {
-                lastGoodStateTimeRef.current = now;
-                if (Math.abs(currentTime - lastTimeRef.current) < 0.05) {
-                    freezeCounterRef.current++;
-                    if (freezeCounterRef.current === 5) {
-                        logWarn('WATCHDOG', 'Playback freeze detected', { 
-                            file: extractFilename(currentFile),
-                            playerId: activePlayerId,
-                            frozenAt: currentTime.toFixed(2),
-                            readyState: activeVideo.readyState,
-                            networkState: activeVideo.networkState,
-                            buffered: getBufferedRanges(activeVideo)
-                        });
-                    }
-                    else if (freezeCounterRef.current > 30 && freezeCounterRef.current % 30 === 1) {
-                        logError('WATCHDOG', 'Force skipping due to extended freeze', { 
-                            file: extractFilename(currentFile),
-                            secondsFrozen: freezeCounterRef.current,
-                            readyState: activeVideo.readyState,
-                            networkState: activeVideo.networkState,
-                            buffered: getBufferedRanges(activeVideo),
-                            action: 'FORCED_NEXT_ITEM'
-                        });
-                        handleNext(); // Force skip
-                    }
-                } else {
-                    if (freezeCounterRef.current >= 5) {
-                        logInfo('WATCHDOG', 'Playback recovered from freeze', {
-                            durationFrozen: freezeCounterRef.current
-                        });
-                    }
-                    freezeCounterRef.current = 0;
-                }
-                lastTimeRef.current = currentTime;
-            } else {
-                // Not ready
-                const stuckDuration = now - lastGoodStateTimeRef.current;
-                if (stuckDuration > 10000 && stuckDuration % 10000 < 1000) {
-                    logWarn('WATCHDOG', 'Playback stuck in non-ready state', { 
-                        file: extractFilename(currentFile),
-                        stuckDuration,
-                        readyState: activeVideo.readyState,
-                        networkState: activeVideo.networkState,
-                        buffered: getBufferedRanges(activeVideo)
-                    });
-
-                    if (stuckDuration > 30000) {
-                         logError('WATCHDOG', 'Force skipping due to stuck readyState', {
-                             stuckDuration
-                         });
-                         handleNext();
-                         lastGoodStateTimeRef.current = now;
-                    }
-                }
-            }
-        }
-
-        // Duration check (fallback for missing ended event)
-        if (duration && !activeVideo.paused && activeVideo.currentTime >= duration) {
-            logWarn('WATCHDOG', 'Duration exceeded without ended event', { file: currentFile });
-            handleNext();
-        }
-      }, 1000);
-
-      return () => {
-        clearInterval(watchdogInterval);
-        if (activeVideo) {
-            activeVideo.removeEventListener('ended', onEnded);
-            activeVideo.removeEventListener('stalled', onStalled);
-            activeVideo.removeEventListener('error', onError);
-        }
-      };
-    } else if (isImage && imgRef.current) {
-      const img = imgRef.current;
-      
-      // Pause videos if image is showing
-      const vA = videoRefA.current;
-      const vB = videoRefB.current;
-      if (vA && !vA.paused) vA.pause();
-      if (vB && !vB.paused) vB.pause();
-      
-      // Update image src
-      if (currentSrcRef.current !== currentFile) {
-        img.src = currentFile;
-        currentSrcRef.current = currentFile;
-      }
-      
-      // Timer for image display
-      const timer = setTimeout(() => {
-        if (playlist.length > 1) {
-          const nextIndex = currentIndex + 1;
-          if (nextIndex >= playlist.length) {
-            logInfo('MEDIA_SWAP', 'Playlist cycle completed');
-            if (overrideShopId) {
-               setCurrentIndex(0);
-            } else {
-               setPlaylist(shuffleArray(mediaFiles));
-               setCurrentIndex(0);
-            }
-          } else {
-            setCurrentIndex(nextIndex);
-          }
-        }
-      }, 15000); // 15 seconds for images
-      
-      logInfo('MEDIA_SWAP', 'Showing image from local directory', {
-        file: currentFile,
+      logDebug('MEDIA_SWAP', 'Local media player swapped', {
+        activePlayer: nextPlayer,
+        fromPlayer: prevPlayer,
+        file: nextFilename,
+        shopId: nextShopId,
+        isMatched,
+        readyState: nextReadyState,
+        playlistLength: latestPlaylist.length
       });
 
-      return () => {
-        clearTimeout(timer);
-      };
+      if (nextIndex >= latestPlaylist.length) {
+        logDebug('MEDIA_SWAP', 'Playlist cycle completed');
+        if (latestOverrideShopId) {
+          setCurrentIndex(0);
+        } else {
+          setPlaylist(shuffleArray(filterByActiveShops(latestMediaFiles, latestShops)));
+          setCurrentIndex(0);
+        }
+      } else {
+        setCurrentIndex(nextIndex);
+      }
+
+      setActivePlayerId(prev => prev === 'A' ? 'B' : 'A');
+    } else if (latestPlaylist.length === 1) {
+      const currentVideo = getActiveVideo();
+      if (currentVideo) {
+        currentVideo.currentTime = 0;
+        currentVideo.play().catch(e => logError('VIDEO', 'Replay failed', { error: e.message }));
+      }
     }
-  }, [playlist, currentIndex, isLoadingMedia, mediaFiles, audioSettings.localMediaMuted, overrideShopId, overrideImage, activePlayerId]);
+
+    requestAnimationFrame(() => {
+      isTransitioningRef.current = false;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Stable: reads only from refs
+
+  // --- Effect 1: Override image — release video resources when override is active ---
+  React.useEffect(() => {
+    if (overrideImage) {
+      [videoRefA.current, videoRefB.current].forEach(v => {
+        if (v && v.src) {
+          v.pause();
+          v.removeAttribute('src');
+          v.load();
+        }
+      });
+    }
+  }, [overrideImage]);
+
+  // --- Effect 2: Audio settings — sync muted state without teardown ---
+  React.useEffect(() => {
+    const activeVideo = getActiveVideo();
+    const inactiveVideo = getInactiveVideo();
+    if (activeVideo) activeVideo.muted = audioSettings.localMediaMuted;
+    if (inactiveVideo) inactiveVideo.muted = audioSettings.localMediaMuted;
+  }, [audioSettings.localMediaMuted]);
+
+  // --- Effect 3: Video source — manages src on the active player only ---
+  // No preloading on the inactive player. On systems without hardware video
+  // acceleration (e.g. USB virtual display), Chromium allocates a full software
+  // decode pipeline per video element that has buffered data, regardless of the
+  // preload attribute. Two concurrent decode pipelines (local + CMS) plus a
+  // preloaded buffer consistently caused PIPELINE_ERROR_DECODE on both streams.
+  // Local files load from disk via asset:// (~200ms), so the transition gap is
+  // imperceptible for digital signage.
+  React.useEffect(() => {
+    if (overrideImage || playlist.length === 0 || isLoadingMedia) return;
+
+    const currentFile = playlist[currentIndex];
+    if (!currentFile || !isVideoFile(currentFile)) return;
+
+    const activeVideo = getActiveVideo();
+
+    // Set source on active player if needed
+    if (activeVideo) {
+      const fileUrl = toAssetUrl(currentFile);
+      const filename = extractFilename(currentFile);
+      const srcDecoded = decodeURIComponent(activeVideo.src);
+
+      if (!activeVideo.src || !srcDecoded.includes(filename)) {
+        retryCountRef.current = 0;
+        if (activeVideo.src) {
+          activeVideo.pause();
+          activeVideo.removeAttribute('src');
+          activeVideo.load();
+        }
+        activeVideo.src = fileUrl;
+        activeVideo.load();
+
+        if (pendingSeekTimeRef.current !== null) {
+          activeVideo.currentTime = pendingSeekTimeRef.current;
+          pendingSeekTimeRef.current = null;
+        }
+      }
+
+      activeVideo.muted = audioMutedRef.current;
+      activeVideo.loop = playlist.length === 1;
+
+      const playPromise = activeVideo.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(e => {
+          if (e.name !== 'AbortError') {
+            logError('VIDEO', 'Auto-play failed', { error: e.message, file: currentFile });
+          }
+        });
+      }
+    }
+  }, [playlist, currentIndex, isLoadingMedia, overrideImage, activePlayerId]);
+
+  // --- Effect 4: Event listeners & watchdog — attached to active video element ---
+  React.useEffect(() => {
+    if (overrideImage || playlist.length === 0 || isLoadingMedia) return;
+
+    const currentFile = playlist[currentIndex];
+    if (!currentFile || !isVideoFile(currentFile)) return;
+
+    const activeVideo = getActiveVideo();
+    if (!activeVideo) return;
+
+    // Event Listeners
+    const onEnded = () => handleNext();
+    const onStalled = () => logWarn('VIDEO', 'Playback stalled', { file: currentFile });
+
+    const onError = (e: Event) => {
+      const target = e.currentTarget as HTMLVideoElement;
+      const fileName = extractFilename(currentFile);
+      logError('VIDEO', 'Video playback error', {
+        file: fileName,
+        error: target.error?.message,
+        code: target.error?.code,
+        readyState: target.readyState,
+        networkState: target.networkState,
+        currentTime: target.currentTime.toFixed(2),
+        duration: target.duration?.toFixed(2),
+        buffered: getBufferedRanges(target),
+        retryCount: retryCountRef.current,
+      });
+
+      if (retryCountRef.current < MAX_RETRY_COUNT) {
+        retryCountRef.current += 1;
+        logWarn('VIDEO', `Retrying video load (${retryCountRef.current}/${MAX_RETRY_COUNT})`, { file: fileName });
+        errorRetryTimerRef.current = setTimeout(() => {
+          errorRetryTimerRef.current = null;
+          if (target && target.src) {
+            target.load();
+            target.play().catch(() => {});
+          }
+        }, 1000);
+      } else {
+        logError('VIDEO', 'Max retry count reached, skipping to next', { file: fileName, retryCount: retryCountRef.current });
+        retryCountRef.current = 0;
+        handleNext();
+      }
+    };
+
+    activeVideo.addEventListener('ended', onEnded);
+    activeVideo.addEventListener('stalled', onStalled);
+    activeVideo.addEventListener('error', onError);
+
+    // Watchdog (1s interval)
+    const watchdogInterval = setInterval(() => {
+      const now = Date.now();
+      const currentTime = activeVideo.currentTime;
+      const duration = activeVideo.duration;
+      const isReady = activeVideo.readyState >= 3;
+
+      // Heartbeat (every 60s)
+      if (now - lastHeartbeatTimeRef.current > 60000) {
+        if (!activeVideo.paused && !activeVideo.ended && isReady) {
+          logInfo('WATCHDOG', 'Playback status: Normal', {
+            file: extractFilename(playlistRef.current[currentIndexRef.current] || ''),
+            currentTime: currentTime.toFixed(1)
+          });
+        }
+        lastHeartbeatTimeRef.current = now;
+      }
+
+      // Freeze detection
+      if (!activeVideo.paused && !activeVideo.ended) {
+        if (isReady) {
+          lastGoodStateTimeRef.current = now;
+          if (Math.abs(currentTime - lastTimeRef.current) < 0.05) {
+            freezeCounterRef.current++;
+            if (freezeCounterRef.current === 5) {
+              logWarn('WATCHDOG', 'Playback freeze detected', {
+                file: extractFilename(playlistRef.current[currentIndexRef.current] || ''),
+                playerId: activePlayerIdRef.current,
+                frozenAt: currentTime.toFixed(2),
+                readyState: activeVideo.readyState,
+                networkState: activeVideo.networkState,
+                buffered: getBufferedRanges(activeVideo)
+              });
+            } else if (freezeCounterRef.current > 30 && freezeCounterRef.current % 30 === 1) {
+              logError('WATCHDOG', 'Force skipping due to extended freeze', {
+                file: extractFilename(playlistRef.current[currentIndexRef.current] || ''),
+                secondsFrozen: freezeCounterRef.current,
+                readyState: activeVideo.readyState,
+                networkState: activeVideo.networkState,
+                buffered: getBufferedRanges(activeVideo),
+                action: 'FORCED_NEXT_ITEM'
+              });
+              handleNext();
+            }
+          } else {
+            if (freezeCounterRef.current >= 5) {
+              logInfo('WATCHDOG', 'Playback recovered from freeze', { durationFrozen: freezeCounterRef.current });
+            }
+            freezeCounterRef.current = 0;
+          }
+          lastTimeRef.current = currentTime;
+        } else {
+          const stuckDuration = now - lastGoodStateTimeRef.current;
+          if (stuckDuration > 10000 && stuckDuration % 10000 < 1000) {
+            logWarn('WATCHDOG', 'Playback stuck in non-ready state', {
+              file: extractFilename(playlistRef.current[currentIndexRef.current] || ''),
+              stuckDuration,
+              readyState: activeVideo.readyState,
+              networkState: activeVideo.networkState,
+              buffered: getBufferedRanges(activeVideo)
+            });
+            if (stuckDuration > 30000) {
+              logError('WATCHDOG', 'Force skipping due to stuck readyState', { stuckDuration });
+              handleNext();
+              lastGoodStateTimeRef.current = now;
+            }
+          }
+        }
+      }
+
+      // Duration check (fallback for missing ended event)
+      if (duration && !activeVideo.paused && activeVideo.currentTime >= duration) {
+        logWarn('WATCHDOG', 'Duration exceeded without ended event', {
+          file: playlistRef.current[currentIndexRef.current] || ''
+        });
+        handleNext();
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(watchdogInterval);
+      activeVideo.removeEventListener('ended', onEnded);
+      activeVideo.removeEventListener('stalled', onStalled);
+      activeVideo.removeEventListener('error', onError);
+      // Clear pending error retry timer to prevent load/play on detached element
+      if (errorRetryTimerRef.current) {
+        clearTimeout(errorRetryTimerRef.current);
+        errorRetryTimerRef.current = null;
+      }
+    };
+  }, [playlist, currentIndex, isLoadingMedia, overrideImage, activePlayerId, handleNext]);
+
+  // --- Effect 5: Image display timer ---
+  React.useEffect(() => {
+    if (overrideImage || playlist.length === 0 || isLoadingMedia) return;
+
+    const currentFile = playlist[currentIndex];
+    if (!currentFile || !isImageFile(currentFile)) return;
+
+    // Pause videos if image is showing
+    const vA = videoRefA.current;
+    const vB = videoRefB.current;
+    if (vA && !vA.paused) vA.pause();
+    if (vB && !vB.paused) vB.pause();
+
+    // Update image src
+    if (imgRef.current && currentSrcRef.current !== currentFile) {
+      imgRef.current.src = currentFile;
+      currentSrcRef.current = currentFile;
+    }
+
+    // Timer for image display (reads from refs for latest state)
+    const timer = setTimeout(() => {
+      const latestPlaylist = playlistRef.current;
+      const latestIndex = currentIndexRef.current;
+      if (latestPlaylist.length > 1) {
+        const nextIndex = latestIndex + 1;
+        if (nextIndex >= latestPlaylist.length) {
+          logDebug('MEDIA_SWAP', 'Playlist cycle completed');
+          if (overrideShopIdRef.current) {
+            setCurrentIndex(0);
+          } else {
+            setPlaylist(shuffleArray(filterByActiveShops(mediaFilesRef.current, shopsRef.current)));
+            setCurrentIndex(0);
+          }
+        } else {
+          setCurrentIndex(nextIndex);
+        }
+      }
+    }, 15000);
+
+    logDebug('MEDIA_SWAP', 'Showing image from local directory', { file: currentFile });
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [playlist, currentIndex, isLoadingMedia, overrideImage]);
 
   // Handle video settings changes (legacy support)
   React.useEffect(() => {
@@ -803,7 +890,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                   display: 'block'
               }}
               onError={(e) => {
-                  logError('SHOP_MAP', 'Failed to load override shop image');
+                  logError('VIDEO', 'Failed to load override shop image');
                   e.currentTarget.style.display = 'none';
               }}
           />,
@@ -825,6 +912,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             ref={videoRefA}
             muted={audioSettings.localMediaMuted}
             playsInline
+            preload="metadata"
             style={{
                 width: '100%',
                 height: '100%',
@@ -844,6 +932,7 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
             ref={videoRefB}
             muted={audioSettings.localMediaMuted}
             playsInline
+            preload="metadata"
             style={{
                 width: '100%',
                 height: '100%',
@@ -874,15 +963,17 @@ const IndependentVideoPlayer: React.FC<IndependentVideoPlayerProps> = ({
                 backgroundColor: '#000000',
                 display: 'block'
               }}
-              onError={(_e) => {
+              onError={() => {
                 logError('VIDEO', 'Image load error', { file: currentFile });
-                // Skip to next
-                const nextIndex = currentIndex + 1;
-                if (nextIndex >= playlist.length) {
-                   if (overrideShopId) setCurrentIndex(0);
-                   else { setPlaylist(shuffleArray(mediaFiles)); setCurrentIndex(0); }
+                // Skip to next (read refs for latest state)
+                const latestIndex = currentIndexRef.current;
+                const latestPlaylist = playlistRef.current;
+                const nextIdx = latestIndex + 1;
+                if (nextIdx >= latestPlaylist.length) {
+                   if (overrideShopIdRef.current) setCurrentIndex(0);
+                   else { setPlaylist(shuffleArray(filterByActiveShops(mediaFilesRef.current, shopsRef.current))); setCurrentIndex(0); }
                 } else {
-                   setCurrentIndex(nextIndex);
+                   setCurrentIndex(nextIdx);
                 }
               }}
             />

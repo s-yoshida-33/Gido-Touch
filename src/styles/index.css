@@ -1,5 +1,26 @@
 @import "tailwindcss";
 
+/* Prevent overscroll bounce / scroll chaining globally */
+html,
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  touch-action: none;
+}
+
+#root {
+  overflow: hidden;
+  overscroll-behavior: none;
+  width: 100%;
+  height: 100%;
+}
+
 /* Prevent text selection globally */
 * {
   -webkit-user-select: none;
@@ -8,9 +29,10 @@
   user-select: none;
 }
 
-/* Allow text selection for input and textarea elements */
+/* Allow text selection for input, textarea, and select elements */
 input,
-textarea {
+textarea,
+select {
   -webkit-user-select: text;
   -moz-user-select: text;
   -ms-user-select: text;

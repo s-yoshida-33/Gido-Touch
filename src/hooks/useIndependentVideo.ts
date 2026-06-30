@@ -1,18 +1,21 @@
 // src/hooks/useIndependentVideo.ts
 import { useEffect, useState } from 'react';
 import type { VideoSettings } from '../types/videoSettings';
-import { logInfo, logWarn, logError } from '../logs/logging';
+import { logInfo, logError } from '../logs/logging';
+import { loadMallSettings, saveMallSettings } from '../utils/settings';
+import type { MallId } from '../utils/settings';
 
 interface UseIndependentVideoResult {
   videoSettings: VideoSettings | null;
   isLoading: boolean;
+  saveVideoSettings: (settings: VideoSettings) => Promise<void>;
 }
 
 /**
- * Fetches independent video settings from Electron IPC.
+ * Fetches independent video settings from per-mall settings file.
  * This is separate from CMS (WSP) video content.
  */
-export function useIndependentVideo(): UseIndependentVideoResult {
+export function useIndependentVideo(mallId: MallId = 'suzaka'): UseIndependentVideoResult {
   const [videoSettings, setVideoSettings] = useState<VideoSettings | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -21,24 +24,16 @@ export function useIndependentVideo(): UseIndependentVideoResult {
 
     const loadVideoSettings = async () => {
       try {
-        if (!window.electronAPI?.getVideoSettings) {
-          logWarn('VIDEO', 'electronAPI.getVideoSettings is not available');
-          if (isMounted) {
-            setIsLoading(false);
-          }
-          return;
-        }
-
-        const settings = await window.electronAPI.getVideoSettings();
+        const mallSettings = await loadMallSettings(mallId);
         
         if (!isMounted) return;
 
         logInfo('VIDEO', 'Loaded independent video settings', {
-          enabled: settings.enabled,
-          hasSource: !!settings.source,
+          enabled: mallSettings.videoSettings.enabled,
+          hasSource: !!mallSettings.videoSettings.source,
         });
 
-        setVideoSettings(settings);
+        setVideoSettings(mallSettings.videoSettings);
         setIsLoading(false);
       } catch (error: any) {
         logError('VIDEO', 'Failed to load independent video settings', {
@@ -52,26 +47,24 @@ export function useIndependentVideo(): UseIndependentVideoResult {
 
     loadVideoSettings();
 
-    // Listen for settings updates
-    const unsubscribe = window.electronAPI?.onVideoSettingsUpdated?.((updated) => {
-      if (isMounted) {
-        logInfo('VIDEO', 'Independent video settings updated', {
-          enabled: updated.enabled,
-          hasSource: !!updated.source,
-        });
-        setVideoSettings(updated);
-      }
-    });
-
     return () => {
       isMounted = false;
-      if (unsubscribe) {
-        unsubscribe();
-      }
     };
-  }, []);
+  }, [mallId]);
 
-  return { videoSettings, isLoading };
+  const saveVideoSettings = async (settings: VideoSettings) => {
+    try {
+      const mallSettings = await loadMallSettings(mallId);
+      mallSettings.videoSettings = settings;
+      await saveMallSettings(mallId, mallSettings);
+      setVideoSettings(settings);
+      logInfo('VIDEO', 'Video settings saved', { enabled: settings.enabled });
+    } catch (error: any) {
+      logError('VIDEO', 'Failed to save video settings', { error: error?.message });
+    }
+  };
+
+  return { videoSettings, isLoading, saveVideoSettings };
 }
 
 

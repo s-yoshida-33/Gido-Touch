@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { loadGlobalSettings } from '../utils/settings';
 
 import mallsConfig from '../config/malls.json';
 
 export type MallId = string;
 export const MALL_IDS = mallsConfig.map(m => m.id);
-export type Language = "ja" | "en";
+export type Language = "ja" | "en" | "vn";
 
 // アセットのパス定義
 interface MallAssets {
@@ -33,6 +35,8 @@ interface MallAssets {
     resetHighlight: string;
     iconCurrentFloor: string;
     iconLocation: string;
+    speechBubbleIconSrc: string;
+    locationIconSrc: string;
     iconTime: string;
     iconTel: string;
     waonPointIcon: string;
@@ -83,6 +87,8 @@ import resetHighlightEn from "../assets/button/en/reset-highlight.svg";
 import iconCurrentFloorEn from "../assets/current/en/current.svg";
 
 import iconLocation from "../assets/icon/location.svg";
+import bundledSpeechBubbleSvg from "../assets/location/user.svg";
+import bundledLocationSvg from "../assets/location/location.svg";
 import iconTime from "../assets/icon/time.svg";
 import iconTel from "../assets/icon/tel.svg";
 import waonPointIcon from "../assets/icon/waonpoint.svg";
@@ -95,27 +101,51 @@ import selectLanguageEnHighlight from "../assets/lang/en-highlight.svg";
 import selectLanguageSelectedJp from "../assets/lang/selected-ja.svg";
 import selectLanguageSelectedEn from "../assets/lang/selected-en.svg";
 
-export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
+/**
+ * Load mall-specific external assets via Tauri IPC.
+ * Uses list_mall_assets to scan the mall's media/assets directory
+ * and return a map of relative_path → data-URL.
+ */
+async function loadExternalMallAssets(mallId: string): Promise<Record<string, string>> {
+  try {
+    const globalSettings = await loadGlobalSettings();
+    const hostname = globalSettings.hostname ?? '';
+    const result = await invoke<Record<string, string> | null>('list_mall_assets', {
+      mallId,
+      hostname,
+    });
+    return result ?? {};
+  } catch (error) {
+    console.warn(`Failed to load external assets for mall: ${mallId}`, error);
+    return {};
+  }
+}
+
+export const useMallAssets = (mallId: MallId, language: Language = 'ja', refreshKey: number = 0) => {
   const [assets, setAssets] = useState<MallAssets | null>(null);
   const [rawAssets, setRawAssets] = useState<Record<string, string> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const prevMallIdRef = React.useRef(mallId);
 
-  // 1. MallID変更時にデータを取得
+  // 1. MallID変更時、またはリフレッシュ要求時にデータを取得
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
-    setRawAssets(null); // リセット
+
+    // mallId が変わった場合のみ isLoading をtrueにし既存アセットをクリアする。
+    // refreshKey のみの変化（S3ダウンロード後の再読み込み）では isLoading をtrueにしない。
+    // これにより、リフレッシュ中も画面が空白になったり SSE 接続が切れるのを防ぐ。
+    const isMallChanged = prevMallIdRef.current !== mallId;
+    prevMallIdRef.current = mallId;
+
+    if (isMallChanged) {
+      setIsLoading(true);
+      setRawAssets(null);
+    }
 
     const loadRawAssets = async () => {
       try {
-        if (!window.electronAPI) {
-          console.warn("Electron API not found");
-          return;
-        }
+        const externalAssets = await loadExternalMallAssets(mallId);
 
-        // Electronから外部アセットのパス一覧を取得
-        const externalAssets = await window.electronAPI.getMallAssets(mallId);
-        
         if (isMounted) {
           setRawAssets(externalAssets);
         }
@@ -130,54 +160,53 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
     return () => {
       isMounted = false;
     };
-  }, [mallId]);
+  }, [mallId, refreshKey]);
 
   // 2. データまたは言語変更時にアセットオブジェクトを構築
   useEffect(() => {
     if (!rawAssets) return;
 
-    // パスを分類
-    const buttons: MallAssets['buttons'] = {};
     const maps: MallAssets['maps'] = {};
     let openTimeDefault = "";
     let openTimeJa = "";
     let openTimeEn = "";
 
-    // パターン定義
-    // button/{floor}.svg
-    // button/{floor}-highlight.svg
-    // maps/{floor}.svg
-    // open-time/open-time.svg
-    // open-time/ja/open-time.svg
-    // open-time/en/open-time.svg
+    // Button branch collection: floor → [{branch, default, highlight}]
+    const buttonBranches: Record<string, { branch: number; default: string; highlight: string }[]> = {};
 
     Object.entries(rawAssets).forEach(([relativePath, fileUrl]) => {
-      if (relativePath.startsWith('button/')) {
+      if (relativePath.startsWith('buttons/')) {
+        // Expected: buttons/{FLOOR}-button-{NN}.svg or buttons/{FLOOR}-button-{NN}-highlight.svg
         const fileName = relativePath.split('/').pop() || "";
         const namePart = fileName.replace('.svg', '');
-        
-        let floor = "";
-        let type: "default" | "highlight" = "default";
 
-        if (namePart.endsWith('-highlight')) {
-          floor = namePart.replace('-highlight', '');
-          type = "highlight";
-        } else {
-          floor = namePart;
-          type = "default";
-        }
+        const highlightMatch = namePart.match(/^(.+)-button-(\d+)-highlight$/);
+        const defaultMatch = namePart.match(/^(.+)-button-(\d+)$/);
 
-        if (!buttons[floor]) {
-          buttons[floor] = { default: "", highlight: "" };
+        const [floor, branch, isHighlight] = highlightMatch
+          ? [highlightMatch[1], parseInt(highlightMatch[2]), true]
+          : defaultMatch
+          ? [defaultMatch[1], parseInt(defaultMatch[2]), false]
+          : [null, null, false];
+
+        if (floor != null && branch != null) {
+          if (!buttonBranches[floor]) buttonBranches[floor] = [];
+          let entry = buttonBranches[floor].find(e => e.branch === branch);
+          if (!entry) {
+            entry = { branch, default: '', highlight: '' };
+            buttonBranches[floor].push(entry);
+          }
+          if (isHighlight) entry.highlight = fileUrl;
+          else entry.default = fileUrl;
         }
-        buttons[floor][type] = fileUrl;
 
       } else if (relativePath.startsWith('maps/')) {
+        // Expected: maps/{FLOOR}-map.svg
         const fileName = relativePath.split('/').pop() || "";
-        const floor = fileName.replace('.svg', '');
-        maps[floor] = fileUrl;
+        const floor = fileName.replace('-map.svg', '');
+        if (floor) maps[floor] = fileUrl;
 
-      } else if (relativePath.startsWith('open-time/')) {
+      } else if (relativePath.startsWith('open-times/')) {
         if (relativePath.includes('/en/')) {
           openTimeEn = fileUrl;
         } else if (relativePath.includes('/ja/')) {
@@ -188,21 +217,40 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
       }
     });
 
-    // 言語に応じたアセットの選択
-    // 英語アセットがない場合は日本語アセットを使用する (フォールバックは各インポートで処理済み、ここでは論理切り替えのみ)
-    // ※実際にはファイルが存在しないとビルドエラーになるため、ファイルが存在する前提
+    // Build buttons map: single-branch floors use floor key, multi-branch use floor-N key
+    const buttons: MallAssets['buttons'] = {};
+    Object.entries(buttonBranches).forEach(([floor, branches]) => {
+      branches.sort((a, b) => a.branch - b.branch);
+      if (branches.length === 1) {
+        buttons[floor] = { default: branches[0].default, highlight: branches[0].highlight };
+      } else {
+        branches.forEach(({ branch, default: d, highlight: h }) => {
+          buttons[`${floor}-${branch}`] = { default: d, highlight: h };
+        });
+      }
+    });
+
     const isEn = language === 'en';
-    
-    // 営業時間の言語対応
-    // 優先順位:
-    // EN: en/xxx -> ja/xxx -> default -> ""
-    // JA: ja/xxx -> default -> en/xxx -> ""
+
     let openTime = "";
     if (isEn) {
       openTime = openTimeEn || openTimeJa || openTimeDefault;
     } else {
       openTime = openTimeJa || openTimeDefault || openTimeEn;
     }
+
+    // Local location icon overrides (medias/{mallId}/assets/icons/locations/)
+    const localSpeechBubbleJa = rawAssets['icons/locations/user-ja.svg'] || null;
+    const localSpeechBubbleEn = rawAssets['icons/locations/user-en.svg'] || null;
+    const localSpeechBubbleVn = rawAssets['icons/locations/user-vn.svg'] || null;
+    const localLocationSvg = rawAssets['icons/locations/location.svg'] || null;
+
+    const speechBubbleIconSrc =
+      language === 'en' ? (localSpeechBubbleEn ?? bundledSpeechBubbleSvg) :
+      language === 'vn' ? (localSpeechBubbleVn ?? bundledSpeechBubbleSvg) :
+      (localSpeechBubbleJa ?? bundledSpeechBubbleSvg);
+
+    const locationIconSrcOverride = localLocationSvg ?? bundledLocationSvg;
 
     const commonAssets = {
       buttonClose,
@@ -212,7 +260,6 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
       buttonNext,
       buttonNextHighlight,
       
-      // ja/en のディレクトリ切り替えに対応
       zoomIn: isEn ? zoomInEn : zoomInJa,
       zoomInHighlight: isEn ? zoomInHighlightEn : zoomInHighlightJa,
       zoomOut: isEn ? zoomOutEn : zoomOutJa,
@@ -221,8 +268,9 @@ export const useMallAssets = (mallId: MallId, language: Language = 'ja') => {
       resetHighlight: isEn ? resetHighlightEn : resetHighlightJa,
       iconCurrentFloor: isEn ? iconCurrentFloorEn : iconCurrentFloorJa,
 
-      // ディレクトリ分けされていないものはそのまま (切り替えなし)
       iconLocation,
+      speechBubbleIconSrc,
+      locationIconSrc: locationIconSrcOverride,
       iconTime,
       iconTel,
       waonPointIcon,

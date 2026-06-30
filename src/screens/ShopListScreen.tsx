@@ -1,21 +1,89 @@
 // src/screens/ShopListScreen.tsx
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import VerticalVideoSlot from "../components/VerticalVideoSlot";
 import IndependentVideoPlayer from "../components/IndependentVideoPlayer";
+import VerticalVideoSlot from "../components/VerticalVideoSlot";
 
 import { useMall } from "../contexts/MallContext";
+import type { CmsSettings } from "../types/cmsSettings";
+import { logInfo } from "../logs/logging";
+
+// JA assets
+import categoryBackgroundJa from "../assets/category/ja/background.svg";
+import categoryTakeoutJa from "../assets/category/ja/takeout.svg";
+import categoryTakeoutHighlightJa from "../assets/category/ja/takeout-highlight.svg";
+import categoryAlcoholJa from "../assets/category/ja/alcohol.svg";
+import categoryAlcoholHighlightJa from "../assets/category/ja/alcohol-highlight.svg";
+import categoryKidsJa from "../assets/category/ja/kids.svg";
+import categoryKidsHighlightJa from "../assets/category/ja/kids-highlight.svg";
+import categorySweetsJa from "../assets/category/ja/sweets.svg";
+import categorySweetsHighlightJa from "../assets/category/ja/sweets-highlight.svg";
+
+// EN assets
+import categoryBackgroundEn from "../assets/category/en/background.svg";
+import categoryTakeoutEn from "../assets/category/en/takeout.svg";
+import categoryTakeoutHighlightEn from "../assets/category/en/takeout-highlight.svg";
+import categoryAlcoholEn from "../assets/category/en/alcohol.svg";
+import categoryAlcoholHighlightEn from "../assets/category/en/alcohol-highlight.svg";
+import categoryKidsEn from "../assets/category/en/kids.svg";
+import categoryKidsHighlightEn from "../assets/category/en/kids-highlight.svg";
+import categorySweetsEn from "../assets/category/en/sweets.svg";
+import categorySweetsHighlightEn from "../assets/category/en/sweets-highlight.svg";
+
+// Empty icon
+import emptyIcon from "../assets/icon/enmpty.svg";
 
 import type { Shop } from "../types/shop";
 import ShopDetailScreen from "./ShopDetailScreen";
 import { LanguageSelectModal } from "../components/LanguageSelectModal";
 import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import type { ShopPositionSettings } from "../types/shopPosition";
-import { filterGenreMemos } from "../utils/genreUtils";
+import type { FloorLayout } from "../types/floorLayout";
+import { filterGenreMemos, DEFAULT_CATEGORY_MAPPINGS } from "../utils/genreUtils";
+import { getShopImageDataUrl } from "../utils/imageUtils";
+import type { SubFloorSettings } from "../types/global";
 
-// Simple in-memory cache for image URLs to prevent flickering
+// LRU cache for image URLs to prevent flickering while bounding memory usage.
+// Each data URL can be 100KB–several MB; cap at 50 entries (~250MB worst case).
+const IMAGE_CACHE_MAX_SIZE = 50;
 const imageCache = new Map<string, string>();
 const pendingRequests = new Map<string, Promise<string | null>>();
+
+/**
+ * Set a value in the imageCache with LRU eviction.
+ * Map iteration order in JS is insertion order, so we delete-and-reinsert
+ * on access to keep "recently used" items at the end.
+ */
+function imageCacheSet(key: string, value: string): void {
+  // If key already exists, delete first so re-insert moves it to the end (most recent)
+  if (imageCache.has(key)) {
+    imageCache.delete(key);
+  }
+  imageCache.set(key, value);
+
+  // Evict oldest entries (first in iteration order) when over limit
+  while (imageCache.size > IMAGE_CACHE_MAX_SIZE) {
+    const oldest = imageCache.keys().next().value;
+    if (oldest !== undefined) {
+      imageCache.delete(oldest);
+    } else {
+      break;
+    }
+  }
+}
+
+/**
+ * Get a value from the imageCache, promoting it to most-recently-used.
+ */
+function imageCacheGet(key: string): string | undefined {
+  const value = imageCache.get(key);
+  if (value !== undefined) {
+    // Promote to most recently used
+    imageCache.delete(key);
+    imageCache.set(key, value);
+  }
+  return value;
+}
 
 /**
  * Build image path using shop_id if photo is relative or filename only
@@ -92,7 +160,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
   const cacheKey = `${shopId}:${photo}`;
   
   // Initialize with cached value if available
-  const [imageUrl, setImageUrl] = useState<string>(() => imageCache.get(cacheKey) || "");
+  const [imageUrl, setImageUrl] = useState<string>(() => imageCacheGet(cacheKey) || "");
   const [isLoading, setIsLoading] = useState(() => !imageCache.has(cacheKey));
 
   useEffect(() => {
@@ -102,8 +170,8 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
     }
 
     // If already cached, ensure state matches (handle fast updates)
-    if (imageCache.has(cacheKey)) {
-      const cachedUrl = imageCache.get(cacheKey)!;
+    const cachedUrl = imageCacheGet(cacheKey);
+    if (cachedUrl !== undefined) {
       if (imageUrl !== cachedUrl) {
         setImageUrl(cachedUrl);
         setIsLoading(false);
@@ -129,31 +197,23 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
             setIsLoading(false);
           }
           return;
-        } catch (e) {
+        } catch {
           // If pending request failed, try again below
         }
       }
 
-      // Check if we're in Electron environment
-      const electronAPI = window.electronAPI;
-      let loadPromise: Promise<string | null>;
-
-      if (electronAPI && electronAPI.getShopImage) {
-        loadPromise = electronAPI.getShopImage(imagePath).catch((error: unknown) => {
-          console.error("Failed to load image via IPC:", error);
-          return null;
-        });
-      } else {
-        // Fallback to file:// URL (works in Electron, not in browser)
-        loadPromise = Promise.resolve(toFileUrl(imagePath));
-      }
+      // Use Tauri IPC to load shop image
+      const loadPromise: Promise<string | null> = getShopImageDataUrl(imagePath).catch((error: unknown) => {
+        console.error("Failed to load image via IPC:", error);
+        return toFileUrl(imagePath);
+      });
 
       pendingRequests.set(cacheKey, loadPromise);
 
       try {
         const dataUrl = await loadPromise;
         if (dataUrl) {
-          imageCache.set(cacheKey, dataUrl);
+          imageCacheSet(cacheKey, dataUrl);
           setImageUrl(dataUrl);
         }
       } finally {
@@ -163,7 +223,7 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
     };
 
     loadImage();
-  }, [photo, shopId, cacheKey]); // Depend on photo and shopId. If they change, reload.
+  }, [photo, shopId, cacheKey, imageUrl]);
 
   if (!photo || (!imageUrl && !isLoading)) {
     return (
@@ -329,6 +389,9 @@ interface ShopListScreenProps {
   shops: Shop[];
   shopPositions?: ShopPositionSettings;
   displayFloors?: string[];
+  floorLayout?: FloorLayout;
+  subFloorSettings?: SubFloorSettings;
+  cmsSettings?: CmsSettings;
 }
 
 /**
@@ -340,8 +403,47 @@ interface ShopListScreenProps {
  * Action space: 1140×2160 (right side)
  * Action space background: Black
  */
-const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, locationIconSettings, shops, shopPositions, displayFloors = ['1F', '2F', '3F', '4F'] }) => {
-  const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage, genreSettings } = useMall();
+const ShopListScreen: React.FC<ShopListScreenProps> = ({ 
+  currentFloorSetting, 
+  locationIconSettings, 
+  shops, 
+  shopPositions, 
+  displayFloors = ['1F', '2F', '3F', '4F'], 
+  floorLayout,
+  subFloorSettings = { "1F-1": [], "1F-2": [] },
+  cmsSettings = { enabled: true, categorySearchEnabled: true }
+ }) => {
+  const { assets, isLoading: isAssetsLoading, language: selectedLanguage, setLanguage: setSelectedLanguage, genreSettings, mallId } = useMall();
+
+  const isSendai = mallId === 'sendaikamisugi';
+
+  // Define category assets based on language
+  const categoryAssets = {
+    ja: {
+      background: categoryBackgroundJa,
+      takeout: categoryTakeoutJa,
+      takeoutHighlight: categoryTakeoutHighlightJa,
+      alcohol: categoryAlcoholJa,
+      alcoholHighlight: categoryAlcoholHighlightJa,
+      kids: categoryKidsJa,
+      kidsHighlight: categoryKidsHighlightJa,
+      sweets: categorySweetsJa,
+      sweetsHighlight: categorySweetsHighlightJa,
+    },
+    en: {
+      background: categoryBackgroundEn,
+      takeout: categoryTakeoutEn,
+      takeoutHighlight: categoryTakeoutHighlightEn,
+      alcohol: categoryAlcoholEn,
+      alcoholHighlight: categoryAlcoholHighlightEn,
+      kids: categoryKidsEn,
+      kidsHighlight: categoryKidsHighlightEn,
+      sweets: categorySweetsEn,
+      sweetsHighlight: categorySweetsHighlightEn,
+    }
+  };
+
+  const currentCategoryAssets = selectedLanguage === 'en' ? categoryAssets.en : categoryAssets.ja;
   
   // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -354,6 +456,9 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   // Floor filter state
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
   
+  // Category filter state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
   // Selected shop for detail modal
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
 
@@ -362,7 +467,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   const [canScrollNext, setCanScrollNext] = useState(false);
 
   // Force reload trigger state
-  const [refreshTrigger, _setRefreshTrigger] = useState(0);
+  const [refreshTrigger] = useState(0);
 
   // Idle timeout state (30 seconds for testing)
   const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds
@@ -372,7 +477,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const languageButtonRef = useRef<HTMLDivElement>(null);
   
-  // Ref to track active touch on floor buttons to prevent multi-touch highlighting
+  // Ref to track active touch on floor buttons to prevent flickering
   const activeTouchRef = useRef<string | null>(null);
   // Ref to track touch start position for detecting scroll gestures
   const touchStartPosRef = useRef<{x: number, y: number} | null>(null);
@@ -383,6 +488,35 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
 
   // State to track which card is currently being pressed (for animation)
   const [pressedCardId, setPressedCardId] = useState<string | null>(null);
+
+  // Check scroll state
+  const checkScrollState = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) {
+      setCanScrollPrev(false);
+      setCanScrollNext(false);
+      return;
+    }
+    
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    // Round values to avoid sub-pixel precision issues
+    const currentScroll = Math.ceil(scrollLeft);
+    const maxScroll = Math.ceil(scrollWidth - clientWidth);
+    
+    if (maxScroll <= 0) {
+      setCanScrollPrev(false);
+      setCanScrollNext(false);
+      return;
+    }
+
+    // Show Prev if scrolled more than threshold (approx 1 column width: 376px + 20px gap)
+    // User requested to show buttons when around the 2nd column
+    const threshold = 200;
+
+    setCanScrollPrev(currentScroll > threshold);
+    // Show Next if not at the end (within threshold)
+    setCanScrollNext(currentScroll < maxScroll - threshold);
+  }, []);
 
   // Helper to handle floor selection
   const handleFloorSelect = (floor: string) => {
@@ -399,24 +533,40 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     }
   };
 
+  // Helper to handle category selection
+  const handleCategorySelect = (category: string) => {
+    // Close modal if open
+    if (selectedShop) {
+      setSelectedShop(null);
+    }
+    
+    if (selectedCategory === category) {
+      setSelectedCategory(null);
+    } else {
+      setSelectedCategory(category);
+    }
+  };
+
   // State refs for idle check (to access current state in interval)
   const selectedShopRef = useRef(selectedShop);
   const selectedFloorRef = useRef(selectedFloor);
+  const selectedCategoryRef = useRef(selectedCategory);
   const selectedLanguageRef = useRef(selectedLanguage);
   const isLanguageModalOpenRef = useRef(isLanguageModalOpen);
 
   useEffect(() => {
     selectedShopRef.current = selectedShop;
     selectedFloorRef.current = selectedFloor;
+    selectedCategoryRef.current = selectedCategory;
     selectedLanguageRef.current = selectedLanguage;
     isLanguageModalOpenRef.current = isLanguageModalOpen;
-  }, [selectedShop, selectedFloor, selectedLanguage, isLanguageModalOpen]);
+  }, [selectedShop, selectedFloor, selectedCategory, selectedLanguage, isLanguageModalOpen]);
 
   // Initialize language to Japanese on mount (force reset to Japanese)
   useEffect(() => {
     // Always set to Japanese on mount to ensure default is Japanese
     setSelectedLanguage("ja");
-  }, []); // Run only on mount
+  }, [setSelectedLanguage]); // Run only on mount - setSelectedLanguage is stable
 
   // Idle timeout: Refresh to default shop list after 30 seconds of inactivity
   // Always active - any touch/activity resets the timer
@@ -457,6 +607,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         const isDefaultState =
           selectedShopRef.current === null &&
           selectedFloorRef.current === null &&
+          selectedCategoryRef.current === null &&
           selectedLanguageRef.current === "ja" &&
           isLanguageModalOpenRef.current === false &&
           (scrollContainerRef.current ? scrollContainerRef.current.scrollLeft < 5 : true);
@@ -478,6 +629,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             // 30 seconds of inactivity - refresh to default state
             setSelectedShop(null);
             setSelectedFloor(null); // Reset to no selection
+            setSelectedCategory(null); // Reset category
             setSelectedLanguage("ja"); // Reset to default Japanese (also saves to localStorage)
             setIsLanguageModalOpen(false);
             
@@ -521,7 +673,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       }
       clearInterval(checkInterval);
     };
-  }, []); // Always active, no dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Always active - uses refs for state access to avoid re-registration
 
   // Filter shops by selected floor and display floors
   const filteredShops = React.useMemo(() => {
@@ -533,34 +686,142 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
         return shop.floors.some(f => displayFloors.includes(normalizeFloor(String(f))));
     });
 
-    if (!selectedFloor) {
-      return displayFilteredShops;
+    let result = displayFilteredShops;
+
+    if (selectedFloor) {
+      // 1F-1, 1F-2 logic
+      if (selectedFloor === "1F-1" || selectedFloor === "1F-2") {
+         const allowedIds = subFloorSettings[selectedFloor] || [];
+         result = result.filter(s => {
+             // IDが含まれているかチェック
+             return allowedIds.includes(s.shopId || s.number || "");
+         });
+      } else {
+         // Standard logic for 4F, 2F
+         const normalizedSelectedFloor = normalizeFloor(selectedFloor);
+         result = result.filter((shop) => {
+            return shop.floors.some((floor) => {
+              const normalizedShopFloor = normalizeFloor(String(floor));
+              return normalizedShopFloor === normalizedSelectedFloor;
+            });
+         });
+      }
+    }
+
+    if (selectedCategory) {
+      result = result.filter((shop) => {
+        const genreMemo = (shop.genreMemo || "").toLowerCase();
+        
+        // 設定からキーワードを取得、なければデフォルト値を使用
+        const mapping = genreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS;
+        const keywords = mapping[selectedCategory] || [];
+
+        // テイクアウトとアルコールの特別処理（フラグチェック）は維持しつつ、キーワード検索を追加
+        if (selectedCategory === 'takeout' && (shop.takeOut && shop.takeOut !== "0")) {
+            return true;
+        }
+        if (selectedCategory === 'alcohol' && (shop.alcohol && shop.alcohol !== "0")) {
+            return true;
+        }
+
+        // キーワードの部分一致検索
+        // 設定されたキーワードのいずれかがジャンルメモに含まれていればヒット
+        return keywords.some(keyword => genreMemo.includes(keyword.toLowerCase()));
+      });
     }
     
-    const normalizedSelectedFloor = normalizeFloor(selectedFloor);
+    // Logic for sorting if "prioritizeCurrentFloor" is enabled in "ALL" mode
+    const allConfig = floorLayout?.["ALL"] || floorLayout?.["default"];
+    if (!selectedFloor && allConfig?.prioritizeCurrentFloor && currentFloorSetting) {
+        const normalizedCurrentFloor = normalizeFloor(currentFloorSetting);
+        
+        // Sort: Current floor shops first, then others. Maintain relative order.
+        return [...result].sort((a, b) => {
+            const aIsCurrent = a.floors?.some(f => normalizeFloor(String(f)) === normalizedCurrentFloor);
+            const bIsCurrent = b.floors?.some(f => normalizeFloor(String(f)) === normalizedCurrentFloor);
+            
+            if (aIsCurrent && !bIsCurrent) return -1;
+            if (!aIsCurrent && bIsCurrent) return 1;
+            return 0;
+        });
+    }
     
-    return displayFilteredShops.filter((shop) => {
-      // Check if any of the shop's floors match the selected floor
-      return shop.floors.some((floor) => {
-        const normalizedShopFloor = normalizeFloor(String(floor));
-        return normalizedShopFloor === normalizedSelectedFloor;
-      });
-    });
-  }, [shops, selectedFloor, displayFloors]);
+    return result;
+  }, [shops, selectedFloor, selectedCategory, displayFloors, floorLayout, currentFloorSetting, subFloorSettings, genreSettings?.categoryMapping]);
 
-  // Layout: 6 rows per column
-  // Card count is dynamically calculated based on the number of shops from API
-  const rowsPerColumn = 6;
+  // Layout calculation
+  const currentLayoutKey = selectedFloor ? normalizeFloor(selectedFloor) : "ALL";
+  let layoutConfig = floorLayout?.[currentLayoutKey];
+
+  // Fallback for "ALL" mode if not configured
+  if (!selectedFloor && !layoutConfig) {
+      // Try "default" or just use undefined to trigger defaults below
+      layoutConfig = floorLayout?.["default"];
+  }
+  
+  // Base rows (fallback to 6 if not configured or not filtered by floor)
+  let rowsPerColumn = layoutConfig?.rowsPerCol ?? 6;
+
+  if (layoutConfig?.maxRows && layoutConfig.maxRows > 0) {
+    rowsPerColumn = Math.max(layoutConfig.maxRows, 1);
+  }
+
+  // Card size calculation with aspect ratio maintenance
+  const containerHeight = 2008;
+  const gap = 20;
+  
+  const cardHeight = (containerHeight - gap * (rowsPerColumn - 1)) / rowsPerColumn;
+  
+  // Default reference for aspect ratio (6 rows)
+  const defaultRows = 6;
+  const defaultHeight = (containerHeight - gap * (defaultRows - 1)) / defaultRows;
+  const defaultWidth = 345;
+  const aspectRatio = defaultWidth / defaultHeight;
+  
+  // Calculate proportional width
+  let cardWidth = cardHeight * aspectRatio;
+  
+  // Scale image height proportionally
+  const defaultImageHeight = 251;
+  const imageHeight = cardHeight * (defaultImageHeight / defaultHeight);
+
+  // Scale factor based on height relative to default height
+  const scaleFactor = cardHeight / defaultHeight;
+  
+  // Scaled dimensions for internal elements
+  const floorBadgeSize = 50 * scaleFactor;
+  const floorBadgeFontSize = 24 * scaleFactor;
+  const contentPadding = 12 * scaleFactor;
+  const firstLineFontSize = 16 * scaleFactor;
+  const firstLineMarginBottom = 8 * scaleFactor;
+  const shopNameFontSize = 24 * scaleFactor;
+  const borderRadius = 30 * scaleFactor; // Corner radius also needs scaling to look right
+
+  const columnGap = 20; // Column gap
   const totalColumns = filteredShops.length > 0 ? Math.ceil(filteredShops.length / rowsPerColumn) : 0;
 
-  // Card size calculation
-  // Content area: width: 2580px (2640 - 30*2), height: 2040px (2100 - 30*2)
-  // Card grid container height: 2032px (2040 - 4*2) with padding 12px top/bottom to accommodate animation and drop shadow
-  // Actual content area: 2008px (2032 - 12 - 12)
-  const cardHeight = (2008 - 20 * (rowsPerColumn - 1)) / rowsPerColumn; // Row gap: 20px
-  const cardWidth = 376; // Card width
-  const columnGap = 20; // Column gap
-  const imageHeight = 251; // Image height
+  // Logic to fill the screen width if there is extra space
+  // Only apply when a specific floor is selected (not in "ALL" mode) AND autoWidth is enabled
+  const autoWidth = layoutConfig?.autoWidth ?? true;
+  if (totalColumns > 0 && selectedFloor && autoWidth) {
+      const totalGapWidth = Math.max(0, totalColumns - 1) * columnGap;
+      const totalSidePadding = 60; // 30px left + 30px right
+      const currentTotalWidth = totalColumns * cardWidth + totalGapWidth + totalSidePadding;
+      const maxContainerWidth = 2640;
+
+      // If current content fits within the container width with extra space
+      if (currentTotalWidth < maxContainerWidth) {
+          // Calculate new card width to fill the remaining space
+          // Available width for cards = maxContainerWidth - gaps - padding
+          const availableWidthForCards = maxContainerWidth - totalGapWidth - totalSidePadding;
+          const newCardWidth = availableWidthForCards / totalColumns;
+
+          // Only apply if it makes the cards wider
+          if (newCardWidth > cardWidth) {
+              cardWidth = newCardWidth;
+          }
+      }
+  }
 
   // Group shops by column
   const columns: Shop[][] = [];
@@ -610,35 +871,6 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
     container.style.userSelect = "";
   };
 
-  // Check scroll state
-  const checkScrollState = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container) {
-      setCanScrollPrev(false);
-      setCanScrollNext(false);
-      return;
-    }
-    
-    const { scrollLeft, scrollWidth, clientWidth } = container;
-    // Round values to avoid sub-pixel precision issues
-    const currentScroll = Math.ceil(scrollLeft);
-    const maxScroll = Math.ceil(scrollWidth - clientWidth);
-    
-    if (maxScroll <= 0) {
-      setCanScrollPrev(false);
-      setCanScrollNext(false);
-      return;
-    }
-
-    // Show Prev if scrolled more than threshold (approx 1 column width: 376px + 20px gap)
-    // User requested to show buttons when around the 2nd column
-    const threshold = 400;
-
-    setCanScrollPrev(currentScroll > threshold);
-    // Show Next if not at the end (within threshold)
-    setCanScrollNext(currentScroll < maxScroll - threshold);
-  }, []);
-
   // Handle scroll event
   const handleScroll = useCallback(() => {
     checkScrollState();
@@ -671,7 +903,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       container.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", checkScrollState);
     };
-  }, [handleScroll, checkScrollState, filteredShops, selectedFloor]); // Re-run when content changes
+  }, [handleScroll, checkScrollState, filteredShops, selectedFloor, selectedCategory]); // Re-run when content changes
 
   // Additional check when content likely changes (animations, etc)
   useLayoutEffect(() => {
@@ -682,7 +914,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
       clearTimeout(timer);
       clearTimeout(timer2);
     };
-  }, [filteredShops, selectedFloor, checkScrollState]);
+  }, [filteredShops, selectedFloor, selectedCategory, checkScrollState]);
 
   // Smooth scroll animation helper
   const smoothScrollTo = (targetScrollLeft: number, duration: number = 800) => {
@@ -790,6 +1022,310 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             position: "relative",
           }}
         >
+          <div
+            ref={scrollContainerRef}
+            style={{
+              width: "100%",
+              height: "100%",
+              overflowX: "auto",
+              overflowY: "hidden",
+              overscrollBehavior: "contain",
+              scrollbarWidth: "none", // Firefox
+              msOverflowStyle: "none", // IE/Edge
+              cursor: "grab",
+            }}
+            className="shop-list-scroll-container"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+          >
+          {/* Card grid container */}
+          <AnimatePresence 
+            mode="wait"
+            onExitComplete={() => {
+              // Reset scroll position instantly when content changes (after exit animation)
+              if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollLeft = 0;
+                checkScrollState(); // Update buttons visibility
+              }
+
+              // Recalculate scroll state after animation completes
+              setTimeout(() => {
+                handleScroll();
+              }, 50);
+            }}
+          >
+            <motion.div
+              key={`${selectedFloor || "all"}-${selectedCategory || "all"}`}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              onAnimationComplete={() => {
+                // Recalculate scroll state after animation completes
+                setTimeout(() => {
+                  handleScroll();
+                }, 50);
+              }}
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                height: "2032px",
+                width: filteredShops.length === 0 ? "2640px" : `${30 + totalColumns * cardWidth + (totalColumns - 1) * columnGap + 30}px`,
+                gap: `${columnGap}px`,
+                paddingTop: "20px",
+                paddingBottom: "12px",
+                boxSizing: "border-box",
+              }}
+            >
+              {filteredShops.length === 0 ? (
+                <div 
+                  style={{ 
+                    width: "100%",
+                    height: "100%",
+                    margin: "0 auto",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <img 
+                    src={emptyIcon} 
+                    alt="empty" 
+                    style={{
+                      width: "1200px",
+                      height: "auto",
+                      opacity: 0.6,
+                    }}
+                  />
+                </div>
+              ) : (
+                columns.map((columnShops, columnIndex) => (
+                <div
+                  key={columnIndex}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "20px",
+                    width: `${cardWidth}px`,
+                    marginLeft: columnIndex === 0 ? "30px" : "0px",
+                    marginRight: columnIndex === totalColumns - 1 ? "30px" : "0px",
+                  }}
+                >
+                  {columnShops.map((shop) => {
+                    // Get first floor for display
+                    const floor = shop.floors && shop.floors.length > 0 ? shop.floors[0] : "";
+                    
+                    // Logic for genre memo display
+                    let genreMemo = "";
+                    if (selectedLanguage === "en" && shop.genreMemoEn) {
+                      genreMemo = shop.genreMemoEn;
+                    } else if (shop.genreMemo) {
+                        const memos = shop.genreMemo
+                          .split(/[|]+/)
+                          .map(s => s.trim())
+                          .filter(s => s.length > 0);
+
+                        genreMemo = filterGenreMemos(memos, genreSettings?.ignoredKeywords, genreSettings?.maxItems).join(" / ");
+                    }
+
+                    // Format first line: "フロア [区画番号] ジャンルメモ"
+                    const showNumber = /\d/.test(shop.number || "");
+                    const parts = [floor];
+                    if (showNumber) parts.push(`[${shop.number}]`);
+                    if (genreMemo) parts.push(genreMemo);
+                    const firstLine = parts.join(" ");
+
+                    // Logic for shop name display
+                    const shopName = (selectedLanguage === "en" && shop.nameEn) ? shop.nameEn : shop.name;
+                    
+                    const cardId = shop.shopId || shop.number || "";
+                    const isPressed = pressedCardId === cardId;
+
+                    return (
+                      <motion.div
+                        key={cardId}
+                        onClick={() => {
+                          // Only allow mouse clicks if no touch interaction is active
+                          if (!activeTouchRef.current) {
+                            logInfo('SCREEN_VIEW', 'Viewing Shop Detail', {
+                              shopId: shop.shopId || shop.number,
+                              shopName: shop.name,
+                              hasLogo: !!shop.shopLogo,
+                              floor: shop.floors?.join(',') || '',
+                              language: selectedLanguage,
+                            });
+                            setSelectedShop(shop);
+                          }
+                        }}
+                        onTouchStart={(e) => {
+                           // If another element is already being touched, ignore this touch
+                           if (activeTouchRef.current) return;
+                           
+                           activeTouchRef.current = cardId;
+                           setPressedCardId(cardId);
+                           
+                           if (e.touches.length > 0) {
+                             touchStartPosRef.current = {
+                               x: e.touches[0].clientX,
+                               y: e.touches[0].clientY
+                             };
+                           }
+                        }}
+                        onTouchEnd={(e) => {
+                          // Only process if this was the active touch
+                          if (activeTouchRef.current === cardId) {
+                          // Check for scroll/drag (ignore if moved significantly)
+                          let isTap = true;
+                          if (touchStartPosRef.current && e.changedTouches.length > 0) {
+                            const diffX = Math.abs(e.changedTouches[0].clientX - touchStartPosRef.current.x);
+                            const diffY = Math.abs(e.changedTouches[0].clientY - touchStartPosRef.current.y);
+                            // Relax threshold to 30px to tolerate jitter on some touch screens
+                            if (diffX > 30 || diffY > 30) {
+                              isTap = false;
+                            }
+                          }
+                            
+                            if (isTap) {
+                              e.preventDefault(); // Prevent ghost click
+                              logInfo('SCREEN_VIEW', 'Viewing Shop Detail', {
+                                shopId: shop.shopId || shop.number,
+                                shopName: shop.name,
+                                hasLogo: !!shop.shopLogo,
+                                floor: shop.floors?.join(',') || '',
+                                language: selectedLanguage,
+                              });
+                              setSelectedShop(shop);
+                            }
+                            
+                            activeTouchRef.current = null;
+                            touchStartPosRef.current = null;
+                            setPressedCardId(null);
+                          }
+                        }}
+                        onTouchCancel={() => {
+                          if (activeTouchRef.current === cardId) {
+                            activeTouchRef.current = null;
+                            touchStartPosRef.current = null;
+                            setPressedCardId(null);
+                          }
+                        }}
+                        animate={{
+                          scale: isPressed ? 1.02 : 1,
+                          y: isPressed ? -2 : 0,
+                          boxShadow: isPressed 
+                            ? "0 4px 8px rgba(0, 0, 0, 0.25)" 
+                            : "0 0 0 rgba(0,0,0,0)" // No shadow by default, or restore original if needed
+                        }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 20,
+                        }}
+                        style={{
+                          width: `${cardWidth}px`,
+                          height: `${cardHeight}px`,
+                          backgroundColor: "#FFFFFF",
+                          borderRadius: `0 ${borderRadius}px ${borderRadius}px ${borderRadius}px`,
+                          display: "flex",
+                          flexDirection: "column",
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          position: "relative",
+                          cursor: "pointer",
+                          touchAction: "pan-x", // Allow horizontal scroll but prevent other gestures
+                        }}
+                      >
+                        {/* Floor display (top-left) */}
+                        {floor && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              width: `${floorBadgeSize}px`,
+                              height: `${floorBadgeSize}px`,
+                              backgroundColor: "#E63B93",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              zIndex: 10,
+                              fontSize: `${floorBadgeFontSize}px`,
+                              fontWeight: 700,
+                              color: "#FFFFFF",
+                            }}
+                          >
+                            {floor}
+                          </div>
+                        )}
+                        {/* Image area */}
+                        <div
+                          style={{
+                            width: "100%",
+                            height: `${imageHeight}px`,
+                            backgroundColor: "#FFFFFF",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            overflow: "hidden",
+                            borderRadius: `0 ${borderRadius}px 0 0`,
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          <ShopImage 
+                            // Prioritize shopLogo over photo1 for the list view if needed
+                            // But original code was: photo={shop.photo2 || shop.photo1}
+                            // User says logo is shopLogo (logo.png) and brand image is photo2 (brand_image.jpg)
+                            // If photo2 is brand image, and it's not showing, maybe we should check what's actually in photo2
+                            // Update: Use photo2 if available, otherwise shopLogo (as fallback for brand image)
+                            photo={shop.photo2 || shop.shopLogo} 
+                            shopId={shop.shopId} 
+                          />
+                        </div>
+                        {/* Content area */}
+                        <div
+                          style={{
+                            flex: 1,
+                            display: "flex",
+                            flexDirection: "column",
+                            padding: `${contentPadding}px`,
+                            backgroundColor: "#000000",
+                            color: "#FFFFFF",
+                            justifyContent: "center",
+                            minWidth: 0,
+                          }}
+                        >
+                          {/* First line: Floor, number, genre memo (16px) */}
+                          <ScalableText
+                            text={firstLine}
+                            style={{
+                              fontSize: `${firstLineFontSize}px`,
+                              fontWeight: 400,
+                              marginBottom: `${firstLineMarginBottom}px`,
+                              lineHeight: "1.4",
+                            }}
+                          />
+                          {/* Second line: Shop name (24px) */}
+                          <ScalableText
+                            text={shopName}
+                            style={{
+                              fontSize: `${shopNameFontSize}px`,
+                              fontWeight: 700,
+                              lineHeight: "1.4",
+                            }}
+                          />
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+            </motion.div>
+          </AnimatePresence>
+          </div>
+          
           {/* Prev button (left side) */}
           {canScrollPrev && (
             <div
@@ -799,7 +1335,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 left: "0",
                 top: "50%",
                 transform: "translateY(-50%)",
-                zIndex: 10,
+                zIndex: 20,
                 width: "150px",
                 height: "224px",
                 border: "none",
@@ -809,6 +1345,9 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                backdropFilter: "blur(2px)",
+                borderRadius: "16px",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
               }}
               onTouchStart={(e) => {
                 const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
@@ -865,7 +1404,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 right: "0",
                 top: "50%",
                 transform: "translateY(-50%)",
-                zIndex: 10,
+                zIndex: 20,
                 width: "150px",
                 height: "224px",
                 border: "none",
@@ -875,6 +1414,9 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                backdropFilter: "blur(2px)",
+                borderRadius: "16px",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
               }}
               onTouchStart={(e) => {
                 const highlight = e.currentTarget.querySelector(".highlight") as HTMLElement;
@@ -922,277 +1464,6 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               />
             </div>
           )}
-          <div
-            ref={scrollContainerRef}
-            style={{
-              width: "100%",
-              height: "100%",
-              overflowX: "auto",
-              overflowY: "hidden",
-              scrollbarWidth: "none", // Firefox
-              msOverflowStyle: "none", // IE/Edge
-              cursor: "grab",
-            }}
-            className="shop-list-scroll-container"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
-          >
-          {/* Card grid container */}
-          <AnimatePresence 
-            mode="wait"
-            onExitComplete={() => {
-              // Recalculate scroll state after animation completes
-              setTimeout(() => {
-                handleScroll();
-              }, 50);
-            }}
-          >
-            <motion.div
-              key={selectedFloor || "all"}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              onAnimationComplete={() => {
-                // Recalculate scroll state after animation completes
-                setTimeout(() => {
-                  handleScroll();
-                }, 50);
-              }}
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                height: "2032px",
-                width: `${30 + totalColumns * cardWidth + (totalColumns - 1) * columnGap + 30}px`,
-                gap: `${columnGap}px`,
-                paddingTop: "20px",
-                paddingBottom: "12px",
-                boxSizing: "border-box",
-              }}
-            >
-              {filteredShops.length === 0 ? (
-                <div 
-                  style={{ 
-                    padding: "30px", 
-                    color: "#FFFFFF", 
-                    fontSize: "24px",
-                  }}
-                >
-                  店舗データがありません
-                </div>
-              ) : (
-                columns.map((columnShops, columnIndex) => (
-                <div
-                  key={columnIndex}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "20px",
-                    width: `${cardWidth}px`,
-                    marginLeft: columnIndex === 0 ? "30px" : "0px",
-                    marginRight: columnIndex === totalColumns - 1 ? "30px" : "0px",
-                  }}
-                >
-                  {columnShops.map((shop) => {
-                    // Get first floor for display
-                    const floor = shop.floors && shop.floors.length > 0 ? shop.floors[0] : "";
-                    
-                    // Logic for genre memo display
-                    let genreMemo = "";
-                    if (selectedLanguage === "en" && shop.genreMemoEn) {
-                      genreMemo = shop.genreMemoEn;
-                    } else if (shop.genreMemo) {
-                        const memos = shop.genreMemo
-                          .split(/[|]+/)
-                          .map(s => s.trim())
-                          .filter(s => s.length > 0);
-
-                        genreMemo = filterGenreMemos(memos, genreSettings?.ignoredKeywords, genreSettings?.maxItems).join(" / ");
-                    }
-
-                    // Format first line: "フロア [区画番号] ジャンルメモ"
-                    const showNumber = /\d/.test(shop.number || "");
-                    const parts = [floor];
-                    if (showNumber) parts.push(`[${shop.number}]`);
-                    if (genreMemo) parts.push(genreMemo);
-                    const firstLine = parts.join(" ");
-
-                    // Logic for shop name display
-                    const shopName = (selectedLanguage === "en" && shop.nameEn) ? shop.nameEn : shop.name;
-                    
-                    const cardId = shop.shopId || shop.number || "";
-                    const isPressed = pressedCardId === cardId;
-
-                    return (
-                      <motion.div
-                        key={cardId}
-                        onClick={() => {
-                          // Only allow mouse clicks if no touch interaction is active
-                          if (!activeTouchRef.current) {
-                            setSelectedShop(shop);
-                          }
-                        }}
-                        onTouchStart={(e) => {
-                           // If another element is already being touched, ignore this touch
-                           if (activeTouchRef.current) return;
-                           
-                           activeTouchRef.current = cardId;
-                           setPressedCardId(cardId);
-                           
-                           if (e.touches.length > 0) {
-                             touchStartPosRef.current = {
-                               x: e.touches[0].clientX,
-                               y: e.touches[0].clientY
-                             };
-                           }
-                        }}
-                        onTouchEnd={(e) => {
-                          // Only process if this was the active touch
-                          if (activeTouchRef.current === cardId) {
-                          // Check for scroll/drag (ignore if moved significantly)
-                          let isTap = true;
-                          if (touchStartPosRef.current && e.changedTouches.length > 0) {
-                            const diffX = Math.abs(e.changedTouches[0].clientX - touchStartPosRef.current.x);
-                            const diffY = Math.abs(e.changedTouches[0].clientY - touchStartPosRef.current.y);
-                            // Relax threshold to 30px to tolerate jitter on some touch screens
-                            if (diffX > 30 || diffY > 30) {
-                              isTap = false;
-                            }
-                          }
-                            
-                            if (isTap) {
-                              e.preventDefault(); // Prevent ghost click
-                              setSelectedShop(shop);
-                            }
-                            
-                            activeTouchRef.current = null;
-                            touchStartPosRef.current = null;
-                            setPressedCardId(null);
-                          }
-                        }}
-                        onTouchCancel={() => {
-                          if (activeTouchRef.current === cardId) {
-                            activeTouchRef.current = null;
-                            touchStartPosRef.current = null;
-                            setPressedCardId(null);
-                          }
-                        }}
-                        animate={{
-                          scale: isPressed ? 1.02 : 1,
-                          y: isPressed ? -2 : 0,
-                          boxShadow: isPressed 
-                            ? "0 4px 8px rgba(0, 0, 0, 0.25)" 
-                            : "0 0 0 rgba(0,0,0,0)" // No shadow by default, or restore original if needed
-                        }}
-                        transition={{
-                          type: "spring",
-                          stiffness: 300,
-                          damping: 20,
-                        }}
-                        style={{
-                          width: `${cardWidth}px`,
-                          height: `${cardHeight}px`,
-                          backgroundColor: "#FFFFFF",
-                          borderRadius: "0 30px 30px 30px", // Top-right, bottom-left, bottom-right: 30px
-                          display: "flex",
-                          flexDirection: "column",
-                          overflow: "hidden",
-                          flexShrink: 0,
-                          position: "relative",
-                          cursor: "pointer",
-                          touchAction: "pan-x", // Allow horizontal scroll but prevent other gestures
-                        }}
-                      >
-                        {/* Floor display (top-left) */}
-                        {floor && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: 0,
-                              left: 0,
-                              width: "50px",
-                              height: "50px",
-                              backgroundColor: "#E63B93",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              zIndex: 10,
-                              fontSize: "24px",
-                              fontWeight: 700,
-                              color: "#FFFFFF",
-                            }}
-                          >
-                            {floor}
-                          </div>
-                        )}
-                        {/* Image area */}
-                        <div
-                          style={{
-                            width: "100%",
-                            height: `${imageHeight}px`,
-                            backgroundColor: "#FFFFFF",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            overflow: "hidden",
-                            borderRadius: "0 30px 0 0",
-                            boxSizing: "border-box",
-                          }}
-                        >
-                          <ShopImage 
-                            // Prioritize shopLogo over photo1 for the list view if needed
-                            // But original code was: photo={shop.photo2 || shop.photo1}
-                            // User says logo is shopLogo (logo.png) and brand image is photo2 (brand_image.jpg)
-                            // If photo2 is brand image, and it's not showing, maybe we should check what's actually in photo2
-                            // Update: Use photo2 if available, otherwise shopLogo (as fallback for brand image)
-                            photo={shop.photo2 || shop.shopLogo} 
-                            shopId={shop.shopId} 
-                          />
-                        </div>
-                        {/* Content area */}
-                        <div
-                          style={{
-                            flex: 1,
-                            display: "flex",
-                            flexDirection: "column",
-                            padding: "12px",
-                            backgroundColor: "#000000",
-                            color: "#FFFFFF",
-                            justifyContent: "center",
-                            minWidth: 0,
-                          }}
-                        >
-                          {/* First line: Floor, number, genre memo (16px) */}
-                          <ScalableText
-                            text={firstLine}
-                            style={{
-                              fontSize: "16px",
-                              fontWeight: 400,
-                              marginBottom: "8px",
-                              lineHeight: "1.4",
-                            }}
-                          />
-                          {/* Second line: Shop name (24px) */}
-                          <ScalableText
-                            text={shopName}
-                            style={{
-                              fontSize: "24px",
-                              fontWeight: 700,
-                              lineHeight: "1.4",
-                            }}
-                          />
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              ))
-            )}
-            </motion.div>
-          </AnimatePresence>
-          </div>
         </div>
 
         {/* Shop detail modal */}
@@ -1281,279 +1552,212 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
               display: "flex",
               flexDirection: "column",
               alignItems: "flex-start",
-              gap: "50px",
+              gap: isSendai ? "30px" : "50px",
               height: "100%",
             }}
           >
-              {/* 4F button */}
-              {displayFloors.includes("4F") && assets.buttons["4F"] && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "30px",
-                }}
-              >
-                <div
-                  style={{
-                    position: "relative",
-                    display: "inline-block",
-                    cursor: "pointer",
-                    touchAction: "none",
-                  }}
-                  onClick={() => handleFloorSelect("4F")}
-                >
-                <img
-                  src={assets.buttons["4F"].default}
-                  alt="4F"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={assets.buttons["4F"].highlight}
-                  alt="4F Highlight"
-                  className="highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: selectedFloor === "4F" ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
-                
-                {/* Current Location Icon */}
-                {currentFloorSetting === "4F" && (
-                  <img 
-                    src={assets.common.iconCurrentFloor}
-                    alt="Current Floor"
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{
-                      position: "absolute",
-                      top: "5%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      zIndex: 5,
-                      pointerEvents: "none",
-                      width: "50%",
-                      height: "auto",
-                    }}
-                  />
+            {/* ----------------------------------------------------------- */}
+            {/* 仙台上杉 (Sendai) 用レイアウト: 4F -> 2F -> 1F-2 -> 1F-1 */}
+            {/* ----------------------------------------------------------- */}
+            {isSendai ? (
+              <>
+                {/* 1. 4F button */}
+                {displayFloors.includes("4F") && assets.buttons["4F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("4F")}
+                    >
+                      <img src={assets.buttons["4F"].default} alt="4F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["4F"].highlight} alt="4F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "4F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "4F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "-10%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
                 )}
-              </div>
-            </div>
-            )}
 
-              {/* 3F button and FOOD FOREST */}
-              {displayFloors.includes("3F") && assets.buttons["3F"] && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "30px",
-                }}
-              >
-                <div
-                  style={{
-                    position: "relative",
-                    display: "inline-block",
-                    cursor: "pointer",
-                    touchAction: "none", // Prevent default touch actions like scrolling/zooming on the button
-                  }}
-                  onClick={() => handleFloorSelect("3F")}
-                >
-                <img
-                  src={assets.buttons["3F"].default}
-                  alt="3F"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={assets.buttons["3F"].highlight}
-                  alt="3F Highlight"
-                  className="highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: selectedFloor === "3F" ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
-                
-                {/* Current Location Icon */}
-                {currentFloorSetting === "3F" && (
-                  <img 
-                    src={assets.common.iconCurrentFloor}
-                    alt="Current Floor"
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{
-                      position: "absolute",
-                      top: "5%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      zIndex: 5,
-                      pointerEvents: "none",
-                      width: "50%", // Adjust size relative to button
-                      height: "auto",
-                    }}
-                  />
+                {/* 2. 2F button (Moved up) */}
+                {displayFloors.includes("2F") && assets.buttons["2F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("2F")}
+                    >
+                      <img src={assets.buttons["2F"].default} alt="2F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["2F"].highlight} alt="2F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "2F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "2F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "-10%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
                 )}
-              </div>
-              {/* TODO: Add FOOD FOREST button */}
-            </div>
-            )}
 
-              {/* 2F button and RESTAURANT */}
-              {displayFloors.includes("2F") && assets.buttons["2F"] && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "30px",
-                }}
-              >
-                <div
-                  style={{
-                    position: "relative",
-                    display: "inline-block",
-                    cursor: "pointer",
-                    touchAction: "none",
-                  }}
-                  onClick={() => handleFloorSelect("2F")}
-                >
-                <img
-                  src={assets.buttons["2F"].default}
-                  alt="2F"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={assets.buttons["2F"].highlight}
-                  alt="2F Highlight"
-                  className="highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: selectedFloor === "2F" ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
-                
-                {/* Current Location Icon */}
-                {currentFloorSetting === "2F" && (
-                  <img 
-                    src={assets.common.iconCurrentFloor}
-                    alt="Current Floor"
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{
-                      position: "absolute",
-                      top: "5%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      zIndex: 5,
-                      pointerEvents: "none",
-                      width: "50%", // Adjust size relative to button
-                      height: "auto",
-                    }}
-                  />
+                {/* 3. 1F-2 button (Display if 1F is enabled) */}
+                {displayFloors.includes("1F") && assets.buttons["1F-2"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("1F-2")}
+                    >
+                      <img src={assets.buttons["1F-2"].default} alt="1F-2" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["1F-2"].highlight} alt="1F-2 Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "1F-2" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                    </div>
+                  </div>
                 )}
-              </div>
-              {/* TODO: Add RESTAURANT button */}
-            </div>
-            )}
 
-              {/* 1F button and SUZAKA 蔵 */}
-              {displayFloors.includes("1F") && assets.buttons["1F"] && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "30px",
-                }}
-              >
-                <div
-                  style={{
-                    position: "relative",
-                    display: "inline-block",
-                    cursor: "pointer",
-                    touchAction: "none",
-                  }}
-                  onClick={() => handleFloorSelect("1F")}
-                >
-                <img
-                  src={assets.buttons["1F"].default}
-                  alt="1F"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    display: "block",
-                  }}
-                />
-                <img
-                  src={assets.buttons["1F"].highlight}
-                  alt="1F Highlight"
-                  className="highlight"
-                  draggable={false}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "block",
-                    opacity: selectedFloor === "1F" ? 1 : 0,
-                    transition: "opacity 0.3s ease-in-out",
-                    pointerEvents: "none",
-                  }}
-                />
-
-                {/* Current Location Icon */}
-                {currentFloorSetting === "1F" && (
-                  <img 
-                    src={assets.common.iconCurrentFloor}
-                    alt="Current Floor"
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{
-                      position: "absolute",
-                      top: "5%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      zIndex: 5,
-                      pointerEvents: "none",
-                      width: "50%", // Adjust size relative to button
-                      height: "auto",
-                    }}
-                  />
+                {/* 4. 1F-1 button (Display if 1F is enabled) */}
+                {displayFloors.includes("1F") && assets.buttons["1F-1"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("1F-1")}
+                    >
+                      <img src={assets.buttons["1F-1"].default} alt="1F-1" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["1F-1"].highlight} alt="1F-1 Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "1F-1" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                    </div>
+                  </div>
                 )}
-              </div>
-              {/* TODO: Add SUZAKA 蔵 button */}
-            </div>
+              </>
+            ) : (
+              // -----------------------------------------------------------
+              // 通常 (Others) レイアウト: 4F -> 3F -> 2F -> 1F
+              // -----------------------------------------------------------
+              <>
+                {/* 4F button */}
+                {displayFloors.includes("4F") && assets.buttons["4F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("4F")}
+                    >
+                      <img src={assets.buttons["4F"].default} alt="4F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["4F"].highlight} alt="4F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "4F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "4F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "5%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3F button */}
+                {displayFloors.includes("3F") && assets.buttons["3F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("3F")}
+                    >
+                      <img src={assets.buttons["3F"].default} alt="3F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["3F"].highlight} alt="3F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "3F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "3F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "5%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2F button */}
+                {displayFloors.includes("2F") && assets.buttons["2F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("2F")}
+                    >
+                      <img src={assets.buttons["2F"].default} alt="2F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["2F"].highlight} alt="2F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "2F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "2F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "5%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 1F button */}
+                {displayFloors.includes("1F") && assets.buttons["1F"] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
+                    <div
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none" }}
+                      onClick={() => handleFloorSelect("1F")}
+                    >
+                      <img src={assets.buttons["1F"].default} alt="1F" draggable={false} style={{ display: "block" }} />
+                      <img src={assets.buttons["1F"].highlight} alt="1F Highlight" className="highlight" draggable={false}
+                        style={{
+                          position: "absolute", top: 0, left: 0, display: "block",
+                          opacity: selectedFloor === "1F" ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none",
+                        }}
+                      />
+                      {currentFloorSetting === "1F" && (
+                        <img src={assets.common.iconCurrentFloor} alt="Current Floor" draggable={false}
+                          style={{
+                            position: "absolute", top: "5%", left: "50%", transform: "translate(-50%, -50%)",
+                            zIndex: 5, pointerEvents: "none", width: "50%", height: "auto",
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -1654,16 +1858,178 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({ currentFloorSetting, lo
             overflow: "hidden",
             borderRadius: "30px",
             alignSelf: "flex-start",
+            position: "relative", // Needed for absolute positioning of children
           }}
         >
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-            }}
-          >
-            <VerticalVideoSlot forceReload={refreshTrigger} />
-          </div>
+          {/* CMS Video Layer */}
+          {cmsSettings.enabled && (
+            <div 
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                zIndex: 0,
+              }}
+            >
+              <VerticalVideoSlot forceReload={refreshTrigger} />
+            </div>
+          )}
+
+          {(cmsSettings.categorySearchEnabled ?? true) && (
+            <>
+              {/* Background Image - Only show if CMS disabled, or if we want to overlay? 
+                  If CMS is enabled, let's assume video is background. 
+                  But if buttons need background to be visible, we might need a semi-transparent one.
+                  For now, let's hide background if CMS is enabled to let video show through.
+              */}
+              {!cmsSettings.enabled && (
+                <img
+                  src={currentCategoryAssets.background}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    zIndex: 1,
+                  }}
+                />
+              )}
+              
+              {/* Category Buttons Overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  zIndex: 2,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-end",
+                  padding: "0px", // Remove padding to use full space
+                  boxSizing: "border-box",
+                }}
+              >
+              {/* Top Row: Sweets, Alcohol */}
+              <div style={{ height: "242.5px", width: "100%", display: "flex", flexDirection: "row", marginBottom: "30px" }}>
+                {/* Takeout Button (Top-Left) */}
+                <div
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-start", position: "relative", height: "242.5px", cursor: "pointer" }}
+                  onClick={() => handleCategorySelect('sweets')}
+                >
+                   <img 
+                      src={currentCategoryAssets.sweets} 
+                      alt="Sweets" 
+                      style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
+                      draggable={false}
+                   />
+                   <img
+                      src={currentCategoryAssets.sweetsHighlight}
+                      alt="Takeout Highlight"
+                      style={{ 
+                          position: "absolute",
+                          top: 0, left: 0,
+                          width: "525px", height: "242.5px", objectFit: "contain",
+                          opacity: selectedCategory === 'sweets' ? 1 : 0,
+                          transition: "opacity 0.2s",
+                          pointerEvents: "none" 
+                      }}
+                      draggable={false}
+                   />
+                </div>
+
+                {/* Alcohol Button (Top-Right) */}
+                <div
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", position: "relative", height: "242.5px", cursor: "pointer" }}
+                  onClick={() => handleCategorySelect('alcohol')}
+                >
+                   <img 
+                      src={currentCategoryAssets.alcohol} 
+                      alt="Alcohol" 
+                      style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
+                      draggable={false}
+                   />
+                   <img
+                      src={currentCategoryAssets.alcoholHighlight}
+                      alt="Alcohol Highlight"
+                      style={{ 
+                          position: "absolute",
+                          top: 0, 
+                          right: 0, // Position on the right side
+                          width: "525px", height: "242.5px", objectFit: "contain",
+                          opacity: selectedCategory === 'alcohol' ? 1 : 0,
+                          transition: "opacity 0.2s",
+                          pointerEvents: "none" 
+                      }}
+                      draggable={false}
+                   />
+                </div>
+              </div>
+
+              {/* Bottom Row: Kids, Takeout */}
+              <div style={{ height: "242.5px", width: "100%", display: "flex", flexDirection: "row" }}>
+                {/* Kids Button (Bottom-Left) */}
+                <div
+                  style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "flex-start", position: "relative", height: "242.5px", cursor: "pointer" }}
+                  onClick={() => handleCategorySelect('kids')}
+                >
+                   <img 
+                      src={currentCategoryAssets.kids} 
+                      alt="Kids" 
+                      style={{ width: "525px", height: "242.5px", objectFit: "contain" }}
+                      draggable={false}
+                   />
+                   <img
+                      src={currentCategoryAssets.kidsHighlight}
+                      alt="Kids Highlight"
+                      style={{ 
+                          position: "absolute",
+                          bottom: 0, left: 0,
+                          width: "525px", height: "242.5px", objectFit: "contain",
+                          opacity: selectedCategory === 'kids' ? 1 : 0,
+                          transition: "opacity 0.2s",
+                          pointerEvents: "none" 
+                      }}
+                      draggable={false}
+                   />
+                </div>
+
+                {/* Takeout Button (Bottom-Right) */}
+                <div
+                  style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", position: "relative", height: "242.5px", cursor: "pointer" }}
+                  onClick={() => handleCategorySelect('takeout')}
+                >
+                   <img 
+                      src={currentCategoryAssets.takeout} 
+                      alt="Takeout" 
+                      style={{ width: "525px", height: "100%", objectFit: "contain" }}
+                      draggable={false}
+                   />
+                   <img
+                      src={currentCategoryAssets.takeoutHighlight}
+                      alt="Takeout Highlight"
+                      style={{ 
+                          position: "absolute",
+                          bottom: 0, 
+                          right: 0, // Position on the right side
+                          width: "525px", height: "100%", objectFit: "contain",
+                          opacity: selectedCategory === 'takeout' ? 1 : 0,
+                          transition: "opacity 0.2s",
+                          pointerEvents: "none" 
+                      }}
+                      draggable={false}
+                   />
+                </div>
+              </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

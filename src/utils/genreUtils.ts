@@ -23,6 +23,14 @@ export const IGNORED_GENRE_PATTERNS = [
   /^\d+(?:F|f|階|層)$/       // 階数表現 (1F, 2階, 3層など)
 ];
 
+// カテゴリー検索のデフォルトキーワード定義
+export const DEFAULT_CATEGORY_MAPPINGS: Record<string, string[]> = {
+  takeout: ["テイクアウト", "takeout", "お弁当", "弁当"],
+  alcohol: ["酒", "アルコール", "alcohol", "居酒屋", "バー", "バル"],
+  meat: ["肉", "meat", "ステーキ", "ハンバーグ", "焼肉", "とんかつ", "牛タン", "しゃぶしゃぶ"],
+  sweets: ["スイーツ", "甘味", "デザート", "カフェ", "sweets", "cafe", "ケーキ", "クレープ", "アイス", "ソフトクリーム", "喫茶"]
+};
+
 /**
  * ジャンルメモの項目を表示すべきかどうかを判定する
  * @param genreMemoItem 分割されたジャンルメモの1項目

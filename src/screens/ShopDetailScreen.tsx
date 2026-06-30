@@ -1,6 +1,7 @@
 // src/screens/ShopDetailScreen.tsx
 import React, { useRef, useState, useEffect, useCallback, useLayoutEffect } from "react";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { TransformComponent } from "react-zoom-pan-pinch";
+import { PinchSafeTransformWrapper } from "../components/PinchSafeTransformWrapper";
 
 import { useMall } from "../contexts/MallContext";
 
@@ -11,6 +12,7 @@ import type { LocationIconSettingsPerFloor } from "../types/locationIcon";
 import { getLocationIconSettingsForFloor } from "../config";
 import type { FloorId } from "../types/floorLayout";
 import { filterGenreMemos } from "../utils/genreUtils";
+import { getShopImageDataUrl } from "../utils/imageUtils";
 
 // Constants for consistent scaling (must match GidoApp)
 const REFERENCE_MAP_WIDTH = 1920;
@@ -132,14 +134,11 @@ const ShopLogoImage: React.FC<{ photo: string | undefined; shopId: string | unde
     const loadImage = async () => {
       const imagePath = buildImagePath(photo, shopId);
       if (!imagePath) { setIsLoading(false); setHasError(true); return; }
-      const electronAPI = window.electronAPI;
-      if (electronAPI && electronAPI.getShopImage) {
-        try {
-          const normalizedPath = imagePath.replace(/\\/g, "/");
-          const dataUrl = await electronAPI.getShopImage(normalizedPath);
-          if (dataUrl) { setImageUrl(dataUrl); setIsLoading(false); setHasError(false); return; }
-        } catch (error) { console.error(error); setHasError(true); }
-      }
+      try {
+        const normalizedPath = imagePath.replace(/\\/g, "/");
+        const dataUrl = await getShopImageDataUrl(normalizedPath);
+        if (dataUrl) { setImageUrl(dataUrl); setIsLoading(false); setHasError(false); return; }
+      } catch (error) { console.error(error); setHasError(true); }
       const fileUrl = toFileUrl(imagePath);
       setImageUrl(fileUrl);
       setIsLoading(false);
@@ -164,14 +163,11 @@ const ShopImage: React.FC<{ photo: string | undefined; shopId: string | undefine
     const loadImage = async () => {
       const imagePath = buildImagePath(photo, shopId);
       if (!imagePath) { setIsLoading(false); return; }
-      const electronAPI = window.electronAPI;
-      if (electronAPI && electronAPI.getShopImage) {
-        try {
-          const normalizedPath = imagePath.replace(/\\/g, "/");
-          const dataUrl = await electronAPI.getShopImage(normalizedPath);
-          if (dataUrl) { setImageUrl(dataUrl); setIsLoading(false); return; }
-        } catch (error) { console.error(error); }
-      }
+      try {
+        const normalizedPath = imagePath.replace(/\\/g, "/");
+        const dataUrl = await getShopImageDataUrl(normalizedPath);
+        if (dataUrl) { setImageUrl(dataUrl); setIsLoading(false); return; }
+      } catch (error) { console.error(error); }
       const fileUrl = toFileUrl(imagePath);
       setImageUrl(fileUrl);
       setIsLoading(false);
@@ -199,10 +195,12 @@ const MapWithPinsComponent: React.FC<{
   shopName: string;
   shopLogo?: string;
   shopId?: string;
-  currentScale: number;
   currentFloorSetting: string;
   locationIconSettings: LocationIconSettingsPerFloor;
-}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentScale, currentFloorSetting, locationIconSettings }) => {
+  speechBubbleSrc?: string;
+  locationSrc?: string;
+  language?: 'ja' | 'en' | 'vn';
+}> = ({ mapImage, normalizedFloor, shopPosition, shopName, shopLogo, shopId, currentFloorSetting, locationIconSettings, speechBubbleSrc, locationSrc, language }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageMetrics, setImageMetrics] = useState<{ 
@@ -300,7 +298,15 @@ const MapWithPinsComponent: React.FC<{
         style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
       />
       
-      {showLocationIcons && <LocationIconsOverlay settings={currentFloorIconSettings} imageMetrics={imageMetrics} />}
+      {showLocationIcons && (
+        <LocationIconsOverlay
+          settings={currentFloorIconSettings}
+          imageMetrics={imageMetrics}
+          speechBubbleSrc={speechBubbleSrc}
+          locationSrc={locationSrc}
+          language={language}
+        />
+      )}
 
       {shouldShowPin && renderPosition && (
         <ShopPin
@@ -308,7 +314,7 @@ const MapWithPinsComponent: React.FC<{
           shopName={shopName}
           shopLogo={shopLogo}
           shopId={shopId}
-          transformScale={currentScale}
+          transformScale={1}
           usePixelPosition={true}
           pixelX={pixelX}
           pixelY={pixelY}
@@ -329,7 +335,7 @@ const ShopNameDisplay: React.FC<{ name: string; width: string; fontSize: string 
 interface ShopDetailScreenProps {
   shop: Shop;
   onClose: () => void;
-  language?: "ja" | "en";
+  language?: "ja" | "en" | "vn";
   currentFloorSetting: string;
   locationIconSettings: LocationIconSettingsPerFloor;
 }
@@ -405,7 +411,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                  </div>
                )}
             </div>
-            <TransformWrapper
+            <PinchSafeTransformWrapper
               initialScale={1}
               minScale={1}
               maxScale={4}
@@ -428,12 +434,14 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
                   shopName={displayShopName}
                   shopLogo={shop.shopLogo}
                   shopId={shop.shopId || shop.number}
-                  currentScale={currentScale}
                   currentFloorSetting={currentFloorSetting}
                   locationIconSettings={locationIconSettings}
+                  speechBubbleSrc={assets.common.speechBubbleIconSrc}
+                  locationSrc={assets.common.locationIconSrc}
+                  language={language}
                 />
               </TransformComponent>
-            </TransformWrapper>
+            </PinchSafeTransformWrapper>
             <div style={{ position: "absolute", bottom: "30px", left: "30px", zIndex: 10, display: "flex", flexDirection: "column", gap: "0px", borderRadius: "50px", overflow: "hidden", boxShadow: "0 0px 12px rgba(0, 0, 0, 0.3)" }}>
               {/* Zoom In Button */}
               <div
@@ -497,7 +505,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
           </div>
         </div>
         <div style={{ width: "700px", height: "100%", flexShrink: 0, display: "flex", flexDirection: "column" }}>
-          <div style={{ width: "100%", height: "394px", backgroundColor: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+          <div style={{ width: "100%", height: "467px", backgroundColor: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
             <ShopImage photo={shop.photo2 || shop.photo1} shopId={shop.shopId} />
           </div>
           
@@ -515,6 +523,7 @@ const ShopDetailScreen: React.FC<ShopDetailScreenProps> = ({ shop, onClose, lang
             flexShrink: 1,
             flexBasis: "auto",
             overflowY: "auto", 
+            overscrollBehavior: "contain",
             minHeight: 0,
             width: "640px", 
             marginLeft: "30px", 
