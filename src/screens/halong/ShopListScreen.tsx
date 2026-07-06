@@ -1081,7 +1081,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       opacity: currentFloor === floor ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
                   {currentFloorSetting === floor && assets.currentFloorIcon && (
                     <img src={assets.currentFloorIcon} alt="Current Floor" draggable={false}
-                      style={{ position: "absolute", top: "-40px", left: "50px", zIndex: 5, pointerEvents: "none", width: "290px", height: "auto" }} />
+                      style={{ position: "absolute", top: "-40px", left: "0px", zIndex: 5, pointerEvents: "none", width: "290px", height: "auto" }} />
                   )}
                 </div>
               ))}
