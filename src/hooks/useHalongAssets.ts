@@ -449,7 +449,7 @@ function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn')
     locationIconSrc:     r('icons/locations/location.svg',     fb.locationIconSrc),
     close:               r(`buttons/closes/${lang}.svg`,           fb.close),
     closeHighlight:      r(`buttons/closes/${lang}-highlight.svg`, fb.closeHighlight),
-    currentFloorIcon:    r(`icons/floors/current-${lang === 'ja' ? 'jp' : lang}.svg`, ''),
+    currentFloorIcon:    r(`icons/floors/current-${lang}.svg`, ''),
   };
 }
 
