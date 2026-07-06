@@ -3,12 +3,13 @@ import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { HalongShop } from '../../hooks/useHalongShops';
 import { getDisplayName, getFloorDisplay, getOpeningHoursDisplay, getGenreDisplay } from '../../hooks/useHalongShops';
-import { useHalongAssets } from '../../hooks/useHalongAssets';
+import type { useHalongAssets } from '../../hooks/useHalongAssets';
 
 interface ShopDetailPanelProps {
   shop: HalongShop;
   lang: 'en' | 'ja' | 'vn';
   onClose: () => void;
+  assets: ReturnType<typeof useHalongAssets>;
 }
 
 const LABEL: Record<string, Record<string, string>> = {
@@ -38,8 +39,7 @@ function renderMultiLine(text: string) {
   ));
 }
 
-export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, onClose }) => {
-  const assets = useHalongAssets(lang);
+export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, onClose, assets }) => {
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [slideDir, setSlideDir] = useState<1 | -1>(1);
@@ -286,7 +286,7 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
         onMouseUp={() => setClosePressed(false)}
         onMouseLeave={() => setClosePressed(false)}
         onTouchStart={() => setClosePressed(true)}
-        onTouchEnd={() => { setClosePressed(false); onClose(); }}
+        onTouchEnd={(e) => { e.preventDefault(); setClosePressed(false); onClose(); }}
         onTouchCancel={() => setClosePressed(false)}
       >
         <img

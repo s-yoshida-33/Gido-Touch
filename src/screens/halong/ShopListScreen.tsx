@@ -1240,6 +1240,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   shop={selectedShopDetail}
                   lang={selectedLang}
                   onClose={handleCloseDetail}
+                  assets={assets}
                 />
               </motion.div>
             )}
