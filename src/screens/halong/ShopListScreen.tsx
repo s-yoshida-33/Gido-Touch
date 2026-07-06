@@ -1066,7 +1066,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
 
             {/* フロアボタン（下・中央）上から 4F→3F→2F→1F */}
             <div
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "30px", flexShrink: 0, marginTop: "30px" }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "30px", flexShrink: 0, marginTop: "50px" }}
             >
               {((['4F', '3F', '2F', '1F'] as const)).map(floor => (
                 <div
