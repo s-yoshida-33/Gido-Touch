@@ -22,6 +22,7 @@ import type { HalongBannerSettings } from '../types/bannerSettings';
 // ============================================================================
 
 export type MallId = 'suzaka' | 'sendaikamisugi' | 'halong';
+export type OperationMode = 'api' | 'on-pre' | 'local';
 
 /**
  * Global app settings stored in settings.json.
@@ -32,6 +33,8 @@ export interface GlobalSettings {
   floor: string;
   setupCompleted?: boolean;
   hostname?: string;
+  operationMode?: OperationMode;
+  apiBaseUrl?: string;
 }
 
 /**
@@ -52,7 +55,8 @@ export interface MallSettingsFile {
   subFloorSettings: SubFloorSettings;
   floorLayout: Record<string, { columns: number; rowsPerCol: number; perColumnRows?: number[]; perColumnPadding?: { top?: number; right?: number; bottom?: number; left?: number; }[] }>;
   blackScreenSettings: BlackScreenSettings;
-  shopDataMode: 'api' | 'local';
+  /** @deprecated operationMode (GlobalSettings) に移行済み。マイグレーション用に残存 */
+  shopDataMode?: 'api' | 'local';
   pictoSettings?: PictoSettings;
   bannerSettings?: HalongBannerSettings;
 }
@@ -140,7 +144,6 @@ export function getDefaultMallSettingsFile(): MallSettingsFile {
       "4F": { columns: 2, rowsPerCol: 18 },
     },
     blackScreenSettings: DEFAULT_BLACK_SCREEN_SETTINGS,
-    shopDataMode: 'api',
   };
 }
 
@@ -157,6 +160,8 @@ export async function loadGlobalSettings(): Promise<GlobalSettings> {
       floor: raw.floor ?? '1F',
       setupCompleted: raw.setupCompleted ?? false,
       hostname: raw.hostname ?? '',
+      operationMode: (raw.operationMode ?? undefined) as OperationMode | undefined,
+      apiBaseUrl: raw.apiBaseUrl ?? '',
     };
   } catch (error) {
     logError('CONFIG', 'Failed to load global settings', {
@@ -211,7 +216,7 @@ export async function loadMallSettings(mallId: string): Promise<MallSettingsFile
       subFloorSettings: raw.subFloorSettings ?? defaults.subFloorSettings,
       floorLayout: raw.floorLayout ?? defaults.floorLayout,
       blackScreenSettings: raw.blackScreenSettings ?? defaults.blackScreenSettings,
-      shopDataMode: (raw.shopDataMode ?? 'api') as 'api' | 'local',
+      shopDataMode: raw.shopDataMode as 'api' | 'local' | undefined,
       pictoSettings: raw.pictoSettings,
       bannerSettings: raw.bannerSettings,
     };
@@ -288,7 +293,7 @@ export async function migrateFromLegacyIfNeeded(): Promise<boolean> {
       subFloorSettings: raw.subFloorSettings ?? defaults.subFloorSettings,
       floorLayout: raw.floorLayout ?? defaults.floorLayout,
       blackScreenSettings: raw.blackScreenSettings ?? defaults.blackScreenSettings,
-      shopDataMode: (raw.shopDataMode ?? 'api') as 'api' | 'local',
+      shopDataMode: raw.shopDataMode as 'api' | 'local' | undefined,
     };
 
     await saveMallSettings(normalizedGlobalMallId, settings);
@@ -352,4 +357,37 @@ export async function deleteImageFile(filename: string): Promise<boolean> {
  */
 export async function readImageFile(filePath: string): Promise<number[]> {
   return invoke<number[]>('read_image_file', { filePath });
+}
+
+// ============================================================================
+// Migration: shopDataMode → operationMode
+// ============================================================================
+
+/**
+ * shopDataMode (MallSettingsFile) を operationMode (GlobalSettings) に移行する。
+ * operationMode が未設定の場合のみ実行される。
+ */
+export async function migrateOperationModeIfNeeded(): Promise<void> {
+  try {
+    const global = await loadGlobalSettings();
+    if (global.operationMode !== undefined) return;
+
+    const mallId = global.mallId;
+    const mallSettings = await loadMallSettings(mallId);
+    const shopDataMode = mallSettings.shopDataMode;
+
+    const migratedMode: OperationMode = shopDataMode === 'local' ? 'local' : 'api';
+    await saveGlobalSettings({ ...global, operationMode: migratedMode });
+
+    if (shopDataMode !== undefined) {
+      const { shopDataMode: _removed, ...rest } = mallSettings;
+      await saveMallSettings(mallId, rest as MallSettingsFile);
+    }
+
+    logInfo('CONFIG', 'Migrated operationMode from shopDataMode', { mallId, migratedMode });
+  } catch (error) {
+    logError('CONFIG', 'Failed to migrate operationMode', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }

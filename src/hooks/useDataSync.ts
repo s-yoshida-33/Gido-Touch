@@ -9,7 +9,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { BaseDirectory, exists, readTextFile, writeTextFile, mkdir } from '@tauri-apps/plugin-fs';
 import { logInfo, logWarn, logError } from '../logs/logging';
-import { loadGlobalSettings, loadMallSettings } from '../utils/settings';
+import { loadGlobalSettings } from '../utils/settings';
 
 interface MediaProgressPayload {
   phase: string;
@@ -146,14 +146,14 @@ export const useDataSync = () => {
           return;
         }
 
-        const mallSettings = await loadMallSettings(mallId);
-        if (mallSettings.shopDataMode !== 'local') {
-          logInfo('DATA_SYNC', `shopDataMode is "${mallSettings.shopDataMode}", skipping data check`, { mallId });
+        const operationMode = globalSettings.operationMode ?? 'api';
+        if (operationMode !== 'local' && operationMode !== 'on-pre') {
+          logInfo('DATA_SYNC', `operationMode is "${operationMode}", skipping data check`, { mallId });
           setDataSyncStatus({ status: 'done', progress: 100, message: 'データ同期はスキップされました' });
           return;
         }
 
-        logInfo('DATA_SYNC', 'Checking data status via S3', { mallId });
+        logInfo('DATA_SYNC', 'Checking data status', { mallId, operationMode });
         setDataSyncStatus({ status: 'checking', progress: 0, message: 'ショップデータの更新を確認中...' });
 
         let anyDownloaded = false;

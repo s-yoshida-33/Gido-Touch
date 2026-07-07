@@ -1,10 +1,11 @@
 // src/hooks/useHalongShops.ts
-// shopDataMode: 'api'   → BG SSE からのリアルタイムデータ（未実装・将来対応）
-// shopDataMode: 'local' → %LOCALAPPDATA%\com.gido-touch\data\json\shoplist.json を参照
+// operationMode: 'api'    → BG SSE からのリアルタイムデータ（未実装・将来対応）
+// operationMode: 'on-pre' → オンプレサーバーからデータ取得（将来実装）
+// operationMode: 'local'  → %LOCALAPPDATA%\com.gido-touch\data\json\shoplist.json を参照
 
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { loadMallSettings } from '../utils/settings';
+import { loadGlobalSettings } from '../utils/settings';
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
 
@@ -183,10 +184,11 @@ export function useHalongShops(): HalongShop[] {
   useEffect(() => {
     async function load() {
       try {
-        const mallSettings = await loadMallSettings('halong');
+        const globalSettings = await loadGlobalSettings();
+        const operationMode = globalSettings.operationMode ?? 'api';
 
-        if (mallSettings.shopDataMode === 'local') {
-          // ローカルモード: %LOCALAPPDATA%\com.gido-touch\data\halong\json\shoplist.json
+        if (operationMode === 'local' || operationMode === 'on-pre') {
+          // ローカル/オンプレモード: %LOCALAPPDATA%\com.gido-touch\data\halong\json\shoplist.json
           const raw = await invoke<unknown>('load_local_shoplist', { mallId: 'halong' });
           if (raw == null) return;
           setShops(await parseBgShops(raw));

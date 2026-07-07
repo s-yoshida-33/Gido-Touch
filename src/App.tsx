@@ -30,6 +30,7 @@ import {
   loadMallSettings,
   ensureMallSettingsFile,
   migrateFromLegacyIfNeeded,
+  migrateOperationModeIfNeeded,
 } from "./utils/settings";
 import type { MallSettingsFile, GlobalSettings } from "./utils/settings";
 import type { PictoSettings } from "./types/picto";
@@ -471,6 +472,13 @@ const App: React.FC = () => {
         }
       } catch (e) {
         addDebug(`Migration check failed: ${e}`);
+      }
+
+      // 2b. Migrate shopDataMode → operationMode if needed
+      try {
+        await migrateOperationModeIfNeeded();
+      } catch (e) {
+        addDebug(`operationMode migration failed: ${e}`);
       }
 
       // 3. Load global settings (mallId, floor, setupCompleted)

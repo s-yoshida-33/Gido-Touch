@@ -100,8 +100,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   // Black screen settings
   const [blackScreenSettings, setBlackScreenSettings] = useState<BlackScreenSettings>(DEFAULT_BLACK_SCREEN_SETTINGS);
 
-  // Shop data mode
-  const [shopDataMode, setShopDataMode] = useState<'api' | 'local'>('api');
+  // Operation mode (global settings)
+  const [operationMode, setOperationMode] = useState<import('../utils/settings').OperationMode>('api');
 
   // Mall settings
   // Mall settings
@@ -119,7 +119,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [previewLanguage, setPreviewLanguage] = useState<'ja' | 'en' | 'vn'>('ja');
 
   useEffect(() => {
-    if (mallId !== 'halong' || shopDataMode !== 'local') {
+    if (mallId !== 'halong' || (operationMode !== 'local' && operationMode !== 'on-pre')) {
       setLocalHalongShops(null);
       return;
     }
@@ -139,13 +139,13 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setLocalHalongShops(converted);
       })
       .catch(() => setLocalHalongShops([]));
-  }, [mallId, shopDataMode]);
+  }, [mallId, operationMode]);
 
   const shopsForSettings = useMemo(
-    () => mallId === 'halong' && shopDataMode === 'local' && localHalongShops != null
+    () => mallId === 'halong' && (operationMode === 'local' || operationMode === 'on-pre') && localHalongShops != null
       ? localHalongShops
       : shops,
-    [mallId, shopDataMode, localHalongShops, shops],
+    [mallId, operationMode, localHalongShops, shops],
   );
 
   // Halong map and asset hooks (used for picto tab preview)
@@ -222,7 +222,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     currentAudioSettings: any;
     currentCmsSettings: any;
     blackScreenSettings: BlackScreenSettings;
-    shopDataMode: 'api' | 'local';
     pictoSettings: PictoSettings;
     bannerSettings: HalongBannerSettings;
   };
@@ -242,10 +241,9 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     currentAudioSettings,
     currentCmsSettings,
     blackScreenSettings,
-    shopDataMode,
     pictoSettings,
     bannerSettings,
-  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings, shopDataMode, pictoSettings, bannerSettings]);
+  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings, pictoSettings, bannerSettings]);
 
   // Apply a snapshot to all editing state
   const applySnapshot = useCallback((snap: MallEditingSnapshot) => {
@@ -261,7 +259,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentAudioSettings(snap.currentAudioSettings);
     setCurrentCmsSettings(snap.currentCmsSettings);
     setBlackScreenSettings(snap.blackScreenSettings);
-    setShopDataMode(snap.shopDataMode);
     setPictoSettings(snap.pictoSettings);
     setBannerSettings(snap.bannerSettings);
   }, []);
@@ -279,7 +276,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentAudioSettings(mallSettings.audioSettings);
     setCurrentCmsSettings(mallSettings.cmsSettings);
     setBlackScreenSettings(mallSettings.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
-    setShopDataMode(mallSettings.shopDataMode ?? 'api');
     setPictoSettings(mallSettings.pictoSettings ?? DEFAULT_PICTO_SETTINGS);
     setBannerSettings(mallSettings.bannerSettings ?? DEFAULT_HALONG_BANNER_SETTINGS);
 
@@ -434,6 +430,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         const savedHostname = globalSettings.hostname ?? '';
         setHostname(savedHostname);
         setInitialHostname(savedHostname);
+        setOperationMode(globalSettings.operationMode ?? 'api');
 
         // Detect if halong has local per-language speech bubble assets
         if (mallId === 'halong') {
@@ -562,7 +559,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         subFloorSettings: snap.subFloorSettings,
         floorLayout: snap.floorLayout,
         blackScreenSettings: snap.blackScreenSettings,
-        shopDataMode: snap.shopDataMode ?? 'api',
         pictoSettings: snap.pictoSettings,
         bannerSettings: snap.bannerSettings,
       });
