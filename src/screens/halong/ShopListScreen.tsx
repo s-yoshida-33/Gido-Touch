@@ -136,6 +136,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const mapImageMetricsRef = useRef<{ displayWidth: number; displayHeight: number; offsetX: number; offsetY: number } | null>(null);
   const shopListScrollRef = useRef<HTMLDivElement>(null);
   const savedShopListScrollTopRef = useRef<number>(0);
+  const shopDetailOpenedWithFloorSwitchRef = useRef<boolean>(false);
   const lastActivityTimeRef = useRef<number>(Date.now());
   const defaultFloorRef = useRef<string>('1F');
   const floorLayerRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -646,9 +647,10 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     }
   }
 
-  // 詳細を閉じたときにショップリストのスクロール位置を復元
+  // 詳細を閉じたときにショップリストのスクロール位置を復元（フロア切り替えなしの場合のみ）
   useEffect(() => {
     if (selectedShopDetail !== null) return;
+    if (shopDetailOpenedWithFloorSwitchRef.current) return;
     const saved = savedShopListScrollTopRef.current;
     if (saved <= 0) return;
     requestAnimationFrame(() => {
@@ -1182,7 +1184,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 {filteredShops.map(shop => (
                   <div
                     key={shop.id}
-                    onClick={() => { savedShopListScrollTopRef.current = shopListScrollRef.current?.scrollTop ?? 0; handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
+                    onClick={() => { savedShopListScrollTopRef.current = shopListScrollRef.current?.scrollTop ?? 0; shopDetailOpenedWithFloorSwitchRef.current = shop.floorKey !== currentFloor; handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
                     style={{
                       width: "600px",
                       height: "120px",
