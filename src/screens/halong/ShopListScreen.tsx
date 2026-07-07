@@ -1180,7 +1180,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
                       position: "relative",
                       cursor: "pointer",
-                      touchAction: "none",
+                      touchAction: "pan-y",
                     }}
                   >
                     {/* ロゴエリア 120×120 */}
