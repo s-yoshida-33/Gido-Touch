@@ -525,7 +525,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentCmsSettings(cmsSettings);
     setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
     setBlackScreenSettings(DEFAULT_BLACK_SCREEN_SETTINGS);
-    setShopDataMode('api');
+    setOperationMode('api');
     setPictoSettings(DEFAULT_PICTO_SETTINGS);
     setBannerSettings(DEFAULT_HALONG_BANNER_SETTINGS);
     setErrors({});
