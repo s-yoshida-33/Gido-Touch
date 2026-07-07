@@ -135,6 +135,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const pictoVisibilityTimerRef = useRef<number | null>(null);
   const mapImageMetricsRef = useRef<{ displayWidth: number; displayHeight: number; offsetX: number; offsetY: number } | null>(null);
   const shopListScrollRef = useRef<HTMLDivElement>(null);
+  const savedShopListScrollTopRef = useRef<number>(0);
   const lastActivityTimeRef = useRef<number>(Date.now());
   const defaultFloorRef = useRef<string>('1F');
   const floorLayerRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -498,6 +499,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         if (genreScrollRef.current) {
           genreScrollRef.current.scrollTo({ left: 0, behavior: 'auto' });
         }
+        savedShopListScrollTopRef.current = 0;
         if (shopListScrollRef.current) {
           shopListScrollRef.current.scrollTo({ top: 0, behavior: 'auto' });
         }
@@ -643,6 +645,16 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       transformComponentRef.current?.setTransform(0, 0, 1, 500, 'easeOut');
     }
   }
+
+  // 詳細を閉じたときにショップリストのスクロール位置を復元
+  useEffect(() => {
+    if (selectedShopDetail !== null) return;
+    const saved = savedShopListScrollTopRef.current;
+    if (saved <= 0) return;
+    requestAnimationFrame(() => {
+      shopListScrollRef.current?.scrollTo({ top: saved, behavior: 'auto' });
+    });
+  }, [selectedShopDetail]);
 
   // Map focus: fires when selectedShopId/currentFloor changes
   useEffect(() => {
@@ -1170,7 +1182,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 {filteredShops.map(shop => (
                   <div
                     key={shop.id}
-                    onClick={() => { handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
+                    onClick={() => { savedShopListScrollTopRef.current = shopListScrollRef.current?.scrollTop ?? 0; handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
                     style={{
                       width: "600px",
                       height: "120px",
