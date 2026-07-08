@@ -146,8 +146,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const pictoVisibilityTimerRef = useRef<number | null>(null);
   const mapImageMetricsRef = useRef<{ displayWidth: number; displayHeight: number; offsetX: number; offsetY: number } | null>(null);
   const shopListScrollRef = useRef<HTMLDivElement>(null);
-  const savedShopListScrollTopRef = useRef<number>(0);
-  const shopDetailOpenedWithFloorSwitchRef = useRef<boolean>(false);
   const lastActivityTimeRef = useRef<number>(Date.now());
   const defaultFloorRef = useRef<string>('1F');
   const floorLayerRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -511,7 +509,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         if (genreScrollRef.current) {
           genreScrollRef.current.scrollTo({ left: 0, behavior: 'auto' });
         }
-        savedShopListScrollTopRef.current = 0;
         if (shopListScrollRef.current) {
           shopListScrollRef.current.scrollTo({ top: 0, behavior: 'auto' });
         }
@@ -668,17 +665,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       transformComponentRef.current?.setTransform(0, 0, 1, 500, 'easeOut');
     }
   }
-
-  // 詳細を閉じたときにショップリストのスクロール位置を復元（フロア切り替えなしの場合のみ）
-  useEffect(() => {
-    if (selectedShopDetail !== null) return;
-    if (shopDetailOpenedWithFloorSwitchRef.current) return;
-    const saved = savedShopListScrollTopRef.current;
-    if (saved <= 0) return;
-    requestAnimationFrame(() => {
-      shopListScrollRef.current?.scrollTo({ top: saved, behavior: 'auto' });
-    });
-  }, [selectedShopDetail]);
 
   // Map focus: fires when selectedShopId/currentFloor changes
   useEffect(() => {
@@ -1177,8 +1163,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         >
           {/* ショップリスト */}
           <AnimatePresence initial={false} custom={genreDirection}>
-            {!selectedShopDetail && (
-              <motion.div
+            <motion.div
                 key={`list-${selectedGenre}-${currentFloor}`}
                 ref={shopListScrollRef}
                 custom={genreDirection}
@@ -1209,7 +1194,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   /* グリッドアイテム */
                   <div
                     key={shop.id}
-                    onClick={() => { savedShopListScrollTopRef.current = shopListScrollRef.current?.scrollTop ?? 0; shopDetailOpenedWithFloorSwitchRef.current = shop.floorKey !== currentFloor; handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
+                    onClick={() => { handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
                     style={{
                       width: "290px",
                       height: "405px",
@@ -1257,7 +1242,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   /* リストアイテム */
                   <div
                     key={shop.id}
-                    onClick={() => { savedShopListScrollTopRef.current = shopListScrollRef.current?.scrollTop ?? 0; shopDetailOpenedWithFloorSwitchRef.current = shop.floorKey !== currentFloor; handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
+                    onClick={() => { handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
                     style={{
                       width: "600px",
                       height: "120px",
@@ -1312,8 +1297,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                     </div>
                   </div>
                 ))}
-              </motion.div>
-            )}
+            </motion.div>
           </AnimatePresence>
 
           {/* ショップ詳細パネル（フェードイン） */}
