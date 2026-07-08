@@ -41,6 +41,7 @@ function renderMultiLine(text: string) {
 
 export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, onClose, assets }) => {
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
+  const [photosLoading, setPhotosLoading] = useState(true);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [slideDir, setSlideDir] = useState<1 | -1>(1);
   const [closePressed, setClosePressed] = useState(false);
@@ -50,29 +51,32 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
   // 写真を非同期ロード
   useEffect(() => {
     setPhotos([null, null, null]);
+    setPhotosLoading(true);
     setPhotoIndex(0);
 
-    if (import.meta.env.DEV) {
-      Promise.all([1, 2, 3].map(async n => {
-        const url = `/data/halong/files/shops/${shop.shopId}/thumbW640_photo${n}.webp`;
-        try {
-          const res = await fetch(url, { method: 'HEAD' });
-          return res.ok ? url : null;
-        } catch {
-          return null;
-        }
-      })).then(results => setPhotos(results));
-      return;
-    }
+    const load = import.meta.env.DEV
+      ? Promise.all([1, 2, 3].map(async n => {
+          const url = `/data/halong/files/shops/${shop.shopId}/thumbW640_photo${n}.webp`;
+          try {
+            const res = await fetch(url, { method: 'HEAD' });
+            return res.ok ? url : null;
+          } catch {
+            return null;
+          }
+        }))
+      : Promise.all([1, 2, 3].map(n =>
+          invoke<string | null>('get_local_shop_photo', { mallId: 'halong', shopId: shop.shopId, photoNum: n })
+            .catch(() => null)
+        ));
 
-    Promise.all([1, 2, 3].map(n =>
-      invoke<string | null>('get_local_shop_photo', { mallId: 'halong', shopId: shop.shopId, photoNum: n })
-        .catch(() => null)
-    )).then(results => setPhotos(results));
+    load.then(results => {
+      setPhotos(results);
+      setPhotosLoading(false);
+    });
   }, [shop.shopId]);
 
   const availablePhotos = photos.filter(Boolean) as string[];
-  const carouselSources: (string | null)[] = availablePhotos.length > 0 ? availablePhotos : [shop.logoDataUrl];
+  const carouselSources: (string | null)[] = photosLoading ? [null] : availablePhotos.length > 0 ? availablePhotos : [shop.logoDataUrl];
   const totalSlides = carouselSources.length;
 
   const goTo = useCallback((next: number, dir: 1 | -1) => {
