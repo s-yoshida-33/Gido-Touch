@@ -1198,33 +1198,35 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                     style={{
                       width: "290px",
                       height: "405px",
+                      borderRadius: "10px",
                       backgroundColor: "#ffffff",
                       flexShrink: 0,
                       filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
                       position: "relative",
                       cursor: "pointer",
                       touchAction: "pan-y",
+                      overflow: "hidden",
                     }}
                   >
                     {/* ロゴ 290×290 */}
-                    <div style={{ position: "absolute", left: 0, top: 0, width: "290px", height: "290px", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", left: 0, top: 0, width: "290px", height: "290px", overflow: "hidden", borderRadius: "10px 10px 0 0" }}>
                       {shop.logoDataUrl && (
                         <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
                           style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
                       )}
                     </div>
 
-                    {/* フロアラベル 黒 */}
-                    <div style={{ position: "absolute", left: "10px", top: "310px", height: "30px", backgroundColor: "#000000",
-                      display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif', whiteSpace: "nowrap" }}>{getFloorDisplay(shop, selectedLang)}</span>
+                    {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
+                    <div style={{ position: "absolute", left: "10px", top: "310px", width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
+                      display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
                     </div>
 
-                    {/* ジャンルラベル グレー */}
-                    {shop.genre && (
-                      <div style={{ position: "absolute", left: `${10 + floorLabelWidth}px`, top: "310px", height: "30px", backgroundColor: "#888888",
-                        display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }}>
-                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif', whiteSpace: "nowrap" }}>{getGenreLabel(shop.genre, selectedLang)}</span>
+                    {/* ナンバーラベル グレー（幅は言語ごとの最大テキスト幅に動的変更） */}
+                    {shop.section && (
+                      <div style={{ position: "absolute", left: `${10 + floorLabelWidth}px`, top: "310px", width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: "#888888",
+                        display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
                       </div>
                     )}
 
