@@ -520,13 +520,23 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     };
   }, [isRefreshing, selectedLang, langPopupOpen, selectedGenre, selectedPicto, selectedShopId, selectedShopDetail, currentFloor, showHint, showFloorLabel]);
 
+  function clearShopDetailForNavigation() {
+    setSelectedShopDetail(null);
+    setSelectedShopId(null);
+    setVisibleShopId(null);
+    setSelectedShopLogoUrl(null);
+    prevMapStateRef.current = null;
+  }
+
   function handleFloorSelect(floor: string) {
+    if (selectedShopDetail !== null) clearShopDetailForNavigation();
     setGenreDirection(0);
     setCurrentFloor(floor);
   }
 
   function handleGenreSelect(genre: Genre) {
     if (genre === selectedGenre) return;
+    if (selectedShopDetail !== null) clearShopDetailForNavigation();
     const currentIndex = GENRES.indexOf(selectedGenre);
     const newIndex = GENRES.indexOf(genre);
     setGenreDirection(newIndex > currentIndex ? 1 : -1);
@@ -534,6 +544,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   }
 
   function handlePictoSelect(pictoKey: string) {
+    if (selectedShopDetail !== null) clearShopDetailForNavigation();
     const newKey = selectedPicto === pictoKey ? null : pictoKey;
 
     if (pictoVisibilityTimerRef.current !== null) {

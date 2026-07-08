@@ -292,7 +292,7 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
         <img
           src={closePressed ? assets.closeHighlight : assets.close}
           draggable={false}
-          style={{ width: '590px', height: '50px', objectFit: 'contain', display: 'block', pointerEvents: 'none', filter: 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))' }}
+          style={{ width: '590px', height: '50px', objectFit: 'contain', display: 'block', pointerEvents: 'none', filter: closePressed ? 'none' : 'drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))' }}
         />
       </div>
     </div>
