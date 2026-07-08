@@ -31,6 +31,15 @@ const FLOOR_ANIM_DURATION = 0.35;
 const GENRES = ['all', 'fashion', 'goods', 'gourmet', 'service'] as const;
 type Genre = typeof GENRES[number];
 
+const GENRE_COLOR: Record<string, string> = {
+  fashion: '#00ADE4',
+  goods:   '#475EB4',
+  gourmet: '#F47216',
+  service: '#EF2F5A',
+};
+function getGenreColor(genre: string): string {
+  return GENRE_COLOR[genre] ?? '#888888';
+}
 
 const listVariants: Variants = {
   enter: (direction: number) => {
@@ -1213,9 +1222,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
                     </div>
 
-                    {/* ナンバーラベル グレー（幅は言語ごとの最大テキスト幅に動的変更） */}
+                    {/* ナンバーラベル（幅は言語ごとの最大テキスト幅に動的変更） */}
                     {shop.section && (
-                      <div style={{ position: "absolute", left: `${10 + floorLabelWidth}px`, top: "310px", width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: "#888888",
+                      <div style={{ position: "absolute", left: `${10 + floorLabelWidth}px`, top: "310px", width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: getGenreColor(shop.genre),
                         display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
                       </div>
@@ -1262,9 +1271,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
                     </div>
 
-                    {/* 区画番号ラベル グレー（幅は言語ごとの最大テキスト幅に動的変更） */}
+                    {/* 区画番号ラベル（幅は言語ごとの最大テキスト幅に動的変更） */}
                     {shop.section && (
-                      <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: "#888888",
+                      <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: getGenreColor(shop.genre),
                         display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
                       </div>
