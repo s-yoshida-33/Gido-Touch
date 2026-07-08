@@ -1309,7 +1309,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                style={{ position: "absolute", inset: 0 }}
+                style={{ position: "absolute", inset: 0, zIndex: 2 }}
               >
                 <ShopDetailPanel
                   shop={selectedShopDetail}
