@@ -31,15 +31,6 @@ const FLOOR_ANIM_DURATION = 0.35;
 const GENRES = ['all', 'fashion', 'goods', 'gourmet', 'service'] as const;
 type Genre = typeof GENRES[number];
 
-const GENRE_LABEL: Record<string, { ja: string; en: string; vn: string }> = {
-  fashion: { ja: 'ファッション', en: 'Fashion', vn: 'Thời trang' },
-  goods:   { ja: 'ショップ',     en: 'Goods',   vn: 'Mua sắm' },
-  gourmet: { ja: 'グルメ',       en: 'Gourmet', vn: 'Ẩm thực' },
-  service: { ja: 'サービス',     en: 'Service', vn: 'Dịch vụ' },
-};
-function getGenreLabel(genre: string, lang: 'en' | 'ja' | 'vn'): string {
-  return GENRE_LABEL[genre]?.[lang] ?? genre;
-}
 
 const listVariants: Variants = {
   enter: (direction: number) => {
