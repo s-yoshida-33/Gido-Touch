@@ -51,6 +51,20 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
   useEffect(() => {
     setPhotos([null, null, null]);
     setPhotoIndex(0);
+
+    if (import.meta.env.DEV) {
+      Promise.all([1, 2, 3].map(async n => {
+        const url = `/data/halong/files/shops/${shop.shopId}/thumbW640_photo${n}.webp`;
+        try {
+          const res = await fetch(url, { method: 'HEAD' });
+          return res.ok ? url : null;
+        } catch {
+          return null;
+        }
+      })).then(results => setPhotos(results));
+      return;
+    }
+
     Promise.all([1, 2, 3].map(n =>
       invoke<string | null>('get_local_shop_photo', { mallId: 'halong', shopId: shop.shopId, photoNum: n })
         .catch(() => null)
