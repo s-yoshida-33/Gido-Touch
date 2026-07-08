@@ -196,6 +196,7 @@ const App: React.FC = () => {
 
   // Banner settings (halong only)
   const [bannerSettings, setBannerSettings] = useState<HalongBannerSettings>(DEFAULT_HALONG_BANNER_SETTINGS);
+  const [shopListLayout, setShopListLayout] = useState<'list' | 'grid'>('list');
 
   // SSE Status Subscription
   useEffect(() => {
@@ -326,6 +327,7 @@ const App: React.FC = () => {
     setBlackScreenSettings(saved.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
     if (saved.pictoSettings) setPictoSettings(saved.pictoSettings);
     if (saved.bannerSettings) setBannerSettings(saved.bannerSettings);
+    if (saved.shopListLayout) setShopListLayout(saved.shopListLayout);
     addDebug("App: Settings saved and applied");
   };
 
@@ -366,6 +368,7 @@ const App: React.FC = () => {
       setBlackScreenSettings(mallData.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
       if (mallData.pictoSettings) setPictoSettings(mallData.pictoSettings);
       if (mallData.bannerSettings) setBannerSettings(mallData.bannerSettings);
+      setShopListLayout(mallData.shopListLayout ?? 'list');
 
       // 5. Load shop data
       await loadData(true);
@@ -517,6 +520,7 @@ const App: React.FC = () => {
         setBlackScreenSettings(mallData.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
         if (mallData.pictoSettings) setPictoSettings(mallData.pictoSettings);
         if (mallData.bannerSettings) setBannerSettings(mallData.bannerSettings);
+        setShopListLayout(mallData.shopListLayout ?? 'list');
 
         addDebug(`Mall settings loaded for ${currentMallId}`);
         logInfo("APP", "Settings loaded", {
@@ -710,7 +714,7 @@ const App: React.FC = () => {
         onOpenVersionInfo={() => setIsVersionInfoOpen(true)}
       >
         {mallId === "halong" ? (
-          <HalongShopListScreen locationIconSettings={locationSettings} shopPositions={shopPositions} pictoSettings={pictoSettings} bannerSettings={bannerSettings} />
+          <HalongShopListScreen locationIconSettings={locationSettings} shopPositions={shopPositions} pictoSettings={pictoSettings} bannerSettings={bannerSettings} shopListLayout={shopListLayout} />
         ) : (
           <ShopListScreen
             currentFloorSetting={currentFloorSetting}

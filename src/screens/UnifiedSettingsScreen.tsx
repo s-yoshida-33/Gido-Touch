@@ -95,6 +95,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [pictoSettings, setPictoSettings] = useState<PictoSettings>(DEFAULT_PICTO_SETTINGS);
   const [selectedPictoId, setSelectedPictoId] = useState<string | null>(null);
   const [bannerSettings, setBannerSettings] = useState<HalongBannerSettings>(DEFAULT_HALONG_BANNER_SETTINGS);
+  const [shopListLayout, setShopListLayout] = useState<'list' | 'grid'>('list');
   const { banners: availableBanners, reload: reloadBanners } = useHalongBanners();
 
   // Black screen settings
@@ -224,6 +225,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     blackScreenSettings: BlackScreenSettings;
     pictoSettings: PictoSettings;
     bannerSettings: HalongBannerSettings;
+    shopListLayout: 'list' | 'grid';
   };
   const mallEditingCache = useRef<Map<MallId, MallEditingSnapshot>>(new Map());
 
@@ -243,7 +245,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     blackScreenSettings,
     pictoSettings,
     bannerSettings,
-  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings, pictoSettings, bannerSettings]);
+    shopListLayout,
+  }), [floorLayout, locationIconSettings, imageSettings, shopPositions, currentFloorSetting, displayFloors, localMediaTextSettings, genreSettings, subFloorSettings, currentAudioSettings, currentCmsSettings, blackScreenSettings, pictoSettings, bannerSettings, shopListLayout]);
 
   // Apply a snapshot to all editing state
   const applySnapshot = useCallback((snap: MallEditingSnapshot) => {
@@ -260,6 +263,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentCmsSettings(snap.currentCmsSettings);
     setBlackScreenSettings(snap.blackScreenSettings);
     setPictoSettings(snap.pictoSettings);
+    setShopListLayout(snap.shopListLayout ?? 'list');
     setBannerSettings(snap.bannerSettings);
   }, []);
 
@@ -277,6 +281,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentCmsSettings(mallSettings.cmsSettings);
     setBlackScreenSettings(mallSettings.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
     setPictoSettings(mallSettings.pictoSettings ?? DEFAULT_PICTO_SETTINGS);
+    setShopListLayout(mallSettings.shopListLayout ?? 'list');
     setBannerSettings(mallSettings.bannerSettings ?? DEFAULT_HALONG_BANNER_SETTINGS);
 
     // Genre settings with fallback
@@ -561,6 +566,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         blackScreenSettings: snap.blackScreenSettings,
         pictoSettings: snap.pictoSettings,
         bannerSettings: snap.bannerSettings,
+        shopListLayout: snap.shopListLayout ?? 'list',
       });
 
       // Save cached malls first (other malls that were edited during this session)
@@ -1181,15 +1187,37 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             />
           )}
           {activeTab === "picto" && mallId === 'halong' && (
-            <PictoSettingsTab
-              floor={floor as import('../types/floorLayout').FloorId}
-              onChangeFloor={(f) => setFloor(f as import('../types/floorLayout').FloorId)}
-              pictoSettings={pictoSettings}
-              onSavePictoSettings={setPictoSettings}
-              selectedInstanceId={selectedPictoId}
-              onSelectedInstanceIdChange={setSelectedPictoId}
-              iconOptions={pictoIconOptions}
-            />
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              {/* ショップリストレイアウト */}
+              <div>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: "#aaa", marginBottom: "8px" }}>ショップリストレイアウト</div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  {(['list', 'grid'] as const).map(layout => (
+                    <button
+                      key={layout}
+                      onClick={() => setShopListLayout(layout)}
+                      style={{
+                        padding: "8px 20px", borderRadius: "6px", border: "none", cursor: "pointer",
+                        fontWeight: 600, fontSize: "14px",
+                        backgroundColor: shopListLayout === layout ? "#007aff" : "#444",
+                        color: "#fff",
+                      }}
+                    >
+                      {layout === 'list' ? 'リスト' : 'グリッド'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <PictoSettingsTab
+                floor={floor as import('../types/floorLayout').FloorId}
+                onChangeFloor={(f) => setFloor(f as import('../types/floorLayout').FloorId)}
+                pictoSettings={pictoSettings}
+                onSavePictoSettings={setPictoSettings}
+                selectedInstanceId={selectedPictoId}
+                onSelectedInstanceIdChange={setSelectedPictoId}
+                iconOptions={pictoIconOptions}
+              />
+            </div>
           )}
         </div>
       </div>

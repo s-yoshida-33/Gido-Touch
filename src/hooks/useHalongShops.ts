@@ -134,7 +134,7 @@ function mapGenre(genre: string, genreEnglish?: string): string {
 
 // ── BGフォーマットのパース ────────────────────────────────────────────────
 
-async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
+async function parseBgShops(raw: unknown, devMode = false): Promise<HalongShop[]> {
   if (!Array.isArray(raw)) return [];
 
   const entries = (raw as BgShopEntry[]).filter(
@@ -144,11 +144,16 @@ async function parseBgShops(raw: unknown): Promise<HalongShop[]> {
   return Promise.all(
     entries.map(async (s): Promise<HalongShop> => {
       let logoDataUrl: string | null = null;
-      try {
-        // %LOCALAPPDATA%\com.gido-touch\data\halong\files\shops\{shopId}\thumbW640_logo.webp
-        logoDataUrl = await invoke<string | null>('get_local_shop_logo', { mallId: 'halong', shopId: s.shopId });
-      } catch {
-        // ロゴ取得失敗 → 空欄表示
+      if (devMode) {
+        // devモード: Vite dev server の public ディレクトリから参照
+        logoDataUrl = `/data/halong/files/shops/${s.shopId}/thumbW640_logo.webp`;
+      } else {
+        try {
+          // %LOCALAPPDATA%\com.gido-touch\data\halong\files\shops\{shopId}\thumbW640_logo.webp
+          logoDataUrl = await invoke<string | null>('get_local_shop_logo', { mallId: 'halong', shopId: s.shopId });
+        } catch {
+          // ロゴ取得失敗 → 空欄表示
+        }
       }
       const floorJa = s.floorJapan?.trim() ?? '';
       return {
@@ -183,6 +188,21 @@ export function useHalongShops(): HalongShop[] {
 
   useEffect(() => {
     async function load() {
+      // devモード: Tauri 未使用のため public ディレクトリのファイルを参照
+      if (import.meta.env.DEV) {
+        try {
+          const res = await fetch('/data/halong/json/shoplist.json');
+          if (res.ok) {
+            const raw = await res.json();
+            setShops(await parseBgShops(raw, true));
+            return;
+          }
+        } catch {
+          // フォールバック: 空リスト維持
+        }
+        return;
+      }
+
       try {
         const globalSettings = await loadGlobalSettings();
         const operationMode = globalSettings.operationMode ?? 'api';
@@ -197,7 +217,7 @@ export function useHalongShops(): HalongShop[] {
           // TODO: BG SSE 連携実装後にここで受け取ったデータを parseBgShops に渡す
         }
       } catch {
-        // Tauri 未使用（ブラウザ開発環境）またはロード失敗 → 空リスト維持
+        // ロード失敗 → 空リスト維持
       }
     }
 

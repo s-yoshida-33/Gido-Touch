@@ -57,6 +57,7 @@ export interface MallSettingsFile {
   blackScreenSettings: BlackScreenSettings;
   /** @deprecated operationMode (GlobalSettings) に移行済み。マイグレーション用に残存 */
   shopDataMode?: 'api' | 'local';
+  shopListLayout?: 'list' | 'grid';
   pictoSettings?: PictoSettings;
   bannerSettings?: HalongBannerSettings;
 }
@@ -217,6 +218,7 @@ export async function loadMallSettings(mallId: string): Promise<MallSettingsFile
       floorLayout: raw.floorLayout ?? defaults.floorLayout,
       blackScreenSettings: raw.blackScreenSettings ?? defaults.blackScreenSettings,
       shopDataMode: raw.shopDataMode as 'api' | 'local' | undefined,
+      shopListLayout: (raw.shopListLayout ?? 'list') as 'list' | 'grid',
       pictoSettings: raw.pictoSettings,
       bannerSettings: raw.bannerSettings,
     };

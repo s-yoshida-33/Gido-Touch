@@ -31,6 +31,16 @@ const FLOOR_ANIM_DURATION = 0.35;
 const GENRES = ['all', 'fashion', 'goods', 'gourmet', 'service'] as const;
 type Genre = typeof GENRES[number];
 
+const GENRE_LABEL: Record<string, { ja: string; en: string; vn: string }> = {
+  fashion: { ja: 'ファッション', en: 'Fashion', vn: 'Thời trang' },
+  goods:   { ja: 'ショップ',     en: 'Goods',   vn: 'Mua sắm' },
+  gourmet: { ja: 'グルメ',       en: 'Gourmet', vn: 'Ẩm thực' },
+  service: { ja: 'サービス',     en: 'Service', vn: 'Dịch vụ' },
+};
+function getGenreLabel(genre: string, lang: 'en' | 'ja' | 'vn'): string {
+  return GENRE_LABEL[genre]?.[lang] ?? genre;
+}
+
 const listVariants: Variants = {
   enter: (direction: number) => {
     if (direction === 0) return { opacity: 0 };
@@ -66,9 +76,10 @@ interface HalongShopListScreenProps {
   shopPositions?: ShopPositionSettings;
   pictoSettings?: PictoSettings;
   bannerSettings?: HalongBannerSettings;
+  shopListLayout?: 'list' | 'grid';
 }
 
-export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp }: HalongShopListScreenProps = {}) {
+export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp, shopListLayout = 'list' }: HalongShopListScreenProps = {}) {
   const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('vn');
   const [langPopupOpen, setLangPopupOpen] = useState(false);
   const assets = useHalongAssets(selectedLang);
@@ -1187,12 +1198,63 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   scrollbarWidth: "none",
                   padding: "25px",
                   display: "flex",
-                  flexDirection: "column",
-                  gap: "25px",
+                  flexDirection: shopListLayout === 'grid' ? "row" : "column",
+                  flexWrap: shopListLayout === 'grid' ? "wrap" : "nowrap",
+                  gap: shopListLayout === 'grid' ? "20px" : "25px",
                   boxSizing: "border-box",
+                  alignContent: "flex-start",
                 }}
               >
-                {filteredShops.map(shop => (
+                {filteredShops.map(shop => shopListLayout === 'grid' ? (
+                  /* グリッドアイテム */
+                  <div
+                    key={shop.id}
+                    onClick={() => { savedShopListScrollTopRef.current = shopListScrollRef.current?.scrollTop ?? 0; shopDetailOpenedWithFloorSwitchRef.current = shop.floorKey !== currentFloor; handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
+                    style={{
+                      width: "290px",
+                      height: "405px",
+                      backgroundColor: "#ffffff",
+                      flexShrink: 0,
+                      filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
+                      position: "relative",
+                      cursor: "pointer",
+                      touchAction: "pan-y",
+                    }}
+                  >
+                    {/* ロゴ 290×290 */}
+                    <div style={{ position: "absolute", left: 0, top: 0, width: "290px", height: "290px", overflow: "hidden" }}>
+                      {shop.logoDataUrl && (
+                        <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
+                          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                      )}
+                    </div>
+
+                    {/* フロアラベル 黒 */}
+                    <div style={{ position: "absolute", left: "10px", top: "310px", height: "30px", backgroundColor: "#000000",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }}>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif', whiteSpace: "nowrap" }}>{getFloorDisplay(shop, selectedLang)}</span>
+                    </div>
+
+                    {/* ジャンルラベル グレー */}
+                    {shop.genre && (
+                      <div style={{ position: "absolute", left: `${10 + floorLabelWidth}px`, top: "310px", height: "30px", backgroundColor: "#888888",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }}>
+                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif', whiteSpace: "nowrap" }}>{getGenreLabel(shop.genre, selectedLang)}</span>
+                      </div>
+                    )}
+
+                    {/* ショップ名 */}
+                    <div style={{
+                      position: "absolute", left: "10px", top: "356px",
+                      fontSize: "24px", fontWeight: "bold", color: "#000000",
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                      maxWidth: "270px",
+                    }}>
+                      {getDisplayName(shop, selectedLang)}
+                    </div>
+                  </div>
+                ) : (
+                  /* リストアイテム */
                   <div
                     key={shop.id}
                     onClick={() => { savedShopListScrollTopRef.current = shopListScrollRef.current?.scrollTop ?? 0; shopDetailOpenedWithFloorSwitchRef.current = shop.floorKey !== currentFloor; handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
