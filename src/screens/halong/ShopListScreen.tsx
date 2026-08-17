@@ -1165,7 +1165,11 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
           <AnimatePresence initial={false} custom={genreDirection}>
             <motion.div
                 key={`list-${selectedGenre}-${currentFloor}`}
-                ref={shopListScrollRef}
+                ref={(node) => {
+                  if (node) shopListScrollRef.current = node;
+                  // アンマウント時はnullにしない: AnimatePresenceの新要素が先にrefを
+                  // 取得済みのため、ここでnullにすると現在表示中のリストの参照を失う
+                }}
                 custom={genreDirection}
                 variants={listVariants}
                 initial="enter"
