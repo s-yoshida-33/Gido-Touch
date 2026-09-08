@@ -271,29 +271,48 @@ export const useDataSync = () => {
       }
     };
 
-    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let lastRunAt = Date.now();
+    let running = false;
 
-    const init = async () => {
-      await run();
-      // on-preモードのみ、設定された間隔で再チェックする(local/apiモードは起動時の1回のみ、既存挙動のまま)。
+    const runAndMark = async () => {
+      if (running) return;
+      running = true;
       try {
-        const globalSettings = await loadGlobalSettings();
-        if ((globalSettings.operationMode ?? 'api') === 'on-pre') {
-          const configuredMinutes = globalSettings.onPrePollIntervalMinutes;
-          const minutes = Number.isFinite(configuredMinutes) && (configuredMinutes as number) > 0
-            ? (configuredMinutes as number)
-            : DEFAULT_ON_PRE_POLL_INTERVAL_MINUTES;
-          intervalId = setInterval(run, minutes * 60 * 1000);
-        }
-      } catch {
-        // 定期実行の設定に失敗しても、直前のrun()自体は完了しているため致命的ではない
+        await run();
+      } finally {
+        lastRunAt = Date.now();
+        running = false;
       }
     };
 
-    init();
+    // on-preモードの定期再チェックは、TICK_MSごとに「設定された間隔が経過したか」を
+    // 判定する方式にしている。setIntervalの遅延を起動時の値で固定してしまうと、
+    // アプリを再起動しない限り設定画面での間隔変更が反映されないため
+    // （実機検証で発覚した不具合）、毎回globalSettingsを読み直すことで
+    // 再起動無しで変更を反映できるようにした。
+    const TICK_MS = 60 * 1000;
+    const tickId = setInterval(async () => {
+      try {
+        const globalSettings = await loadGlobalSettings();
+        if ((globalSettings.operationMode ?? 'api') !== 'on-pre') return;
+
+        const configuredMinutes = globalSettings.onPrePollIntervalMinutes;
+        const minutes = Number.isFinite(configuredMinutes) && (configuredMinutes as number) > 0
+          ? (configuredMinutes as number)
+          : DEFAULT_ON_PRE_POLL_INTERVAL_MINUTES;
+
+        if (Date.now() - lastRunAt >= minutes * 60 * 1000) {
+          await runAndMark();
+        }
+      } catch {
+        // 定期実行の判定に失敗しても次のtickで再試行されるため致命的ではない
+      }
+    }, TICK_MS);
+
+    runAndMark();
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      clearInterval(tickId);
     };
   }, []);
 
