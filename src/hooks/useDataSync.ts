@@ -157,6 +157,126 @@ async function writeLocalMeta(mallId: string, subtype: DataSubtype, meta: DataMe
   }
 }
 
+/**
+ * 1回分の同期処理の実体。useDataSync（PatchScreen向け、起動時の一回きりの
+ * 同期でスプラッシュ画面の完了判定に使う）と、startOnPreSyncPolling
+ * （App.tsx側、アプリの生存期間ずっと動く定期再チェック用）の両方から
+ * 呼ばれる共通ロジック。
+ *
+ * on-preの定期再チェックをuseDataSync内のuseEffectに実装していた際、
+ * useDataSyncがPatchScreen（起動時のみ表示され同期完了と共にアンマウントされる
+ * スプラッシュ画面）からしか呼ばれておらず、画面遷移と同時にuseEffectの
+ * クリーンアップで定期実行タイマーごと破棄されてしまい、ポーリングが
+ * 一切機能しないという不具合があった（実機検証で発覚）。そのため定期実行の
+ * 仕組みはアプリ全体が生きているApp.tsx側に移し、同期ロジック自体を
+ * ここに切り出して共有する。
+ */
+async function runDataSync(
+  onStatus?: (status: DataSyncStatus) => void,
+): Promise<void> {
+  const setDataSyncStatus = onStatus ?? (() => {});
+  try {
+    const globalSettings = await loadGlobalSettings();
+    const mallId = globalSettings.mallId;
+
+    if (!mallId) {
+      logWarn('DATA_SYNC', 'No mallId configured, skipping data check');
+      setDataSyncStatus({ status: 'done', progress: 100, message: 'モールIDが未設定です' });
+      return;
+    }
+
+    const operationMode = globalSettings.operationMode ?? 'api';
+    if (operationMode !== 'local' && operationMode !== 'on-pre') {
+      logInfo('DATA_SYNC', `operationMode is "${operationMode}", skipping data check`, { mallId });
+      setDataSyncStatus({ status: 'done', progress: 100, message: 'データ同期はスキップされました' });
+      return;
+    }
+
+    logInfo('DATA_SYNC', 'Checking data status', { mallId, operationMode });
+    setDataSyncStatus({ status: 'checking', progress: 0, message: 'ショップデータの更新を確認中...' });
+
+    let anyDownloaded = false;
+    const activeSubtypes = getActiveSubtypes(mallId);
+
+    for (let i = 0; i < activeSubtypes.length; i++) {
+      const subtype = activeSubtypes[i];
+
+      const localMeta = await readLocalMeta(mallId, subtype);
+      const localZipName = localMeta?.lastZipName ?? null;
+
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const timeoutPromise = new Promise<{ zip: string | null; updated_at: string | null }>((resolve) => {
+        timeoutId = setTimeout(() => resolve({ zip: null, updated_at: null }), 5000);
+      });
+
+      const remoteVersion = await Promise.race([
+        fetchLatestVersion(mallId, subtype, operationMode, globalSettings.apiBaseUrl).finally(() => clearTimeout(timeoutId!)),
+        timeoutPromise,
+      ]);
+
+      if (!remoteVersion.zip) {
+        logInfo('DATA_SYNC', `No remote version for ${subtype}, skipping`);
+        continue;
+      }
+
+      if (remoteVersion.zip === localZipName) {
+        logInfo('DATA_SYNC', `${subtype} is up to date`, { mallId });
+        continue;
+      }
+
+      logInfo('DATA_SYNC', `${subtype} ZIP changed: ${localZipName} → ${remoteVersion.zip}`, { mallId });
+
+      const zipUrl = operationMode === 'on-pre' && globalSettings.apiBaseUrl
+        ? onPreZipUrl(globalSettings.apiBaseUrl, subtype, remoteVersion.zip)
+        : s3ZipUrl(mallId, subtype, remoteVersion.zip);
+      setDataSyncStatus({
+        status: 'downloading',
+        progress: 0,
+        message: `データをダウンロード中... (${subtype})`,
+      });
+
+      let unlisten: UnlistenFn | null = null;
+      try {
+        const subtypeIndex = i;
+        const subtypeCount = activeSubtypes.length;
+
+        unlisten = await listen<MediaProgressPayload>('media-download-progress', (event) => {
+          const { phase, percent, message } = event.payload;
+          const baseProgress = (subtypeIndex / subtypeCount) * 100;
+          const stepSize = 100 / subtypeCount;
+          const stepProgress = phase === 'download' ? percent * 0.85 : 85 + percent * 0.15;
+          const totalProgress = baseProgress + (stepProgress / 100) * stepSize;
+          setDataSyncStatus({
+            status: 'downloading',
+            progress: Math.min(99, Math.round(totalProgress)),
+            message,
+          });
+        });
+
+        await invoke('sync_data_from_s3', { mallId, subtype, zipUrl });
+
+        await writeLocalMeta(mallId, subtype, {
+          lastZipName: remoteVersion.zip,
+          lastUpdatedAt: remoteVersion.updated_at ?? new Date().toISOString(),
+        });
+
+        logInfo('DATA_SYNC', `${subtype} update completed`, { mallId, zipName: remoteVersion.zip });
+        anyDownloaded = true;
+      } finally {
+        if (unlisten) unlisten();
+      }
+    }
+
+    const msg = anyDownloaded ? 'ショップデータの更新が完了しました' : 'ショップデータは最新です';
+    setDataSyncStatus({ status: 'done', progress: 100, message: msg });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logError('DATA_SYNC', 'Data sync error', { error: errorMessage });
+    setDataSyncStatus({ status: 'error', progress: 0, message: 'ショップデータの取得に失敗しました' });
+  }
+}
+
+/** PatchScreen（起動時スプラッシュ画面）向け。起動時に一度だけ同期する。 */
 export const useDataSync = () => {
   const [dataSyncStatus, setDataSyncStatus] = useState<DataSyncStatus>({
     status: 'idle',
@@ -168,153 +288,55 @@ export const useDataSync = () => {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-
-    const run = async () => {
-      try {
-        const globalSettings = await loadGlobalSettings();
-        const mallId = globalSettings.mallId;
-
-        if (!mallId) {
-          logWarn('DATA_SYNC', 'No mallId configured, skipping data check');
-          setDataSyncStatus({ status: 'done', progress: 100, message: 'モールIDが未設定です' });
-          return;
-        }
-
-        const operationMode = globalSettings.operationMode ?? 'api';
-        if (operationMode !== 'local' && operationMode !== 'on-pre') {
-          logInfo('DATA_SYNC', `operationMode is "${operationMode}", skipping data check`, { mallId });
-          setDataSyncStatus({ status: 'done', progress: 100, message: 'データ同期はスキップされました' });
-          return;
-        }
-
-        logInfo('DATA_SYNC', 'Checking data status', { mallId, operationMode });
-        setDataSyncStatus({ status: 'checking', progress: 0, message: 'ショップデータの更新を確認中...' });
-
-        let anyDownloaded = false;
-        const activeSubtypes = getActiveSubtypes(mallId);
-
-        for (let i = 0; i < activeSubtypes.length; i++) {
-          const subtype = activeSubtypes[i];
-
-          const localMeta = await readLocalMeta(mallId, subtype);
-          const localZipName = localMeta?.lastZipName ?? null;
-
-          let timeoutId: ReturnType<typeof setTimeout>;
-          const timeoutPromise = new Promise<{ zip: string | null; updated_at: string | null }>((resolve) => {
-            timeoutId = setTimeout(() => resolve({ zip: null, updated_at: null }), 5000);
-          });
-
-          const remoteVersion = await Promise.race([
-            fetchLatestVersion(mallId, subtype, operationMode, globalSettings.apiBaseUrl).finally(() => clearTimeout(timeoutId!)),
-            timeoutPromise,
-          ]);
-
-          if (!remoteVersion.zip) {
-            logInfo('DATA_SYNC', `No remote version for ${subtype}, skipping`);
-            continue;
-          }
-
-          if (remoteVersion.zip === localZipName) {
-            logInfo('DATA_SYNC', `${subtype} is up to date`, { mallId });
-            continue;
-          }
-
-          logInfo('DATA_SYNC', `${subtype} ZIP changed: ${localZipName} → ${remoteVersion.zip}`, { mallId });
-
-          const zipUrl = operationMode === 'on-pre' && globalSettings.apiBaseUrl
-            ? onPreZipUrl(globalSettings.apiBaseUrl, subtype, remoteVersion.zip)
-            : s3ZipUrl(mallId, subtype, remoteVersion.zip);
-          setDataSyncStatus({
-            status: 'downloading',
-            progress: 0,
-            message: `データをダウンロード中... (${subtype})`,
-          });
-
-          let unlisten: UnlistenFn | null = null;
-          try {
-            const subtypeIndex = i;
-            const subtypeCount = activeSubtypes.length;
-
-            unlisten = await listen<MediaProgressPayload>('media-download-progress', (event) => {
-              const { phase, percent, message } = event.payload;
-              const baseProgress = (subtypeIndex / subtypeCount) * 100;
-              const stepSize = 100 / subtypeCount;
-              const stepProgress = phase === 'download' ? percent * 0.85 : 85 + percent * 0.15;
-              const totalProgress = baseProgress + (stepProgress / 100) * stepSize;
-              setDataSyncStatus({
-                status: 'downloading',
-                progress: Math.min(99, Math.round(totalProgress)),
-                message,
-              });
-            });
-
-            await invoke('sync_data_from_s3', { mallId, subtype, zipUrl });
-
-            await writeLocalMeta(mallId, subtype, {
-              lastZipName: remoteVersion.zip,
-              lastUpdatedAt: remoteVersion.updated_at ?? new Date().toISOString(),
-            });
-
-            logInfo('DATA_SYNC', `${subtype} update completed`, { mallId, zipName: remoteVersion.zip });
-            anyDownloaded = true;
-          } finally {
-            if (unlisten) unlisten();
-          }
-        }
-
-        const msg = anyDownloaded ? 'ショップデータの更新が完了しました' : 'ショップデータは最新です';
-        setDataSyncStatus({ status: 'done', progress: 100, message: msg });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        logError('DATA_SYNC', 'Data sync error', { error: errorMessage });
-        setDataSyncStatus({ status: 'error', progress: 0, message: 'ショップデータの取得に失敗しました' });
-      }
-    };
-
-    let lastRunAt = Date.now();
-    let running = false;
-
-    const runAndMark = async () => {
-      if (running) return;
-      running = true;
-      try {
-        await run();
-      } finally {
-        lastRunAt = Date.now();
-        running = false;
-      }
-    };
-
-    // on-preモードの定期再チェックは、TICK_MSごとに「設定された間隔が経過したか」を
-    // 判定する方式にしている。setIntervalの遅延を起動時の値で固定してしまうと、
-    // アプリを再起動しない限り設定画面での間隔変更が反映されないため
-    // （実機検証で発覚した不具合）、毎回globalSettingsを読み直すことで
-    // 再起動無しで変更を反映できるようにした。
-    const TICK_MS = 60 * 1000;
-    const tickId = setInterval(async () => {
-      try {
-        const globalSettings = await loadGlobalSettings();
-        if ((globalSettings.operationMode ?? 'api') !== 'on-pre') return;
-
-        const configuredMinutes = globalSettings.onPrePollIntervalMinutes;
-        const minutes = Number.isFinite(configuredMinutes) && (configuredMinutes as number) > 0
-          ? (configuredMinutes as number)
-          : DEFAULT_ON_PRE_POLL_INTERVAL_MINUTES;
-
-        if (Date.now() - lastRunAt >= minutes * 60 * 1000) {
-          await runAndMark();
-        }
-      } catch {
-        // 定期実行の判定に失敗しても次のtickで再試行されるため致命的ではない
-      }
-    }, TICK_MS);
-
-    runAndMark();
-
-    return () => {
-      clearInterval(tickId);
-    };
+    runDataSync(setDataSyncStatus);
   }, []);
 
   return { dataSyncStatus };
 };
+
+/**
+ * App.tsx（アプリの生存期間ずっとマウントされている場所）から呼び出す、
+ * on-preモード向けの定期再チェック。TICK_MSごとに「設定された間隔
+ * (globalSettings.onPrePollIntervalMinutes)が経過したか」を判定する方式に
+ * している。setIntervalの遅延を起動時の値で固定してしまうと、アプリを
+ * 再起動しない限り設定画面での間隔変更が反映されないため、毎回
+ * globalSettingsを読み直すことで再起動無しで変更を反映できるようにした。
+ *
+ * 戻り値はクリーンアップ関数（呼び出し側のuseEffectで返す）。
+ */
+export function startOnPreSyncPolling(): () => void {
+  let lastRunAt = Date.now();
+  let running = false;
+
+  const runAndMark = async () => {
+    if (running) return;
+    running = true;
+    try {
+      await runDataSync();
+    } finally {
+      lastRunAt = Date.now();
+      running = false;
+    }
+  };
+
+  const TICK_MS = 60 * 1000;
+  const tickId = setInterval(async () => {
+    try {
+      const globalSettings = await loadGlobalSettings();
+      if ((globalSettings.operationMode ?? 'api') !== 'on-pre') return;
+
+      const configuredMinutes = globalSettings.onPrePollIntervalMinutes;
+      const minutes = Number.isFinite(configuredMinutes) && (configuredMinutes as number) > 0
+        ? (configuredMinutes as number)
+        : DEFAULT_ON_PRE_POLL_INTERVAL_MINUTES;
+
+      if (Date.now() - lastRunAt >= minutes * 60 * 1000) {
+        await runAndMark();
+      }
+    } catch {
+      // 定期実行の判定に失敗しても次のtickで再試行されるため致命的ではない
+    }
+  }, TICK_MS);
+
+  return () => clearInterval(tickId);
+}

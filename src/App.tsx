@@ -33,6 +33,7 @@ import {
   migrateOperationModeIfNeeded,
 } from "./utils/settings";
 import type { MallSettingsFile, GlobalSettings } from "./utils/settings";
+import { startOnPreSyncPolling } from "./hooks/useDataSync";
 import type { PictoSettings } from "./types/picto";
 import { DEFAULT_PICTO_SETTINGS } from "./types/picto";
 import type { HalongBannerSettings } from "./types/bannerSettings";
@@ -160,6 +161,14 @@ const App: React.FC = () => {
 
   // Bridge-Ground app registration & heartbeat
   useBridgeRegistration(mallId, hostname, setupCompleted);
+
+  // on-preモードの定期データ再チェック。PatchScreen(起動時スプラッシュ画面)の
+  // useDataSyncはアンマウントされてしまうため、アプリの生存期間ずっと
+  // マウントされているApp.tsx側でポーリングを開始する。
+  useEffect(() => {
+    const stopPolling = startOnPreSyncPolling();
+    return stopPolling;
+  }, []);
 
   // API Status State
   const [sseStatus, setSseStatus] = useState<SseConnectionStatus>('disconnected');
