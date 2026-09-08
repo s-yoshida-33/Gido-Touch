@@ -832,7 +832,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
           }}
         >
           {/* Tabs */}
-          <div style={{ flex: 1, padding: "16px 0" }}>
+          <div style={{ flex: 1, padding: "16px 0", overflowY: "auto" }}>
             {([
               { id: "image" as TabType, label: "画像", badge: 0 },
               { id: "shopPosition" as TabType, label: "座標設定", badge: unsetShopCount },
