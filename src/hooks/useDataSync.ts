@@ -34,8 +34,9 @@ interface DataMeta {
 
 const S3_DATA_BASE = 'https://dl.tti.ninja/gido-touch/data';
 
-// on-preモードの定期再チェック間隔(1時間)。local/apiモードには影響しない。
-const ON_PRE_POLL_INTERVAL_MS = 60 * 60 * 1000;
+// on-preモードの定期再チェック間隔のデフォルト値(分)。local/apiモードには影響しない。
+// 実際の間隔はglobalSettings.onPrePollIntervalMinutesで上書き可能。
+const DEFAULT_ON_PRE_POLL_INTERVAL_MINUTES = 60;
 
 const DATA_SUBTYPES = ['shops', 'news', 'events', 'json'] as const;
 type DataSubtype = typeof DATA_SUBTYPES[number];
@@ -274,11 +275,15 @@ export const useDataSync = () => {
 
     const init = async () => {
       await run();
-      // on-preモードのみ、1時間毎に再チェックする(local/apiモードは起動時の1回のみ、既存挙動のまま)。
+      // on-preモードのみ、設定された間隔で再チェックする(local/apiモードは起動時の1回のみ、既存挙動のまま)。
       try {
         const globalSettings = await loadGlobalSettings();
         if ((globalSettings.operationMode ?? 'api') === 'on-pre') {
-          intervalId = setInterval(run, ON_PRE_POLL_INTERVAL_MS);
+          const configuredMinutes = globalSettings.onPrePollIntervalMinutes;
+          const minutes = Number.isFinite(configuredMinutes) && (configuredMinutes as number) > 0
+            ? (configuredMinutes as number)
+            : DEFAULT_ON_PRE_POLL_INTERVAL_MINUTES;
+          intervalId = setInterval(run, minutes * 60 * 1000);
         }
       } catch {
         // 定期実行の設定に失敗しても、直前のrun()自体は完了しているため致命的ではない
