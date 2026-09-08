@@ -1,8 +1,10 @@
 // src/hooks/useDataSync.ts
-// Data sync via S3 – checks S3 latest.json for data ZIP updates per subtype.
+// Data sync via S3 (operationMode: 'local') or an on-prem server (operationMode: 'on-pre') –
+// checks latest.json for data ZIP updates per subtype.
 // Downloads and extracts to data/{mallId}/files/{subtype}/ or data/{mallId}/json/
 // via sync_data_from_s3. Processes subtypes sequentially (network-friendly for poor connections).
 // After extraction, writes .{subtype}-meta.json locally for version tracking.
+// on-preモードのみ、1時間毎に再チェックする(S3/localモードの既存挙動は変更しない)。
 
 import { useEffect, useState, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -31,6 +33,9 @@ interface DataMeta {
 }
 
 const S3_DATA_BASE = 'https://dl.tti.ninja/gido-touch/data';
+
+// on-preモードの定期再チェック間隔(1時間)。local/apiモードには影響しない。
+const ON_PRE_POLL_INTERVAL_MS = 60 * 60 * 1000;
 
 const DATA_SUBTYPES = ['shops', 'news', 'events', 'json'] as const;
 type DataSubtype = typeof DATA_SUBTYPES[number];
@@ -63,6 +68,23 @@ function s3ZipUrl(mallId: string, subtype: DataSubtype, zipName: string): string
     : `${S3_DATA_BASE}/${mallId}/files/${subtype}/${zipName}`;
 }
 
+// オンプレサーバー(TTI-DCS/sdc)の配信契約: {apiBaseUrl}/json/latest.json、
+// {apiBaseUrl}/files/{subtype}/latest.json。apiBaseUrl自体が
+// ".../gido-touch/data/halong" までモール固有のパスを含む前提のため、
+// S3向けと異なりmallIdセグメントは付与しない。
+function onPreBase(apiBaseUrl: string, subtype: DataSubtype): string {
+  const trimmed = apiBaseUrl.replace(/\/$/, '');
+  return subtype === 'json' ? `${trimmed}/json` : `${trimmed}/files/${subtype}`;
+}
+
+function onPreLatestJsonUrl(apiBaseUrl: string, subtype: DataSubtype): string {
+  return `${onPreBase(apiBaseUrl, subtype)}/latest.json?t=${Date.now()}`;
+}
+
+function onPreZipUrl(apiBaseUrl: string, subtype: DataSubtype, zipName: string): string {
+  return `${onPreBase(apiBaseUrl, subtype)}/${zipName}`;
+}
+
 function localMetaPath(mallId: string, subtype: DataSubtype): string {
   return subtype === 'json'
     ? `data/${mallId}/json/${META_NAMES[subtype]}`
@@ -75,13 +97,24 @@ function localMetaDir(mallId: string, subtype: DataSubtype): string {
     : `data/${mallId}/files/${subtype}`;
 }
 
-async function fetchVersionFromS3(
+async function fetchLatestVersion(
   mallId: string,
   subtype: DataSubtype,
+  operationMode: 'local' | 'on-pre',
+  apiBaseUrl: string | undefined,
 ): Promise<{ zip: string | null; updated_at: string | null }> {
+  if (operationMode === 'on-pre' && !apiBaseUrl) {
+    logWarn('DATA_SYNC', `on-preモードですがapiBaseUrl未設定のため${subtype}をスキップします`);
+    return { zip: null, updated_at: null };
+  }
+
+  const url = operationMode === 'on-pre' && apiBaseUrl
+    ? onPreLatestJsonUrl(apiBaseUrl, subtype)
+    : s3LatestJsonUrl(mallId, subtype);
+
   try {
     const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-    const response = await tauriFetch(s3LatestJsonUrl(mallId, subtype), {
+    const response = await tauriFetch(url, {
       headers: { 'Cache-Control': 'no-cache, no-store', Pragma: 'no-cache' },
     });
     if (!response.ok) {
@@ -171,7 +204,7 @@ export const useDataSync = () => {
           });
 
           const remoteVersion = await Promise.race([
-            fetchVersionFromS3(mallId, subtype).finally(() => clearTimeout(timeoutId!)),
+            fetchLatestVersion(mallId, subtype, operationMode, globalSettings.apiBaseUrl).finally(() => clearTimeout(timeoutId!)),
             timeoutPromise,
           ]);
 
@@ -187,7 +220,9 @@ export const useDataSync = () => {
 
           logInfo('DATA_SYNC', `${subtype} ZIP changed: ${localZipName} → ${remoteVersion.zip}`, { mallId });
 
-          const zipUrl = s3ZipUrl(mallId, subtype, remoteVersion.zip);
+          const zipUrl = operationMode === 'on-pre' && globalSettings.apiBaseUrl
+            ? onPreZipUrl(globalSettings.apiBaseUrl, subtype, remoteVersion.zip)
+            : s3ZipUrl(mallId, subtype, remoteVersion.zip);
           setDataSyncStatus({
             status: 'downloading',
             progress: 0,
@@ -235,7 +270,26 @@ export const useDataSync = () => {
       }
     };
 
-    run();
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const init = async () => {
+      await run();
+      // on-preモードのみ、1時間毎に再チェックする(local/apiモードは起動時の1回のみ、既存挙動のまま)。
+      try {
+        const globalSettings = await loadGlobalSettings();
+        if ((globalSettings.operationMode ?? 'api') === 'on-pre') {
+          intervalId = setInterval(run, ON_PRE_POLL_INTERVAL_MS);
+        }
+      } catch {
+        // 定期実行の設定に失敗しても、直前のrun()自体は完了しているため致命的ではない
+      }
+    };
+
+    init();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, []);
 
   return { dataSyncStatus };
