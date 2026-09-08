@@ -512,6 +512,15 @@ const App: React.FC = () => {
         setHostname(global.hostname ?? '');
         setFloor(global.floor as FloorId);
 
+        // shopSseService(Bridge-GroundのショップSSE)はoperationModeに関係なく
+        // 常時自動接続する実装になっており、local/on-preモード（Bridge-Ground経由の
+        // データを使わない想定）でも接続されてしまっていた。halongの実際の表示は
+        // useHalongShops経由でこのSSEの影響を受けないが、意図しないBridge-Ground
+        // 接続・ログノイズを避けるため、api以外では明示的に切断する。
+        if ((global.operationMode ?? 'api') !== 'api') {
+          shopSseService.disconnect();
+        }
+
         // 4. Ensure per-mall settings file, then load
         await ensureMallSettingsFile(currentMallId);
         const mallData = await loadMallSettings(currentMallId);
