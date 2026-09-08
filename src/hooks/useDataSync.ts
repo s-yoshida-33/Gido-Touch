@@ -8,7 +8,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { BaseDirectory, exists, readTextFile, writeTextFile, mkdir } from '@tauri-apps/plugin-fs';
 import { logInfo, logWarn, logError } from '../logs/logging';
 import { loadGlobalSettings } from '../utils/settings';
@@ -37,6 +37,11 @@ const S3_DATA_BASE = 'https://dl.tti.ninja/gido-touch/data';
 // on-preモードの定期再チェック間隔のデフォルト値(分)。local/apiモードには影響しない。
 // 実際の間隔はglobalSettings.onPrePollIntervalMinutesで上書き可能。
 const DEFAULT_ON_PRE_POLL_INTERVAL_MINUTES = 60;
+
+// 同期で新しいデータが降ってきた際にTauriイベントとして発火する名前。
+// useHalongShops側がこれを購読して再読込する（バックグラウンド同期後、
+// 画面操作なしでは店舗一覧が更新されない不具合への対応）。
+export const SHOP_DATA_UPDATED_EVENT = 'shop-data-updated';
 
 const DATA_SUBTYPES = ['shops', 'news', 'events', 'json'] as const;
 type DataSubtype = typeof DATA_SUBTYPES[number];
@@ -269,6 +274,14 @@ async function runDataSync(
 
     const msg = anyDownloaded ? 'ショップデータの更新が完了しました' : 'ショップデータは最新です';
     setDataSyncStatus({ status: 'done', progress: 100, message: msg });
+
+    if (anyDownloaded) {
+      // useHalongShopsは起動時に一度しか店舗データを読まないため、バックグラウンド
+      // 同期で新しいデータが降ってきたことを画面側に知らせて再読込させる。
+      emit(SHOP_DATA_UPDATED_EVENT).catch(() => {
+        // イベント発火に失敗しても致命的ではない(次回同期時に再度発火される)
+      });
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logError('DATA_SYNC', 'Data sync error', { error: errorMessage });
