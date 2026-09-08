@@ -22,7 +22,8 @@
         "https://api.github.com/**",
         "https://github.com/**",
         "https://*.githubusercontent.com/**",
-        "https://dl.tti.ninja/**"
+        "https://dl.tti.ninja/**",
+        "http://*:*/**"
       ]
     }
   ]
