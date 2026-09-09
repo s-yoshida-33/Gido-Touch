@@ -35,6 +35,8 @@ export interface GlobalSettings {
   hostname?: string;
   operationMode?: OperationMode;
   apiBaseUrl?: string;
+  /** on-preモードの定期再チェック間隔(分)。未設定時は60分。 */
+  onPrePollIntervalMinutes?: number;
 }
 
 /**
@@ -163,6 +165,7 @@ export async function loadGlobalSettings(): Promise<GlobalSettings> {
       hostname: raw.hostname ?? '',
       operationMode: (raw.operationMode ?? undefined) as OperationMode | undefined,
       apiBaseUrl: raw.apiBaseUrl ?? '',
+      onPrePollIntervalMinutes: raw.onPrePollIntervalMinutes ?? undefined,
     };
   } catch (error) {
     logError('CONFIG', 'Failed to load global settings', {

@@ -33,6 +33,7 @@ import {
   migrateOperationModeIfNeeded,
 } from "./utils/settings";
 import type { MallSettingsFile, GlobalSettings } from "./utils/settings";
+import { startOnPreSyncPolling } from "./hooks/useDataSync";
 import type { PictoSettings } from "./types/picto";
 import { DEFAULT_PICTO_SETTINGS } from "./types/picto";
 import type { HalongBannerSettings } from "./types/bannerSettings";
@@ -161,6 +162,14 @@ const App: React.FC = () => {
   // Bridge-Ground app registration & heartbeat
   useBridgeRegistration(mallId, hostname, setupCompleted);
 
+  // on-preモードの定期データ再チェック。PatchScreen(起動時スプラッシュ画面)の
+  // useDataSyncはアンマウントされてしまうため、アプリの生存期間ずっと
+  // マウントされているApp.tsx側でポーリングを開始する。
+  useEffect(() => {
+    const stopPolling = startOnPreSyncPolling();
+    return stopPolling;
+  }, []);
+
   // API Status State
   const [sseStatus, setSseStatus] = useState<SseConnectionStatus>('disconnected');
 
@@ -270,6 +279,18 @@ const App: React.FC = () => {
 
   // Load Data Strategy (Cache-First + Background Update)
   const loadData = async (useCache: boolean = true) => {
+    // Bridge-Ground(/api/shops)からの取得はoperationMode==='api'の場合のみ意味を持つ。
+    // local/on-preモードでも無条件に呼ばれ、共存する別モールのBridge-Ground
+    // キャッシュ内容がログに出て紛らわしかった（実機検証で指摘）。
+    // halongの実際の表示はuseHalongShops経由でこのshops状態を消費していないため
+    // 表示への影響は無いが、意図しないBridge-Ground呼び出し・ログノイズを避ける。
+    try {
+      const globalSettings = await loadGlobalSettings();
+      if ((globalSettings.operationMode ?? 'api') !== 'api') return;
+    } catch {
+      // 設定読み込みに失敗した場合は従来通りAPIモードとして進める
+    }
+
     if (useCache) {
       const cached = loadShopsFromCache();
       if (cached && cached.length > 0) {
@@ -502,6 +523,15 @@ const App: React.FC = () => {
         setMallId(currentMallId);
         setHostname(global.hostname ?? '');
         setFloor(global.floor as FloorId);
+
+        // shopSseService(Bridge-GroundのショップSSE)はoperationModeに関係なく
+        // 常時自動接続する実装になっており、local/on-preモード（Bridge-Ground経由の
+        // データを使わない想定）でも接続されてしまっていた。halongの実際の表示は
+        // useHalongShops経由でこのSSEの影響を受けないが、意図しないBridge-Ground
+        // 接続・ログノイズを避けるため、api以外では明示的に切断する。
+        if ((global.operationMode ?? 'api') !== 'api') {
+          shopSseService.disconnect();
+        }
 
         // 4. Ensure per-mall settings file, then load
         await ensureMallSettingsFile(currentMallId);

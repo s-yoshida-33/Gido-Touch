@@ -5,7 +5,9 @@
 
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { loadGlobalSettings } from '../utils/settings';
+import { SHOP_DATA_UPDATED_EVENT } from './useDataSync';
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
 
@@ -222,6 +224,22 @@ export function useHalongShops(): HalongShop[] {
     }
 
     load();
+
+    // バックグラウンド同期(useDataSync)が新しい店舗データを取得した際に発火される
+    // イベントを購読し、画面操作を挟まずに再読込する（起動時の1回読みだけだと、
+    // ポーリングで裏側のファイルが更新されても画面に反映されない不具合があった）。
+    let unlisten: (() => void) | undefined;
+    if (!import.meta.env.DEV) {
+      listen(SHOP_DATA_UPDATED_EVENT, () => {
+        load();
+      }).then((fn) => {
+        unlisten = fn;
+      });
+    }
+
+    return () => {
+      unlisten?.();
+    };
   }, []);
 
   return shops;

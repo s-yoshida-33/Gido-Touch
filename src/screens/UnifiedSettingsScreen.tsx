@@ -40,7 +40,7 @@ import { useHalongAssets } from '../hooks/useHalongAssets';
 import { PictoPin } from '../components/PictoPin';
 import { AnimatePresence } from 'framer-motion';
 
-type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre" | "blackScreen" | "picto";
+type TabType = "image" | "shopPosition" | "floorSettings" | "localMedia" | "genre" | "blackScreen" | "picto" | "dataSync";
 
 interface UnifiedSettingsScreenProps {
   visible: boolean;
@@ -103,6 +103,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // Operation mode (global settings)
   const [operationMode, setOperationMode] = useState<import('../utils/settings').OperationMode>('api');
+  const [apiBaseUrl, setApiBaseUrl] = useState<string>('');
+  const [onPrePollIntervalMinutes, setOnPrePollIntervalMinutes] = useState<number>(60);
 
   // Mall settings
   // Mall settings
@@ -436,6 +438,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         setHostname(savedHostname);
         setInitialHostname(savedHostname);
         setOperationMode(globalSettings.operationMode ?? 'api');
+        setApiBaseUrl(globalSettings.apiBaseUrl ?? '');
+        setOnPrePollIntervalMinutes(globalSettings.onPrePollIntervalMinutes ?? 60);
 
         // Detect if halong has local per-language speech bubble assets
         if (mallId === 'halong') {
@@ -531,6 +535,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setSubFloorSettings(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
     setBlackScreenSettings(DEFAULT_BLACK_SCREEN_SETTINGS);
     setOperationMode('api');
+    setApiBaseUrl('');
+    setOnPrePollIntervalMinutes(60);
     setPictoSettings(DEFAULT_PICTO_SETTINGS);
     setBannerSettings(DEFAULT_HALONG_BANNER_SETTINGS);
     setErrors({});
@@ -598,7 +604,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
       // Save mallId and hostname to global settings so they persist across restarts
       const global = await loadGlobalSettings();
-      await saveGlobalSettings({ ...global, mallId, hostname } as GlobalSettings);
+      await saveGlobalSettings({ ...global, mallId, hostname, operationMode, apiBaseUrl, onPrePollIntervalMinutes } as GlobalSettings);
 
       // Remove stale map directories for previous hostname
       if (mallId && hostname && hostname !== initialHostname) {
@@ -826,7 +832,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
           }}
         >
           {/* Tabs */}
-          <div style={{ flex: 1, padding: "16px 0" }}>
+          <div style={{ flex: 1, padding: "16px 0", overflowY: "auto" }}>
             {([
               { id: "image" as TabType, label: "画像", badge: 0 },
               { id: "shopPosition" as TabType, label: "座標設定", badge: unsetShopCount },
@@ -835,6 +841,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               { id: "genre" as TabType, label: "ジャンルメモ設定", badge: 0 },
               { id: "blackScreen" as TabType, label: "ブラックスクリーン", badge: 0 },
               ...(mallId === 'halong' ? [{ id: "picto" as TabType, label: "ピクトグラム設定", badge: 0 }] : []),
+              ...(mallId === 'halong' ? [{ id: "dataSync" as TabType, label: "データ同期設定", badge: 0 }] : []),
             ]).map((tab) => (
               <button
                 key={tab.id}
@@ -1217,6 +1224,85 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 onSelectedInstanceIdChange={setSelectedPictoId}
                 iconOptions={pictoIconOptions}
               />
+            </div>
+          )}
+          {activeTab === "dataSync" && mallId === 'halong' && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: 480 }}>
+              <div>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: "#aaa", marginBottom: "8px" }}>データ取得方法</div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  {([
+                    { id: 'api' as const, label: 'API (BG SSE)' },
+                    { id: 'local' as const, label: 'ローカルファイル' },
+                    { id: 'on-pre' as const, label: 'オンプレサーバー' },
+                  ]).map(mode => (
+                    <button
+                      key={mode.id}
+                      onClick={() => setOperationMode(mode.id)}
+                      style={{
+                        padding: "8px 20px", borderRadius: "6px", border: "none", cursor: "pointer",
+                        fontWeight: 600, fontSize: "14px",
+                        backgroundColor: operationMode === mode.id ? "#007aff" : "#444",
+                        color: "#fff",
+                      }}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {operationMode === 'on-pre' && (
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#aaa", marginBottom: "8px" }}>オンプレサーバーURL</div>
+                  <input
+                    type="text"
+                    value={apiBaseUrl}
+                    onChange={(e) => setApiBaseUrl(e.target.value)}
+                    placeholder="例: http://192.168.1.10:8091/gido-touch/data/halong"
+                    style={{
+                      width: "100%",
+                      backgroundColor: '#333',
+                      color: '#fff',
+                      border: '1px solid #555',
+                      borderRadius: 4,
+                      padding: '8px 10px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <div style={{ fontSize: "12px", color: "#888", marginTop: "6px" }}>
+                    店舗情報CMS（sdc）のデータ配信URLをモール固有パス（.../gido-touch/data/halong）まで含めて入力してください。
+                  </div>
+                </div>
+              )}
+              {operationMode === 'on-pre' && (
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#aaa", marginBottom: "8px" }}>ポーリング間隔（分）</div>
+                  <input
+                    type="number"
+                    min={5}
+                    step={1}
+                    value={onPrePollIntervalMinutes}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      setOnPrePollIntervalMinutes(Number.isFinite(n) && n > 0 ? n : 60);
+                    }}
+                    style={{
+                      width: 120,
+                      backgroundColor: '#333',
+                      color: '#fff',
+                      border: '1px solid #555',
+                      borderRadius: 4,
+                      padding: '8px 10px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <div style={{ fontSize: "12px", color: "#888", marginTop: "6px" }}>
+                    オンプレサーバーへの再チェック間隔。デフォルトは60分です。
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
