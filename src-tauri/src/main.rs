@@ -1119,6 +1119,21 @@ fn sync_zip_to_dir(
     }
     drop(file);
 
+    // response.read()がbytes_read==0(EOF)を返した時点で「完了」とみなしていたが、
+    // 接続が途中で切れた場合もEOFと区別が付かず、その結果Content-Lengthより短い
+    // 壊れたzipファイルをそのまま展開しようとして"corrupt deflate stream"で
+    // 失敗する不具合があった(実機検証で発覚)。ダウンロード後にサイズを突き合わせ、
+    // 不一致ならこの時点でエラーにする。
+    // (呼び出し元はlocalMetaを更新しないため、次回ポーリング時に同じzipとして
+    // 再ダウンロードが試みられる。)
+    if total_size > 0 && downloaded != total_size {
+        let _ = fs::remove_file(zip_path);
+        return Err(format!(
+            "Download incomplete: expected {} bytes, got {} bytes",
+            total_size, downloaded
+        ));
+    }
+
     let _ = app.emit("media-download-progress", MediaProgressPayload {
         phase: "download".to_string(),
         percent: 100.0,
