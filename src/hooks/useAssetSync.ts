@@ -1,5 +1,6 @@
 // src/hooks/useAssetSync.ts
-// Asset sync via S3 – checks S3 latest.json for assets ZIP updates.
+// Asset sync via S3 (operationMode: 'api'/'local') or an on-prem server (operationMode: 'on-pre') –
+// checks latest.json for assets ZIP updates.
 // Downloads and extracts to media/assets/{mallId}/ via sync_assets_from_s3.
 import { useEffect, useState, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -29,10 +30,39 @@ interface AssetMeta {
 
 const S3_MEDIAS_BASE = 'https://dl.tti.ninja/gido-touch/medias';
 
-async function fetchAssetVersionFromS3(mallId: string): Promise<{ zip: string | null; updated_at: string | null }> {
+function s3AssetLatestJsonUrl(mallId: string): string {
+  return `${S3_MEDIAS_BASE}/${mallId}/assets/latest.json?t=${Date.now()}`;
+}
+
+function s3AssetZipUrl(mallId: string, zipName: string): string {
+  return `${S3_MEDIAS_BASE}/${mallId}/assets/${zipName}`;
+}
+
+// オンプレサーバー(TTI-DCS/sdc)の配信契約: {apiBaseUrl}/assets/latest.json。
+// useDataSync.tsのonPreBaseと同様、apiBaseUrl自体が".../gido-touch/data/halong"まで
+// モール固有のパスを含む前提のため、S3向けと異なりmallIdセグメントは付与しない。
+function onPreAssetLatestJsonUrl(apiBaseUrl: string): string {
+  return `${apiBaseUrl.replace(/\/$/, '')}/assets/latest.json?t=${Date.now()}`;
+}
+
+function onPreAssetZipUrl(apiBaseUrl: string, zipName: string): string {
+  return `${apiBaseUrl.replace(/\/$/, '')}/assets/${zipName}`;
+}
+
+async function fetchAssetVersion(
+  mallId: string,
+  operationMode: string | undefined,
+  apiBaseUrl: string | undefined,
+): Promise<{ zip: string | null; updated_at: string | null }> {
+  const useOnPre = operationMode === 'on-pre' && !!apiBaseUrl;
+  if (operationMode === 'on-pre' && !apiBaseUrl) {
+    logWarn('ASSET_SYNC', 'on-preモードですがapiBaseUrl未設定のためアセット確認をスキップします');
+    return { zip: null, updated_at: null };
+  }
+
   try {
     const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-    const url = `${S3_MEDIAS_BASE}/${mallId}/assets/latest.json?t=${Date.now()}`;
+    const url = useOnPre ? onPreAssetLatestJsonUrl(apiBaseUrl!) : s3AssetLatestJsonUrl(mallId);
     const response = await tauriFetch(url, {
       headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' },
     });
@@ -41,7 +71,7 @@ async function fetchAssetVersionFromS3(mallId: string): Promise<{ zip: string | 
     logInfo('ASSET_SYNC', `Asset version fetched: ${data.zip}, updated_at: ${data.updated_at}`);
     return { zip: data.zip, updated_at: data.updated_at };
   } catch (error) {
-    logError('ASSET_SYNC', 'Failed to fetch asset version from S3', {
+    logError('ASSET_SYNC', 'Failed to fetch asset version', {
       error: error instanceof Error ? error.message : String(error),
     });
     return { zip: null, updated_at: null };
@@ -94,7 +124,8 @@ export const useAssetSync = () => {
           return;
         }
 
-        logInfo('ASSET_SYNC', 'Checking asset status via S3', { mallId });
+        const operationMode = globalSettings.operationMode ?? 'api';
+        logInfo('ASSET_SYNC', 'Checking asset status', { mallId, operationMode });
         setAssetStatus({ status: 'checking', progress: 0, message: 'アセットデータの更新を確認中...' });
 
         const localMeta = await readAssetMeta(mallId);
@@ -106,7 +137,7 @@ export const useAssetSync = () => {
         });
 
         const remoteVersion = await Promise.race([
-          fetchAssetVersionFromS3(mallId).finally(() => clearTimeout(timeoutId!)),
+          fetchAssetVersion(mallId, operationMode, globalSettings.apiBaseUrl).finally(() => clearTimeout(timeoutId!)),
           timeoutPromise,
         ]);
 
@@ -128,7 +159,11 @@ export const useAssetSync = () => {
 
         logInfo('ASSET_SYNC', `Asset ZIP changed: ${localZipName} → ${remoteVersion.zip}`, { mallId });
 
-        const zipUrl = `${S3_MEDIAS_BASE}/${mallId}/assets/${remoteVersion.zip}`;
+        // zipNameChangedがtrueの時点でremoteVersion.zipはnullではない
+        const zipName = remoteVersion.zip!;
+        const zipUrl = operationMode === 'on-pre' && globalSettings.apiBaseUrl
+          ? onPreAssetZipUrl(globalSettings.apiBaseUrl, zipName)
+          : s3AssetZipUrl(mallId, zipName);
         setAssetStatus({ status: 'downloading', progress: 0, message: `アセットをダウンロード中... (${mallId})` });
 
         let unlisten: UnlistenFn | null = null;

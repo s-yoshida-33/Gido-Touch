@@ -1,5 +1,6 @@
 // src/hooks/useMapSync.ts
-// Map sync via S3 – checks S3 latest.json for maps ZIP updates per hostname.
+// Map sync via S3 (operationMode: 'api'/'local') or an on-prem server (operationMode: 'on-pre') –
+// checks latest.json for maps ZIP updates per hostname.
 // Downloads and extracts to media/maps/{mallId}/{hostname}/ via sync_maps_from_s3.
 // Skipped entirely when hostname is not configured.
 import { useEffect, useState, useRef } from 'react';
@@ -30,10 +31,40 @@ interface MapMeta {
 
 const S3_MEDIAS_BASE = 'https://dl.tti.ninja/gido-touch/medias';
 
-async function fetchMapVersionFromS3(mallId: string, hostname: string): Promise<{ zip: string | null; updated_at: string | null }> {
+function s3MapLatestJsonUrl(mallId: string, hostname: string): string {
+  return `${S3_MEDIAS_BASE}/${mallId}/maps/${hostname}/latest.json?t=${Date.now()}`;
+}
+
+function s3MapZipUrl(mallId: string, hostname: string, zipName: string): string {
+  return `${S3_MEDIAS_BASE}/${mallId}/maps/${hostname}/${zipName}`;
+}
+
+// オンプレサーバー(TTI-DCS/sdc)の配信契約: {apiBaseUrl}/maps/{hostname}/latest.json。
+// useDataSync.tsのonPreBaseと同様、apiBaseUrl自体が".../gido-touch/data/halong"まで
+// モール固有のパスを含む前提のため、S3向けと異なりmallIdセグメントは付与しない。
+function onPreMapLatestJsonUrl(apiBaseUrl: string, hostname: string): string {
+  return `${apiBaseUrl.replace(/\/$/, '')}/maps/${hostname}/latest.json?t=${Date.now()}`;
+}
+
+function onPreMapZipUrl(apiBaseUrl: string, hostname: string, zipName: string): string {
+  return `${apiBaseUrl.replace(/\/$/, '')}/maps/${hostname}/${zipName}`;
+}
+
+async function fetchMapVersion(
+  mallId: string,
+  hostname: string,
+  operationMode: string | undefined,
+  apiBaseUrl: string | undefined,
+): Promise<{ zip: string | null; updated_at: string | null }> {
+  const useOnPre = operationMode === 'on-pre' && !!apiBaseUrl;
+  if (operationMode === 'on-pre' && !apiBaseUrl) {
+    logWarn('MAP_SYNC', 'on-preモードですがapiBaseUrl未設定のためマップ確認をスキップします');
+    return { zip: null, updated_at: null };
+  }
+
   try {
     const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-    const url = `${S3_MEDIAS_BASE}/${mallId}/maps/${hostname}/latest.json?t=${Date.now()}`;
+    const url = useOnPre ? onPreMapLatestJsonUrl(apiBaseUrl!, hostname) : s3MapLatestJsonUrl(mallId, hostname);
     const response = await tauriFetch(url, {
       headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' },
     });
@@ -42,7 +73,7 @@ async function fetchMapVersionFromS3(mallId: string, hostname: string): Promise<
     logInfo('MAP_SYNC', `Map version fetched: ${data.zip}, updated_at: ${data.updated_at}`);
     return { zip: data.zip, updated_at: data.updated_at };
   } catch (error) {
-    logError('MAP_SYNC', 'Failed to fetch map version from S3', {
+    logError('MAP_SYNC', 'Failed to fetch map version', {
       error: error instanceof Error ? error.message : String(error),
     });
     return { zip: null, updated_at: null };
@@ -103,7 +134,8 @@ export const useMapSync = () => {
           return;
         }
 
-        logInfo('MAP_SYNC', 'Checking map status via S3', { mallId, hostname });
+        const operationMode = globalSettings.operationMode ?? 'api';
+        logInfo('MAP_SYNC', 'Checking map status', { mallId, hostname, operationMode });
         setMapStatus({ status: 'checking', progress: 0, message: 'マップデータの更新を確認中...' });
 
         const localMeta = await readMapMeta(mallId, hostname);
@@ -115,7 +147,7 @@ export const useMapSync = () => {
         });
 
         const remoteVersion = await Promise.race([
-          fetchMapVersionFromS3(mallId, hostname).finally(() => clearTimeout(timeoutId!)),
+          fetchMapVersion(mallId, hostname, operationMode, globalSettings.apiBaseUrl).finally(() => clearTimeout(timeoutId!)),
           timeoutPromise,
         ]);
 
@@ -137,7 +169,11 @@ export const useMapSync = () => {
 
         logInfo('MAP_SYNC', `Map ZIP changed: ${localZipName} → ${remoteVersion.zip}`, { mallId, hostname });
 
-        const zipUrl = `${S3_MEDIAS_BASE}/${mallId}/maps/${hostname}/${remoteVersion.zip}`;
+        // zipNameChangedがtrueの時点でremoteVersion.zipはnullではない
+        const zipName = remoteVersion.zip!;
+        const zipUrl = operationMode === 'on-pre' && globalSettings.apiBaseUrl
+          ? onPreMapZipUrl(globalSettings.apiBaseUrl, hostname, zipName)
+          : s3MapZipUrl(mallId, hostname, zipName);
         setMapStatus({ status: 'downloading', progress: 0, message: `マップをダウンロード中... (${hostname})` });
 
         let unlisten: UnlistenFn | null = null;
