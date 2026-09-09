@@ -279,6 +279,18 @@ const App: React.FC = () => {
 
   // Load Data Strategy (Cache-First + Background Update)
   const loadData = async (useCache: boolean = true) => {
+    // Bridge-Ground(/api/shops)からの取得はoperationMode==='api'の場合のみ意味を持つ。
+    // local/on-preモードでも無条件に呼ばれ、共存する別モールのBridge-Ground
+    // キャッシュ内容がログに出て紛らわしかった（実機検証で指摘）。
+    // halongの実際の表示はuseHalongShops経由でこのshops状態を消費していないため
+    // 表示への影響は無いが、意図しないBridge-Ground呼び出し・ログノイズを避ける。
+    try {
+      const globalSettings = await loadGlobalSettings();
+      if ((globalSettings.operationMode ?? 'api') !== 'api') return;
+    } catch {
+      // 設定読み込みに失敗した場合は従来通りAPIモードとして進める
+    }
+
     if (useCache) {
       const cached = loadShopsFromCache();
       if (cached && cached.length > 0) {
