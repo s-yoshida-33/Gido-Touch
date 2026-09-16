@@ -17,6 +17,13 @@ class SSEService {
   private abortController: AbortController | null = null;
   private listeners: Map<string, Set<Listener>> = new Map();
   private isDestroyed = false;
+  // disconnect()による意図的なabort()かどうかを区別するためのフラグ。
+  // Tauriのplugin-http経由のfetchは、abort()時にブラウザ標準のAbortError
+  // (error.name === "AbortError")ではなく別形状のエラー("Request cancelled"等)
+  // を投げるため、error.name判定だけでは意図的な切断を検知できない
+  // （実機検証で発覚: on-preモードでの明示的disconnect()がERRORログとして
+  // 記録され、さらに不要な再接続まで試みていた）。
+  private intentionalDisconnect = false;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
   private _status: SseConnectionStatus = 'disconnected';
   private url: string;
@@ -96,8 +103,11 @@ class SSEService {
       this.reconnect();
 
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === "AbortError") {
-        logDebug(this.logTag, `[${this.name}] SSE connection aborted`);
+      const wasIntentional = this.intentionalDisconnect;
+      this.intentionalDisconnect = false;
+
+      if (wasIntentional || (error instanceof Error && error.name === "AbortError")) {
+        logDebug(this.logTag, `[${this.name}] SSE connection aborted (intentional disconnect)`);
         return;
       }
       logError(this.logTag, `[${this.name}] SSE Error occurred`, { error: error instanceof Error ? error.message : String(error) });
@@ -170,6 +180,7 @@ class SSEService {
 
   public disconnect() {
     if (this.abortController) {
+      this.intentionalDisconnect = true;
       this.abortController.abort();
       this.abortController = null;
     }

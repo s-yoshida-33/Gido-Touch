@@ -322,11 +322,36 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     return () => el.removeEventListener('scroll', updateGenreScrollability);
   }, []);
 
+  // 固定時間のイージングスクロール。ジャンルアイコンは5件のみで実スクロール可能距離が
+  // 短く（コンテナ幅650pxに対しコンテンツ幅690px程度）、ネイティブのscrollTo({behavior:'smooth'})
+  // だと距離が短すぎて瞬時に切り替わったように見えてしまう不具合があったため、
+  // 距離によらず一定時間(800ms)かけてアニメーションする（通常のShopListScreen.tsxの
+  // smoothScrollTo/scrollToStart/scrollToEndと同じ方式）。
+  function smoothScrollGenreTo(target: number, duration = 800) {
+    const el = genreScrollRef.current;
+    if (!el) return;
+    const start = el.scrollLeft;
+    const distance = target - start;
+    const startTime = performance.now();
+
+    const easeInOutCubic = (t: number): number =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      el.scrollLeft = start + distance * easeInOutCubic(t);
+      if (t < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }
+
   function scrollGenre(direction: 'prev' | 'next') {
-    if (!genreScrollRef.current) return;
-    const amount = 3 * (120 + 15);
-    const target = genreScrollRef.current.scrollLeft + (direction === 'next' ? amount : -amount);
-    genreScrollRef.current.scrollTo({ left: target, behavior: 'smooth' });
+    const el = genreScrollRef.current;
+    if (!el) return;
+    // ページ送りではなく、先頭(0)・終端(scrollWidth - clientWidth)へ直接スクロールする。
+    const target = direction === 'next' ? el.scrollWidth - el.clientWidth : 0;
+    smoothScrollGenreTo(target);
   }
 
   // マップフロア切り替えアニメーション（Mini準拠）

@@ -5,7 +5,9 @@
 
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { loadGlobalSettings } from '../utils/settings';
+import { SHOP_DATA_UPDATED_EVENT } from './useDataSync';
 
 // ── 型定義 ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +73,7 @@ interface BgShopEntry {
   shopNameEnglish?: string;
   shopNameVietnam?: string;
   floor: string;
+  floorKey?: string;
   floorJapan?: string;
   floorEnglish?: string;
   floorVietnam?: string;
@@ -164,7 +167,10 @@ async function parseBgShops(raw: unknown, devMode = false): Promise<HalongShop[]
         nameEn: s.shopNameEnglish?.trim() ?? '',
         nameVn: s.shopNameVietnam?.trim() ?? '',
         floor: s.floor,
-        floorKey: floorJa || s.floor,
+        // floorKey(CMSの選択式・必須フィールド)を優先。マップ画像・フロアボタンとの
+        // 照合キーとして使うため、自由入力欄由来の値より安定している。
+        // 移行前(floorKey未設定)の既存データ向けにのみ旧ロジックへフォールバックする。
+        floorKey: s.floorKey?.trim() || floorJa || s.floor,
         floorJa,
         floorEn: s.floorEnglish?.trim() ?? '',
         floorVn: s.floorVietnam?.trim() ?? '',
@@ -222,6 +228,22 @@ export function useHalongShops(): HalongShop[] {
     }
 
     load();
+
+    // バックグラウンド同期(useDataSync)が新しい店舗データを取得した際に発火される
+    // イベントを購読し、画面操作を挟まずに再読込する（起動時の1回読みだけだと、
+    // ポーリングで裏側のファイルが更新されても画面に反映されない不具合があった）。
+    let unlisten: (() => void) | undefined;
+    if (!import.meta.env.DEV) {
+      listen(SHOP_DATA_UPDATED_EVENT, () => {
+        load();
+      }).then((fn) => {
+        unlisten = fn;
+      });
+    }
+
+    return () => {
+      unlisten?.();
+    };
   }, []);
 
   return shops;
