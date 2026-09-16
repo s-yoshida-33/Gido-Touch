@@ -73,6 +73,7 @@ interface BgShopEntry {
   shopNameEnglish?: string;
   shopNameVietnam?: string;
   floor: string;
+  floorKey?: string;
   floorJapan?: string;
   floorEnglish?: string;
   floorVietnam?: string;
@@ -166,7 +167,10 @@ async function parseBgShops(raw: unknown, devMode = false): Promise<HalongShop[]
         nameEn: s.shopNameEnglish?.trim() ?? '',
         nameVn: s.shopNameVietnam?.trim() ?? '',
         floor: s.floor,
-        floorKey: floorJa || s.floor,
+        // floorKey(CMSの選択式・必須フィールド)を優先。マップ画像・フロアボタンとの
+        // 照合キーとして使うため、自由入力欄由来の値より安定している。
+        // 移行前(floorKey未設定)の既存データ向けにのみ旧ロジックへフォールバックする。
+        floorKey: s.floorKey?.trim() || floorJa || s.floor,
         floorJa,
         floorEn: s.floorEnglish?.trim() ?? '',
         floorVn: s.floorVietnam?.trim() ?? '',
