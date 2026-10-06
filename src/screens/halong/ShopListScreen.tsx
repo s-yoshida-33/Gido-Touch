@@ -25,6 +25,9 @@ import { ShopDetailPanel } from './ShopDetailPanel';
 
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
 
+// ベトナム語の声調記号（ặ, ở 等）を正しく表示するため Be Vietnam Pro を使用（src/styles/fonts.css で定義）
+const HALONG_FONT_FAMILY = '"Be Vietnam Pro", sans-serif';
+
 const IDLE_TIMEOUT_MS = 30000;
 const FLOOR_ANIM_DURATION = 0.35;
 
@@ -156,12 +159,22 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const ALL_FLOORS = useMemo(() => ['1F', '2F', '3F', '4F'] as const, []);
   const FLOOR_ORDER = ['1F', '2F', '3F', '4F'];
 
+  // Webフォントは使用時に遅延ロードされるため、読込完了後にラベル幅を再計測する
+  const [labelFontReady, setLabelFontReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    document.fonts.load(`bold 20px ${HALONG_FONT_FAMILY}`)
+      .catch(() => undefined)
+      .then(() => { if (!cancelled) setLabelFontReady(true); });
+    return () => { cancelled = true; };
+  }, []);
+
   // Canvas measureText でフロア・区画番号ラベルの最大幅を計算（言語切替時に再計算）
   const { floorLabelWidth, sectionLabelWidth } = useMemo(() => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx || allShops.length === 0) return { floorLabelWidth: 56, sectionLabelWidth: 84 };
-    ctx.font = 'bold 20px "Segoe UI", "Noto Sans", sans-serif';
+    ctx.font = `bold 20px ${HALONG_FONT_FAMILY}`;
     const PADDING = 32;
     const MIN_WIDTH = 48;
     let maxFloor = 0;
@@ -174,7 +187,8 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       floorLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxFloor + PADDING)),
       sectionLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxSection + PADDING)),
     };
-  }, [allShops, selectedLang]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- labelFontReady はフォント読込後の再計測トリガー
+  }, [allShops, selectedLang, labelFontReady]);
 
   const filteredShops = useMemo(() => {
     let result = allShops;
@@ -740,6 +754,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         display: "flex",
         flexDirection: "row",
         position: "relative",
+        fontFamily: HALONG_FONT_FAMILY,
       }}
     >
       {/* アイドルリフレッシュ フェードオーバーレイ */}
@@ -1128,7 +1143,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       opacity: currentFloor === floor ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
                   {currentFloorSetting === floor && assets.currentFloorIcon && (
                     <img src={assets.currentFloorIcon} alt="Current Floor" draggable={false}
-                      style={{ position: "absolute", top: "-45px", left: "0px", zIndex: 5, pointerEvents: "none", width: "320px", height: "auto" }} />
+                      style={{ position: "absolute", top: "-55px", left: "0px", zIndex: 5, pointerEvents: "none", width: "320px", height: "auto" }} />
                   )}
                 </div>
               ))}
@@ -1248,14 +1263,14 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                     {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
                     <div style={{ position: "absolute", left: "10px", top: "310px", width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
                       display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: HALONG_FONT_FAMILY }}>{getFloorDisplay(shop, selectedLang)}</span>
                     </div>
 
                     {/* ナンバーラベル（幅は言語ごとの最大テキスト幅に動的変更） */}
                     {shop.section && (
                       <div style={{ position: "absolute", left: `${10 + floorLabelWidth}px`, top: "310px", width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: getGenreColor(shop.genre),
                         display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
+                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: HALONG_FONT_FAMILY }}>{shop.section}</span>
                       </div>
                     )}
 
@@ -1297,14 +1312,14 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                     {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
                     <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
                       display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: HALONG_FONT_FAMILY }}>{getFloorDisplay(shop, selectedLang)}</span>
                     </div>
 
                     {/* 区画番号ラベル（幅は言語ごとの最大テキスト幅に動的変更） */}
                     {shop.section && (
                       <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: getGenreColor(shop.genre),
                         display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
+                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: HALONG_FONT_FAMILY }}>{shop.section}</span>
                       </div>
                     )}
 
