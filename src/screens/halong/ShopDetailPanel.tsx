@@ -113,7 +113,7 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
 
   const floorText  = getFloorDisplay(shop, lang);
   const openTime   = getOpeningHoursDisplay(shop, lang);
-  const genreText  = getGenreDisplay(shop.genre, lang);
+  const genreText  = getGenreDisplay(shop, lang);
 
   // 場所ボディ末尾(Y905) → 営業時間タイトル(Y930) のギャップ = 25px を統一基準に使用
   const SECTION_GAP   = 25;

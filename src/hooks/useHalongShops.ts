@@ -24,7 +24,11 @@ export interface HalongShop {
   floorEn: string;   // floorEnglish（空なら floor にフォールバック）
   floorVn: string;   // floorVietnam（空なら floor にフォールバック）
   section: string;
-  genre: string;
+  genre: string;           // ジャンルボタンのグループキー（food / fashion / goods、フィルタリング用）
+  genreLabel: string;      // genre（CMSのジャンル名、現地語ベース、表示用）
+  genreLabelJa: string;    // genreJapan（空なら genreLabel にフォールバック）
+  genreLabelEn: string;    // genreEnglish（空なら genreLabel にフォールバック）
+  genreLabelVn: string;    // genreVietnam（空なら genreLabel にフォールバック）
   logoDataUrl: string | null;
   openingHours: string;    // 営業時間（現地語ベース）
   openingHoursJa: string;  // 営業時間（日本語）
@@ -54,14 +58,11 @@ export function getOpeningHoursDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn
   return shop.openingHoursVn || shop.openingHours;
 }
 
-/** ジャンルキーから言語別表示名を返す */
-export function getGenreDisplay(genre: string, lang: 'en' | 'ja' | 'vn'): string {
-  const map: Record<string, Record<string, string>> = {
-    food:    { vn: 'Ẩm thực',                 en: 'Gourmet',               ja: 'グルメ' },
-    fashion: { vn: 'Thời trang & Phụ kiện',   en: 'Fashion & Accessories', ja: 'ファッション＆アクセサリー' },
-    goods:   { vn: 'Hàng hóa & Giải trí',     en: 'Goods & Amusement',     ja: '雑貨＆アミューズメント' },
-  };
-  return map[genre]?.[lang] ?? genre;
+/** 言語に応じたジャンル表示名を返す（CMSのジャンル名をそのまま表示。対応フィールドが空なら genre にフォールバック） */
+export function getGenreDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn'): string {
+  if (lang === 'ja') return shop.genreLabelJa || shop.genreLabel;
+  if (lang === 'en') return shop.genreLabelEn || shop.genreLabel;
+  return shop.genreLabelVn || shop.genreLabel;
 }
 
 /** BG shoplist.json の1エントリ（Ha Long フォーマット） */
@@ -78,7 +79,9 @@ interface BgShopEntry {
   floorVietnam?: string;
   number: string;
   genre: string;
+  genreJapan?: string;
   genreEnglish?: string;
+  genreVietnam?: string;
   openingHours?: string;
   openingHoursJapan?: string;
   openingHoursEnglish?: string;
@@ -174,6 +177,10 @@ async function parseBgShops(raw: unknown, devMode = false): Promise<HalongShop[]
         floorVn: s.floorVietnam?.trim() ?? '',
         section: s.number ?? '',
         genre: mapGenre(s.genre, s.genreEnglish),
+        genreLabel: s.genre?.trim() ?? '',
+        genreLabelJa: s.genreJapan?.trim() ?? '',
+        genreLabelEn: s.genreEnglish?.trim() ?? '',
+        genreLabelVn: s.genreVietnam?.trim() ?? '',
         logoDataUrl,
         openingHours: s.openingHours?.trim() ?? '',
         openingHoursJa: s.openingHoursJapan?.trim() ?? '',
