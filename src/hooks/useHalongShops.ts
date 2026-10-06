@@ -57,10 +57,9 @@ export function getOpeningHoursDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn
 /** ジャンルキーから言語別表示名を返す */
 export function getGenreDisplay(genre: string, lang: 'en' | 'ja' | 'vn'): string {
   const map: Record<string, Record<string, string>> = {
-    gourmet: { vn: 'Ẩm Thực',   en: 'Gourmet',  ja: 'グルメ' },
-    fashion: { vn: 'Thời Trang', en: 'Fashion',  ja: 'ファッション' },
-    goods:   { vn: 'Tạp Hóa',   en: 'Goods',    ja: 'グッズ' },
-    service: { vn: 'Dịch Vụ',   en: 'Service',  ja: 'サービス' },
+    food:    { vn: 'Ẩm thực',                 en: 'Gourmet',               ja: 'グルメ' },
+    fashion: { vn: 'Thời trang & Phụ kiện',   en: 'Fashion & Accessories', ja: 'ファッション＆アクセサリー' },
+    goods:   { vn: 'Hàng hóa & Giải trí',     en: 'Goods & Amusement',     ja: '雑貨＆アミューズメント' },
   };
   return map[genre]?.[lang] ?? genre;
 }
@@ -90,41 +89,40 @@ interface BgShopEntry {
 }
 
 // ── ジャンルマッピング ────────────────────────────────────────────────────
-// Ha Long: 飲食 / ファッション＆スポーツ / 日用品＆テクノロジー /
-//          アクセサリー＆シューズ / エンターテインメント＆サービス
+// CMSの11ジャンルを3つのジャンルボタン（food / fashion / goods）にまとめる
+//   グルメ: 食品 / レストラン / カフェ / フードコート
+//   ファッション＆アクセサリー: ファッション / アクセサリー
+//   雑貨＆アミューズメント: 雑貨 / ホビー / サービス / 大型専門店 / アミューズメント / 映画館
 
 const GENRE_MAP: Record<string, string> = {
-  // Ha Long ベトナム語（genre フィールド）
-  'Ẩm Thực':   'gourmet',
-  'Tạp Hóa':   'goods',
-  'Thời Trang': 'fashion',
-  'Dịch Vụ':   'service',
-  // Ha Long 英語・単語形式（genreEnglish フィールド）
-  'Gourmet': 'gourmet',
-  'Goods':   'goods',
-  'Fashion': 'fashion',
-  'Service': 'service',
-  // Ha Long 英語・複合形式（旧フォーマット互換）
-  'Foods & Beverage':         'gourmet',
-  'Fashion & Sports':         'fashion',
-  'Commodities & Technology': 'goods',
-  'Accessories & Shoes':      'goods',
-  'Entertainment & Services': 'service',
-  // 日本語（旧フォーマット互換）
-  '飲食':                       'gourmet',
-  'ファッション＆スポーツ':       'fashion',
-  '日用品＆テクノロジー':         'goods',
-  'アクセサリー＆シューズ':       'goods',
-  'エンターテインメント＆サービス': 'service',
-  'グルメ':     'gourmet',
-  'ファッション': 'fashion',
-  'グッズ':     'goods',
-  'サービス':   'service',
+  // 英語（genreEnglish フィールド）
+  'Food':                'food',
+  'Restaurants / Cafés': 'food',
+  'Food Court':          'food',
+  'Fashion':             'fashion',
+  'Accessories':         'fashion',
+  'Goods':               'goods',
+  'Hobby':               'goods',
+  'Services':            'goods',
+  'Large Store':         'goods',
+  'Entertainment':       'goods',
+  'Cinema':              'goods',
+  // ベトナム語（genre フィールド、genreEnglish 未設定時のフォールバック）
+  'Thực phẩm':           'food',
+  'Nhà hàng / Cà phê':   'food',
+  'Khu ẩm thực':         'food',
+  'Thời trang':          'fashion',
+  'Phụ kiện':            'fashion',
+  'Hàng hóa':            'goods',
+  'Sở thích':            'goods',
+  'Dịch vụ':             'goods',
+  'Cửa hàng quy mô lớn': 'goods',
+  'Vui chơi giải trí':   'goods',
+  'Rạp chiếu phim':      'goods',
   // 英語キー直接渡し
-  'gourmet': 'gourmet',
+  'food':    'food',
   'fashion': 'fashion',
   'goods':   'goods',
-  'service': 'service',
 };
 
 function mapGenre(genre: string, genreEnglish?: string): string {

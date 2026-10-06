@@ -31,14 +31,13 @@ const HALONG_FONT_FAMILY = '"Be Vietnam Pro", sans-serif';
 const IDLE_TIMEOUT_MS = 30000;
 const FLOOR_ANIM_DURATION = 0.35;
 
-const GENRES = ['all', 'fashion', 'goods', 'gourmet', 'service'] as const;
+const GENRES = ['all', 'food', 'fashion', 'goods'] as const;
 type Genre = typeof GENRES[number];
 
 const GENRE_COLOR: Record<string, string> = {
-  fashion: '#00ADE4',
-  goods:   '#475EB4',
-  gourmet: '#F47216',
-  service: '#EF2F5A',
+  food:    '#FAA819',
+  fashion: '#6CB2E2',
+  goods:   '#BCD139',
 };
 function getGenreColor(genre: string): string {
   return GENRE_COLOR[genre] ?? '#888888';
@@ -1410,7 +1409,8 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               scrollbarWidth: "none",
             }}
           >
-            <div style={{ display: "flex", gap: "15px", padding: "0 15px", flexShrink: 0 }}>
+            {/* 4ボタンはコンテナ幅に収まるため均等配置（はみ出さない限りprev/nextは表示されない） */}
+            <div style={{ display: "flex", justifyContent: "space-evenly", width: "100%", flexShrink: 0 }}>
               {GENRES.map(genre => (
                 <div
                   key={genre}
