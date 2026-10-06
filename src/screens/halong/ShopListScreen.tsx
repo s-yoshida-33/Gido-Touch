@@ -20,13 +20,22 @@ import type { PictoSettings } from '../../types/picto';
 import type { HalongBannerSettings } from '../../types/bannerSettings';
 import { mergeBannerEntries } from '../../types/bannerSettings';
 import { useHalongBanners } from '../../hooks/useHalongBanners';
-import type { HalongShop } from '../../hooks/useHalongShops';
+import type { HalongShop, HalongLang } from '../../hooks/useHalongShops';
 import { ShopDetailPanel } from './ShopDetailPanel';
 
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
 
 // ベトナム語の声調記号（ặ, ở 等）を正しく表示するため Be Vietnam Pro を使用（src/styles/fonts.css で定義）
 const HALONG_FONT_FAMILY = '"Be Vietnam Pro", sans-serif';
+
+// 言語選択ポップアップの並び順（上から）
+const LANGS = ['vn', 'en', 'ja', 'cn', 'tw', 'kr'] as const satisfies readonly HalongLang[];
+
+// HTMLのlang属性。Be Vietnam Pro に無い漢字・ハングルを、言語に合ったシステムフォント
+// （簡体/繁体/日本語/韓国語の字形）でフォールバック表示させるために指定する
+const HTML_LANG: Record<HalongLang, string> = {
+  vn: 'vi', en: 'en', ja: 'ja', cn: 'zh-Hans', tw: 'zh-Hant', kr: 'ko',
+};
 
 const IDLE_TIMEOUT_MS = 30000;
 const FLOOR_ANIM_DURATION = 0.35;
@@ -82,7 +91,13 @@ interface HalongShopListScreenProps {
 }
 
 export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp, shopListLayout = 'list' }: HalongShopListScreenProps = {}) {
-  const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('vn');
+  const [selectedLang, setSelectedLang] = useState<HalongLang>('vn');
+  // 現在地アイコンの言語別設定（speechBubbleJa/En/Vn）は vn/en/ja のみのため、
+  // cn/tw/kr 選択中は直前の vn/en/ja の設定を使う（アセットも直前の言語にフォールバックするため）
+  const [lastBaseLang, setLastBaseLang] = useState<'vn' | 'en' | 'ja'>('vn');
+  if ((selectedLang === 'vn' || selectedLang === 'en' || selectedLang === 'ja') && selectedLang !== lastBaseLang) {
+    setLastBaseLang(selectedLang);
+  }
   const [langPopupOpen, setLangPopupOpen] = useState(false);
   const assets = useHalongAssets(selectedLang);
   const maps = useHalongMaps();
@@ -755,6 +770,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         position: "relative",
         fontFamily: HALONG_FONT_FAMILY,
       }}
+      lang={HTML_LANG[selectedLang]}
     >
       {/* アイドルリフレッシュ フェードオーバーレイ */}
       <div
@@ -856,7 +872,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                               imageMetrics={mapImageMetrics}
                               speechBubbleSrc={assets.speechBubbleIconSrc}
                               locationSrc={assets.locationIconSrc}
-                              language={selectedLang}
+                              language={lastBaseLang}
                             />
                           </div>
                         )}
@@ -1545,7 +1561,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
             >
               {/* 背景 */}
               <img src={assets.langButtons.select.bg} alt="" draggable={false}
-                style={{ width: "600px", height: "321px", display: "block", filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }} />
+                style={{ width: "600px", height: "579px", display: "block", filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }} />
               {/* ボタン群（bg上に絶対配置） */}
               <div
                 style={{
@@ -1561,7 +1577,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   boxSizing: "border-box",
                 }}
               >
-                {((['vn', 'en', 'ja'] as const)).map(lang => (
+                {LANGS.map(lang => (
                   <div
                     key={lang}
                     style={{ position: "relative", cursor: "pointer", touchAction: "none", width: "560px", flexShrink: 0, filter: selectedLang === lang ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
@@ -1569,7 +1585,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   >
                     <img src={assets.langButtons.select[lang]} alt={lang} draggable={false}
                       style={{ width: "560px", height: "66px", display: "block" }} />
-                    <img src={assets.langButtons.select[`${lang}Highlight` as 'enHighlight' | 'jaHighlight' | 'vnHighlight']} alt="" draggable={false}
+                    <img src={assets.langButtons.select[`${lang}Highlight`]} alt="" draggable={false}
                       style={{
                         position: "absolute", top: 0, left: 0, width: "560px", height: "66px", display: "block",
                         opacity: selectedLang === lang ? 1 : 0,

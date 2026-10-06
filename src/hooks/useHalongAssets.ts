@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { loadGlobalSettings } from '../utils/settings';
+import type { HalongLang } from './useHalongShops';
 
 // ── バンドルアセット（フォールバック用） ──────────────────────────
 
@@ -41,6 +42,36 @@ import bundledGenreVnGoods            from '../assets/malls/halong/buttons/genre
 import bundledGenreVnGoodsHighlight   from '../assets/malls/halong/buttons/genres/vn/goods-hilight.svg';
 import bundledGenreVnFood          from '../assets/malls/halong/buttons/genres/vn/food.svg';
 import bundledGenreVnFoodHighlight from '../assets/malls/halong/buttons/genres/vn/food-hilight.svg';
+
+// genres (cn)
+import bundledGenreCnAll          from '../assets/malls/halong/buttons/genres/cn/all.svg';
+import bundledGenreCnAllHighlight from '../assets/malls/halong/buttons/genres/cn/all-hilight.svg';
+import bundledGenreCnFashion          from '../assets/malls/halong/buttons/genres/cn/fashion.svg';
+import bundledGenreCnFashionHighlight from '../assets/malls/halong/buttons/genres/cn/fashion-hilight.svg';
+import bundledGenreCnGoods            from '../assets/malls/halong/buttons/genres/cn/goods.svg';
+import bundledGenreCnGoodsHighlight   from '../assets/malls/halong/buttons/genres/cn/goods-hilight.svg';
+import bundledGenreCnFood          from '../assets/malls/halong/buttons/genres/cn/food.svg';
+import bundledGenreCnFoodHighlight from '../assets/malls/halong/buttons/genres/cn/food-hilight.svg';
+
+// genres (tw)
+import bundledGenreTwAll          from '../assets/malls/halong/buttons/genres/tw/all.svg';
+import bundledGenreTwAllHighlight from '../assets/malls/halong/buttons/genres/tw/all-hilight.svg';
+import bundledGenreTwFashion          from '../assets/malls/halong/buttons/genres/tw/fashion.svg';
+import bundledGenreTwFashionHighlight from '../assets/malls/halong/buttons/genres/tw/fashion-hilight.svg';
+import bundledGenreTwGoods            from '../assets/malls/halong/buttons/genres/tw/goods.svg';
+import bundledGenreTwGoodsHighlight   from '../assets/malls/halong/buttons/genres/tw/goods-hilight.svg';
+import bundledGenreTwFood          from '../assets/malls/halong/buttons/genres/tw/food.svg';
+import bundledGenreTwFoodHighlight from '../assets/malls/halong/buttons/genres/tw/food-hilight.svg';
+
+// genres (kr)
+import bundledGenreKrAll          from '../assets/malls/halong/buttons/genres/kr/all.svg';
+import bundledGenreKrAllHighlight from '../assets/malls/halong/buttons/genres/kr/all-hilight.svg';
+import bundledGenreKrFashion          from '../assets/malls/halong/buttons/genres/kr/fashion.svg';
+import bundledGenreKrFashionHighlight from '../assets/malls/halong/buttons/genres/kr/fashion-hilight.svg';
+import bundledGenreKrGoods            from '../assets/malls/halong/buttons/genres/kr/goods.svg';
+import bundledGenreKrGoodsHighlight   from '../assets/malls/halong/buttons/genres/kr/goods-hilight.svg';
+import bundledGenreKrFood          from '../assets/malls/halong/buttons/genres/kr/food.svg';
+import bundledGenreKrFoodHighlight from '../assets/malls/halong/buttons/genres/kr/food-hilight.svg';
 
 // genres (lang-independent)
 import bundledGenreNext from '../assets/malls/halong/buttons/genres/next.svg';
@@ -153,6 +184,9 @@ import bundledCloseHighlight from '../assets/malls/halong/buttons/close-highligh
 import bundledLangEn from '../assets/malls/halong/buttons/languages/en.svg';
 import bundledLangJa from '../assets/malls/halong/buttons/languages/ja.svg';
 import bundledLangVn from '../assets/malls/halong/buttons/languages/vn.svg';
+import bundledLangCn from '../assets/malls/halong/buttons/languages/cn.svg';
+import bundledLangTw from '../assets/malls/halong/buttons/languages/tw.svg';
+import bundledLangKr from '../assets/malls/halong/buttons/languages/kr.svg';
 
 import bundledLangSelectBg          from '../assets/malls/halong/buttons/languages/select/bg.svg';
 import bundledLangSelectEn          from '../assets/malls/halong/buttons/languages/select/en.svg';
@@ -161,6 +195,12 @@ import bundledLangSelectJa          from '../assets/malls/halong/buttons/languag
 import bundledLangSelectJaHighlight from '../assets/malls/halong/buttons/languages/select/ja-highlight.svg';
 import bundledLangSelectVn          from '../assets/malls/halong/buttons/languages/select/vn.svg';
 import bundledLangSelectVnHighlight from '../assets/malls/halong/buttons/languages/select/vn-highlight.svg';
+import bundledLangSelectCn          from '../assets/malls/halong/buttons/languages/select/cn.svg';
+import bundledLangSelectCnHighlight from '../assets/malls/halong/buttons/languages/select/cn-highlight.svg';
+import bundledLangSelectTw          from '../assets/malls/halong/buttons/languages/select/tw.svg';
+import bundledLangSelectTwHighlight from '../assets/malls/halong/buttons/languages/select/tw-highlight.svg';
+import bundledLangSelectKr          from '../assets/malls/halong/buttons/languages/select/kr.svg';
+import bundledLangSelectKrHighlight from '../assets/malls/halong/buttons/languages/select/kr-highlight.svg';
 
 // ── 型定義 ───────────────────────────────────────────────────────
 
@@ -190,11 +230,17 @@ export interface HalongAssets {
     en: string;
     ja: string;
     vn: string;
+    cn: string;
+    tw: string;
+    kr: string;
     select: {
       bg: string;
       en: string; enHighlight: string;
       ja: string; jaHighlight: string;
       vn: string; vnHighlight: string;
+      cn: string; cnHighlight: string;
+      tw: string; twHighlight: string;
+      kr: string; krHighlight: string;
     };
   };
   pictos: {
@@ -221,6 +267,15 @@ export interface HalongAssets {
 }
 
 // ── 言語別バンドルアセットテーブル ───────────────────────────────
+// vn/en/ja は全アセットをバンドル。cn/tw/kr はジャンルボタンのみバンドルし、
+// それ以外は（ローカルに無ければ）直前に表示していた言語のアセットを使う。
+
+type BaseLang = 'en' | 'ja' | 'vn';
+type ExtraLang = Exclude<HalongLang, BaseLang>;
+
+function isBaseLang(lang: HalongLang): lang is BaseLang {
+  return lang === 'en' || lang === 'ja' || lang === 'vn';
+}
 
 const BUNDLED_OPEN_TIMES: Record<'en' | 'ja' | 'vn', string> = {
   en: bundledOpenTimeEn,
@@ -234,7 +289,7 @@ const BUNDLED_HINTS: Record<'en' | 'ja' | 'vn', string> = {
   vn: bundledHintVn,
 };
 
-const BUNDLED_GENRES: Record<'en' | 'ja' | 'vn', Omit<HalongAssets['genres'], 'next' | 'prev'>> = {
+const BUNDLED_GENRES: Record<HalongLang, Omit<HalongAssets['genres'], 'next' | 'prev'>> = {
   en: {
     all:             bundledGenreEnAll,
     allHighlight:    bundledGenreEnAllHighlight,
@@ -264,6 +319,36 @@ const BUNDLED_GENRES: Record<'en' | 'ja' | 'vn', Omit<HalongAssets['genres'], 'n
     goodsHighlight:  bundledGenreVnGoodsHighlight,
     food:         bundledGenreVnFood,
     foodHighlight: bundledGenreVnFoodHighlight,
+  },
+  cn: {
+    all:             bundledGenreCnAll,
+    allHighlight:    bundledGenreCnAllHighlight,
+    fashion:         bundledGenreCnFashion,
+    fashionHighlight: bundledGenreCnFashionHighlight,
+    goods:           bundledGenreCnGoods,
+    goodsHighlight:  bundledGenreCnGoodsHighlight,
+    food:         bundledGenreCnFood,
+    foodHighlight: bundledGenreCnFoodHighlight,
+  },
+  tw: {
+    all:             bundledGenreTwAll,
+    allHighlight:    bundledGenreTwAllHighlight,
+    fashion:         bundledGenreTwFashion,
+    fashionHighlight: bundledGenreTwFashionHighlight,
+    goods:           bundledGenreTwGoods,
+    goodsHighlight:  bundledGenreTwGoodsHighlight,
+    food:         bundledGenreTwFood,
+    foodHighlight: bundledGenreTwFoodHighlight,
+  },
+  kr: {
+    all:             bundledGenreKrAll,
+    allHighlight:    bundledGenreKrAllHighlight,
+    fashion:         bundledGenreKrFashion,
+    fashionHighlight: bundledGenreKrFashionHighlight,
+    goods:           bundledGenreKrGoods,
+    goodsHighlight:  bundledGenreKrGoodsHighlight,
+    food:         bundledGenreKrFood,
+    foodHighlight: bundledGenreKrFoodHighlight,
   },
 };
 
@@ -325,6 +410,9 @@ const BUNDLED_LANG_BUTTONS: HalongAssets['langButtons'] = {
   en: bundledLangEn,
   ja: bundledLangJa,
   vn: bundledLangVn,
+  cn: bundledLangCn,
+  tw: bundledLangTw,
+  kr: bundledLangKr,
   select: {
     bg:          bundledLangSelectBg,
     en:          bundledLangSelectEn,
@@ -333,6 +421,12 @@ const BUNDLED_LANG_BUTTONS: HalongAssets['langButtons'] = {
     jaHighlight: bundledLangSelectJaHighlight,
     vn:          bundledLangSelectVn,
     vnHighlight: bundledLangSelectVnHighlight,
+    cn:          bundledLangSelectCn,
+    cnHighlight: bundledLangSelectCnHighlight,
+    tw:          bundledLangSelectTw,
+    twHighlight: bundledLangSelectTwHighlight,
+    kr:          bundledLangSelectKr,
+    krHighlight: bundledLangSelectKrHighlight,
   },
 };
 
@@ -342,7 +436,7 @@ function resolve(local: Record<string, string>, key: string, fallback: string): 
   return local[key] || fallback;
 }
 
-function getBundled(lang: 'en' | 'ja' | 'vn'): HalongAssets {
+function getBundled(lang: BaseLang): HalongAssets {
   return {
     openTime: BUNDLED_OPEN_TIMES[lang],
     genres: { ...BUNDLED_GENRES[lang], next: bundledGenreNext, prev: bundledGenrePrev },
@@ -369,9 +463,35 @@ function getBundled(lang: 'en' | 'ja' | 'vn'): HalongAssets {
 
 // ── ローカルアセットビルダー ──────────────────────────────────────
 
-function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn'): HalongAssets {
+/** 文字列を再帰的に空文字にする（cn/tw/kr の「アセット未配置」状態の土台） */
+function blank<T>(obj: T): T {
+  if (typeof obj === 'string') return '' as T;
+  return Object.fromEntries(Object.entries(obj as Record<string, unknown>).map(([k, v]) => [k, blank(v)])) as T;
+}
+
+/** cn/tw/kr のバンドル版: ジャンルボタンと言語非依存アセットのみ持ち、他は空文字（=未配置） */
+function getBundledExtra(lang: ExtraLang): HalongAssets {
+  const common = getBundled('en');
+  return {
+    ...blank(common),
+    genres: { ...BUNDLED_GENRES[lang], next: common.genres.next, prev: common.genres.prev },
+    langButtons: common.langButtons,
+    pictoMapIcons: common.pictoMapIcons,
+    locationIconSrc: common.locationIconSrc,
+  };
+}
+
+/** top の空文字（=未配置）の項目だけ base の値で埋める */
+function fillMissing<T>(top: T, base: T): T {
+  if (typeof top === 'string') return ((top as string) || base) as T;
+  return Object.fromEntries(
+    Object.entries(top as Record<string, unknown>).map(([k, v]) => [k, fillMissing(v, (base as Record<string, unknown>)[k])]),
+  ) as T;
+}
+
+function buildFromLocal(local: Record<string, string>, lang: HalongLang): HalongAssets {
   const r = (key: string, fallback: string) => resolve(local, key, fallback);
-  const fb = getBundled(lang);
+  const fb = isBaseLang(lang) ? getBundled(lang) : getBundledExtra(lang);
   return {
     openTime: r(`open-times/${lang}.svg`, fb.openTime),
     genres: {
@@ -403,6 +523,9 @@ function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn')
       en: r('buttons/languages/en.svg', fb.langButtons.en),
       ja: r('buttons/languages/ja.svg', fb.langButtons.ja),
       vn: r('buttons/languages/vn.svg', fb.langButtons.vn),
+      cn: r('buttons/languages/cn.svg', fb.langButtons.cn),
+      tw: r('buttons/languages/tw.svg', fb.langButtons.tw),
+      kr: r('buttons/languages/kr.svg', fb.langButtons.kr),
       select: {
         bg:          r('buttons/languages/select/bg.svg',           fb.langButtons.select.bg),
         en:          r('buttons/languages/select/en.svg',           fb.langButtons.select.en),
@@ -411,6 +534,12 @@ function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn')
         jaHighlight: r('buttons/languages/select/ja-highlight.svg', fb.langButtons.select.jaHighlight),
         vn:          r('buttons/languages/select/vn.svg',           fb.langButtons.select.vn),
         vnHighlight: r('buttons/languages/select/vn-highlight.svg', fb.langButtons.select.vnHighlight),
+        cn:          r('buttons/languages/select/cn.svg',           fb.langButtons.select.cn),
+        cnHighlight: r('buttons/languages/select/cn-highlight.svg', fb.langButtons.select.cnHighlight),
+        tw:          r('buttons/languages/select/tw.svg',           fb.langButtons.select.tw),
+        twHighlight: r('buttons/languages/select/tw-highlight.svg', fb.langButtons.select.twHighlight),
+        kr:          r('buttons/languages/select/kr.svg',           fb.langButtons.select.kr),
+        krHighlight: r('buttons/languages/select/kr-highlight.svg', fb.langButtons.select.krHighlight),
       },
     },
     pictos: {
@@ -433,13 +562,29 @@ function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn')
     locationIconSrc:     r('icons/locations/location.svg',     fb.locationIconSrc),
     close:               r(`buttons/closes/${lang}.svg`,           fb.close),
     closeHighlight:      r(`buttons/closes/${lang}-highlight.svg`, fb.closeHighlight),
-    currentFloorIcon:    r(`icons/floors/current-${lang}.svg`, ''),
+    currentFloorIcon:    r(`icons/floors/current-${lang}.svg`, fb.currentFloorIcon),
   };
 }
 
 // ── Hook ─────────────────────────────────────────────────────────
 
-export function useHalongAssets(lang: 'en' | 'ja' | 'vn' = 'en'): HalongAssets {
+/**
+ * 言語の選択履歴（新しい順）から表示アセットを導出する。
+ * cn/tw/kr で未配置のアセットは、履歴を遡って直前に表示していた言語のもので埋める。
+ * vn/en/ja は全アセットがバンドルされているため、履歴上の最初の vn/en/ja で打ち止め（従来どおりの解決）。
+ */
+function buildAssets(local: Record<string, string> | null, history: HalongLang[]): HalongAssets {
+  const build = (l: HalongLang) => local ? buildFromLocal(local, l) : (isBaseLang(l) ? getBundled(l) : getBundledExtra(l));
+  const baseIndex = history.findIndex(isBaseLang);
+  let result = build(baseIndex >= 0 ? history[baseIndex] : 'en');
+  const extras = baseIndex >= 0 ? history.slice(0, baseIndex) : history;
+  for (let i = extras.length - 1; i >= 0; i--) {
+    result = fillMissing(build(extras[i]), result);
+  }
+  return result;
+}
+
+export function useHalongAssets(lang: HalongLang = 'en'): HalongAssets {
   // ローカルアセットURLマップをマウント時に1回だけ取得してキャッシュ
   const [localMap, setLocalMap] = useState<Record<string, string> | null>(null);
 
@@ -460,9 +605,15 @@ export function useHalongAssets(lang: 'en' | 'ja' | 'vn' = 'en'): HalongAssets {
     load();
   }, []); // マウント時のみ実行
 
-  // localMap と lang から同期的にアセットを導出（言語切り替えでフラッシュなし）
+  // 言語の選択履歴（新しい順・重複なし）。言語切替時にレンダー中に更新する
+  const [langHistory, setLangHistory] = useState<HalongLang[]>([lang]);
+  if (langHistory[0] !== lang) {
+    setLangHistory([lang, ...langHistory.filter(l => l !== lang)]);
+  }
+
+  // localMap と言語履歴から同期的にアセットを導出（言語切り替えでフラッシュなし）
   return useMemo(
-    () => localMap ? buildFromLocal(localMap, lang) : getBundled(lang),
-    [localMap, lang],
+    () => buildAssets(localMap, langHistory[0] === lang ? langHistory : [lang, ...langHistory.filter(l => l !== lang)]),
+    [localMap, lang, langHistory],
   );
 }
