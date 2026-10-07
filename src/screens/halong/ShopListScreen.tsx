@@ -22,6 +22,7 @@ import { mergeBannerEntries } from '../../types/bannerSettings';
 import { useHalongBanners } from '../../hooks/useHalongBanners';
 import type { HalongShop, HalongLang } from '../../hooks/useHalongShops';
 import { ShopDetailPanel } from './ShopDetailPanel';
+import { ScalableText } from '../../components/ScalableText';
 import { HALONG_PICTO_ROWS, pictoTagFromKey, pictoKeyFromTag, type HalongPictoKey } from '../../config/halongPictos';
 
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
@@ -1219,15 +1220,15 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       </div>
                     )}
 
-                    {/* ショップ名 */}
-                    <div style={{
-                      position: "absolute", left: "10px", top: "356px",
-                      fontSize: "24px", fontWeight: "bold", color: "#000000",
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                      maxWidth: "270px",
-                    }}>
-                      {getDisplayName(shop, selectedLang)}
-                    </div>
+                    {/* ショップ名（1行。はみ出す場合は横方向に縮小） */}
+                    <ScalableText
+                      text={getDisplayName(shop, selectedLang)}
+                      style={{
+                        position: "absolute", left: "10px", top: "356px",
+                        fontSize: "24px", fontWeight: "bold", color: "#000000",
+                        width: "270px",
+                      }}
+                    />
                   </div>
                 ) : (
                   /* リストアイテム */
@@ -1268,8 +1269,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       </div>
                     )}
 
-                    {/* ショップ名 */}
-                    <div
+                    {/* ショップ名（1行。はみ出す場合は横方向に縮小） */}
+                    <ScalableText
+                      text={getDisplayName(shop, selectedLang)}
                       style={{
                         position: "absolute",
                         left: "140px",
@@ -1278,14 +1280,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                         fontSize: "24px",
                         fontWeight: "bold",
                         color: "#000000",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        maxWidth: "440px",
+                        width: "440px",
                       }}
-                    >
-                      {getDisplayName(shop, selectedLang)}
-                    </div>
+                    />
                   </div>
                 ))}
             </motion.div>
