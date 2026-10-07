@@ -40,3 +40,18 @@
   font-weight: 700;
   font-style: normal;
 }
+
+/* halong: 中国語（cn=簡体 / tw=繁体）の漢字用。太さ100〜900の可変フォント（OFL: src/assets/fonts/OFL-NotoSansCJK.txt） */
+@font-face {
+  font-family: 'Noto Sans SC';
+  src: url('../assets/fonts/NotoSansSC-VF.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Noto Sans TC';
+  src: url('../assets/fonts/NotoSansTC-VF.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+}

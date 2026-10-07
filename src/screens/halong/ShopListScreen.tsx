@@ -30,16 +30,21 @@ const HALONG_REFERENCE_MAP_WIDTH = 1920;
 // ベトナム語の声調記号（ặ, ở 等）を正しく表示するため Be Vietnam Pro を使用（src/styles/fonts.css で定義）
 const HALONG_FONT_FAMILY = '"Be Vietnam Pro", sans-serif';
 
-// 中国語・韓国語表示時は、Be Vietnam Pro に無い漢字・ハングルだけを Windows 標準フォントで表示する
+// 中国語・韓国語表示時は、Be Vietnam Pro に無い漢字・ハングルだけを専用フォントで表示する
 // （英数字は全言語共通で Be Vietnam Pro）
+// 中国語は簡体・繁体で太さ・字面をそろえるため、同じデザインの Noto Sans SC / TC を同梱して使用
+// （src/styles/fonts.css で定義。読込失敗時は Windows 標準の中国語フォントにフォールバック）
 const HALONG_FONT_FAMILY_BY_LANG: Record<HalongLang, string> = {
   vn: HALONG_FONT_FAMILY,
   en: HALONG_FONT_FAMILY,
   ja: HALONG_FONT_FAMILY,
-  cn: '"Be Vietnam Pro", "Microsoft YaHei", sans-serif',     // 簡体: 微软雅黑
-  tw: '"Be Vietnam Pro", "Microsoft JhengHei", sans-serif',  // 繁体: 微軟正黑體
-  kr: '"Be Vietnam Pro", "Malgun Gothic", sans-serif',       // 韓国語: 맑은 고딕
+  cn: '"Be Vietnam Pro", "Noto Sans SC", "Microsoft YaHei", sans-serif',     // 簡体
+  tw: '"Be Vietnam Pro", "Noto Sans TC", "Microsoft JhengHei", sans-serif',  // 繁体
+  kr: '"Be Vietnam Pro", "Malgun Gothic", sans-serif',                       // 韓国語: 맑은 고딕
 };
+
+// フォント読込の判定用サンプル（漢字・ハングルを含めて、言語ごとのフォールバック先も読み込ませる）
+const FONT_LOAD_SAMPLE = '1F 1楼 1樓 1층';
 
 // 言語選択ポップアップの並び順（上から）
 const LANGS = ['vn', 'en', 'ja', 'cn', 'tw', 'kr'] as const satisfies readonly HalongLang[];
@@ -169,15 +174,15 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const ALL_FLOORS = useMemo(() => ['1F', '2F', '3F', '4F'] as const, []);
   const FLOOR_ORDER = ['1F', '2F', '3F', '4F'];
 
-  // Webフォントは使用時に遅延ロードされるため、読込完了後にラベル幅を再計測する
-  const [labelFontReady, setLabelFontReady] = useState(false);
+  // Webフォントは使用時に遅延ロードされるため、言語（フォント指定）ごとに読込完了後にラベル幅を再計測する
+  const [labelFontLoadCount, setLabelFontLoadCount] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    document.fonts.load(`bold 20px ${HALONG_FONT_FAMILY}`)
+    document.fonts.load(`bold 20px ${fontFamily}`, FONT_LOAD_SAMPLE)
       .catch(() => undefined)
-      .then(() => { if (!cancelled) setLabelFontReady(true); });
+      .then(() => { if (!cancelled) setLabelFontLoadCount(c => c + 1); });
     return () => { cancelled = true; };
-  }, []);
+  }, [fontFamily]);
 
   // Canvas measureText でフロア・区画番号ラベルの最大幅を計算（言語切替時に再計算）
   const { floorLabelWidth, sectionLabelWidth } = useMemo(() => {
@@ -197,8 +202,8 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       floorLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxFloor + PADDING)),
       sectionLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxSection + PADDING)),
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- labelFontReady はフォント読込後の再計測トリガー
-  }, [allShops, selectedLang, fontFamily, labelFontReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- labelFontLoadCount はフォント読込後の再計測トリガー
+  }, [allShops, selectedLang, fontFamily, labelFontLoadCount]);
 
   const filteredShops = useMemo(() => {
     let result = allShops;
