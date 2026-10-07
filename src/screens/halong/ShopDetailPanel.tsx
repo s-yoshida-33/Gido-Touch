@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { HalongShop, HalongLang } from '../../hooks/useHalongShops';
 import { getDisplayName, getFloorDisplay, getOpeningHoursDisplay, getGenreDisplay } from '../../hooks/useHalongShops';
 import type { useHalongAssets } from '../../hooks/useHalongAssets';
+import { ScalableText } from '../../components/ScalableText';
 
 interface ShopDetailPanelProps {
   shop: HalongShop;
@@ -206,16 +207,15 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
         )}
       </div>
 
-      {/* ── 店舗名 ── */}
-      <div style={{
-        position: 'absolute', left: '180px', top: '668px',
-        fontSize: '36px', fontWeight: 'bold', color: '#000000',
-        width: '440px', lineHeight: 1.2,
-        overflow: 'hidden', display: '-webkit-box',
-        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-      }}>
-        {getDisplayName(shop, lang)}
-      </div>
+      {/* ── 店舗名（1行。はみ出す場合は横方向に縮小） ── */}
+      <ScalableText
+        text={getDisplayName(shop, lang)}
+        style={{
+          position: 'absolute', left: '180px', top: '668px',
+          fontSize: '36px', fontWeight: 'bold', color: '#000000',
+          width: '440px', lineHeight: 1.2,
+        }}
+      />
 
       {/* ── ジャンル ── */}
       <div style={{
