@@ -70,16 +70,11 @@ function getGenreColor(genre: string): string {
   return GENRE_COLOR[genre] ?? '#888888';
 }
 
+// ショップリストの切替アニメーション（フロア切替・ジャンル切替共通のクロスフェード）
 const listVariants: Variants = {
-  enter: (direction: number) => {
-    if (direction === 0) return { opacity: 0 };
-    return { x: direction > 0 ? 300 : -300, opacity: 0 };
-  },
-  center: { zIndex: 1, x: 0, opacity: 1 },
-  exit: (direction: number) => {
-    if (direction === 0) return { opacity: 0 };
-    return { zIndex: 0, x: direction > 0 ? -300 : 300, opacity: 0 };
-  },
+  enter: { opacity: 0 },
+  center: { zIndex: 1, opacity: 1 },
+  exit: { opacity: 0 },
 };
 
 interface HalongShopListScreenProps {
@@ -109,7 +104,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const [showHint, setShowHint] = useState(true);
   const [showFloorLabel, setShowFloorLabel] = useState(true);
   const [selectedGenre, setSelectedGenre] = useState<Genre>('all');
-  const [genreDirection, setGenreDirection] = useState(0);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -592,16 +586,12 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
 
   function handleFloorSelect(floor: string) {
     if (selectedShopDetail !== null) clearShopDetailForNavigation();
-    setGenreDirection(0);
     setCurrentFloor(floor);
   }
 
   function handleGenreSelect(genre: Genre) {
     if (genre === selectedGenre) return;
     if (selectedShopDetail !== null) clearShopDetailForNavigation();
-    const currentIndex = GENRES.indexOf(selectedGenre);
-    const newIndex = GENRES.indexOf(genre);
-    setGenreDirection(newIndex > currentIndex ? 1 : -1);
     setSelectedGenre(genre);
   }
 
@@ -1165,7 +1155,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
           }}
         >
           {/* ショップリスト */}
-          <AnimatePresence initial={false} custom={genreDirection}>
+          <AnimatePresence initial={false}>
             <motion.div
                 key={`list-${selectedGenre}-${currentFloor}`}
                 ref={(node) => {
@@ -1173,16 +1163,12 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   // アンマウント時はnullにしない: AnimatePresenceの新要素が先にrefを
                   // 取得済みのため、ここでnullにすると現在表示中のリストの参照を失う
                 }}
-                custom={genreDirection}
                 variants={listVariants}
                 initial="enter"
                 animate="center"
                 exit="exit"
                 className="halong-shop-list-scroll"
-                transition={{
-                  x: { type: "tween", duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5, ease: "easeInOut" },
-                  opacity: { duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5 },
-                }}
+                transition={{ opacity: { duration: FLOOR_ANIM_DURATION } }}
                 style={{
                   position: "absolute",
                   inset: 0,
