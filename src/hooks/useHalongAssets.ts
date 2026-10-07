@@ -19,10 +19,8 @@ import bundledGenreEnFashion          from '../assets/malls/halong/buttons/genre
 import bundledGenreEnFashionHighlight from '../assets/malls/halong/buttons/genres/en/fashion-hilight.svg';
 import bundledGenreEnGoods            from '../assets/malls/halong/buttons/genres/en/goods.svg';
 import bundledGenreEnGoodsHighlight   from '../assets/malls/halong/buttons/genres/en/goods-hilight.svg';
-import bundledGenreEnGourmet          from '../assets/malls/halong/buttons/genres/en/gourmet.svg';
-import bundledGenreEnGourmetHighlight from '../assets/malls/halong/buttons/genres/en/gourmet-hilight.svg';
-import bundledGenreEnService          from '../assets/malls/halong/buttons/genres/en/service.svg';
-import bundledGenreEnServiceHighlight from '../assets/malls/halong/buttons/genres/en/service-hilight.svg';
+import bundledGenreEnFood          from '../assets/malls/halong/buttons/genres/en/food.svg';
+import bundledGenreEnFoodHighlight from '../assets/malls/halong/buttons/genres/en/food-hilight.svg';
 
 // genres (ja)
 import bundledGenreJaAll          from '../assets/malls/halong/buttons/genres/ja/all.svg';
@@ -31,10 +29,8 @@ import bundledGenreJaFashion          from '../assets/malls/halong/buttons/genre
 import bundledGenreJaFashionHighlight from '../assets/malls/halong/buttons/genres/ja/fashion-hilight.svg';
 import bundledGenreJaGoods            from '../assets/malls/halong/buttons/genres/ja/goods.svg';
 import bundledGenreJaGoodsHighlight   from '../assets/malls/halong/buttons/genres/ja/goods-hilight.svg';
-import bundledGenreJaGourmet          from '../assets/malls/halong/buttons/genres/ja/gourmet.svg';
-import bundledGenreJaGourmetHighlight from '../assets/malls/halong/buttons/genres/ja/gourmet-hilight.svg';
-import bundledGenreJaService          from '../assets/malls/halong/buttons/genres/ja/service.svg';
-import bundledGenreJaServiceHighlight from '../assets/malls/halong/buttons/genres/ja/service-hilight.svg';
+import bundledGenreJaFood          from '../assets/malls/halong/buttons/genres/ja/food.svg';
+import bundledGenreJaFoodHighlight from '../assets/malls/halong/buttons/genres/ja/food-hilight.svg';
 
 // genres (vn)
 import bundledGenreVnAll          from '../assets/malls/halong/buttons/genres/vn/all.svg';
@@ -43,10 +39,8 @@ import bundledGenreVnFashion          from '../assets/malls/halong/buttons/genre
 import bundledGenreVnFashionHighlight from '../assets/malls/halong/buttons/genres/vn/fashion-hilight.svg';
 import bundledGenreVnGoods            from '../assets/malls/halong/buttons/genres/vn/goods.svg';
 import bundledGenreVnGoodsHighlight   from '../assets/malls/halong/buttons/genres/vn/goods-hilight.svg';
-import bundledGenreVnGourmet          from '../assets/malls/halong/buttons/genres/vn/gourmet.svg';
-import bundledGenreVnGourmetHighlight from '../assets/malls/halong/buttons/genres/vn/gourmet-hilight.svg';
-import bundledGenreVnService          from '../assets/malls/halong/buttons/genres/vn/service.svg';
-import bundledGenreVnServiceHighlight from '../assets/malls/halong/buttons/genres/vn/service-hilight.svg';
+import bundledGenreVnFood          from '../assets/malls/halong/buttons/genres/vn/food.svg';
+import bundledGenreVnFoodHighlight from '../assets/malls/halong/buttons/genres/vn/food-hilight.svg';
 
 // genres (lang-independent)
 import bundledGenreNext from '../assets/malls/halong/buttons/genres/next.svg';
@@ -179,10 +173,8 @@ export interface HalongAssets {
     fashionHighlight: string;
     goods:           string;
     goodsHighlight:  string;
-    gourmet:         string;
-    gourmetHighlight: string;
-    service:         string;
-    serviceHighlight: string;
+    food:         string;
+    foodHighlight: string;
     next:            string;
     prev:            string;
   };
@@ -250,10 +242,8 @@ const BUNDLED_GENRES: Record<'en' | 'ja' | 'vn', Omit<HalongAssets['genres'], 'n
     fashionHighlight: bundledGenreEnFashionHighlight,
     goods:           bundledGenreEnGoods,
     goodsHighlight:  bundledGenreEnGoodsHighlight,
-    gourmet:         bundledGenreEnGourmet,
-    gourmetHighlight: bundledGenreEnGourmetHighlight,
-    service:         bundledGenreEnService,
-    serviceHighlight: bundledGenreEnServiceHighlight,
+    food:         bundledGenreEnFood,
+    foodHighlight: bundledGenreEnFoodHighlight,
   },
   ja: {
     all:             bundledGenreJaAll,
@@ -262,10 +252,8 @@ const BUNDLED_GENRES: Record<'en' | 'ja' | 'vn', Omit<HalongAssets['genres'], 'n
     fashionHighlight: bundledGenreJaFashionHighlight,
     goods:           bundledGenreJaGoods,
     goodsHighlight:  bundledGenreJaGoodsHighlight,
-    gourmet:         bundledGenreJaGourmet,
-    gourmetHighlight: bundledGenreJaGourmetHighlight,
-    service:         bundledGenreJaService,
-    serviceHighlight: bundledGenreJaServiceHighlight,
+    food:         bundledGenreJaFood,
+    foodHighlight: bundledGenreJaFoodHighlight,
   },
   vn: {
     all:             bundledGenreVnAll,
@@ -274,10 +262,8 @@ const BUNDLED_GENRES: Record<'en' | 'ja' | 'vn', Omit<HalongAssets['genres'], 'n
     fashionHighlight: bundledGenreVnFashionHighlight,
     goods:           bundledGenreVnGoods,
     goodsHighlight:  bundledGenreVnGoodsHighlight,
-    gourmet:         bundledGenreVnGourmet,
-    gourmetHighlight: bundledGenreVnGourmetHighlight,
-    service:         bundledGenreVnService,
-    serviceHighlight: bundledGenreVnServiceHighlight,
+    food:         bundledGenreVnFood,
+    foodHighlight: bundledGenreVnFoodHighlight,
   },
 };
 
@@ -395,10 +381,8 @@ function buildFromLocal(local: Record<string, string>, lang: 'en' | 'ja' | 'vn')
       fashionHighlight: r(`buttons/genres/${lang}/fashion-hilight.svg`, fb.genres.fashionHighlight),
       goods:           r(`buttons/genres/${lang}/goods.svg`,           fb.genres.goods),
       goodsHighlight:  r(`buttons/genres/${lang}/goods-hilight.svg`,   fb.genres.goodsHighlight),
-      gourmet:         r(`buttons/genres/${lang}/gourmet.svg`,         fb.genres.gourmet),
-      gourmetHighlight: r(`buttons/genres/${lang}/gourmet-hilight.svg`, fb.genres.gourmetHighlight),
-      service:         r(`buttons/genres/${lang}/service.svg`,         fb.genres.service),
-      serviceHighlight: r(`buttons/genres/${lang}/service-hilight.svg`, fb.genres.serviceHighlight),
+      food:         r(`buttons/genres/${lang}/food.svg`,         fb.genres.food),
+      foodHighlight: r(`buttons/genres/${lang}/food-hilight.svg`, fb.genres.foodHighlight),
       next:            r('buttons/genres/next.svg',                    fb.genres.next),
       prev:            r('buttons/genres/prev.svg',                    fb.genres.prev),
     },

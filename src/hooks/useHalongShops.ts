@@ -24,7 +24,11 @@ export interface HalongShop {
   floorEn: string;   // floorEnglish（空なら floor にフォールバック）
   floorVn: string;   // floorVietnam（空なら floor にフォールバック）
   section: string;
-  genre: string;
+  genre: string;           // ジャンルボタンのグループキー（food / fashion / goods、フィルタリング用）
+  genreLabel: string;      // genre（CMSのジャンル名、現地語ベース、表示用）
+  genreLabelJa: string;    // genreJapan（空なら genreLabel にフォールバック）
+  genreLabelEn: string;    // genreEnglish（空なら genreLabel にフォールバック）
+  genreLabelVn: string;    // genreVietnam（空なら genreLabel にフォールバック）
   logoDataUrl: string | null;
   openingHours: string;    // 営業時間（現地語ベース）
   openingHoursJa: string;  // 営業時間（日本語）
@@ -54,15 +58,11 @@ export function getOpeningHoursDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn
   return shop.openingHoursVn || shop.openingHours;
 }
 
-/** ジャンルキーから言語別表示名を返す */
-export function getGenreDisplay(genre: string, lang: 'en' | 'ja' | 'vn'): string {
-  const map: Record<string, Record<string, string>> = {
-    gourmet: { vn: 'Ẩm Thực',   en: 'Gourmet',  ja: 'グルメ' },
-    fashion: { vn: 'Thời Trang', en: 'Fashion',  ja: 'ファッション' },
-    goods:   { vn: 'Tạp Hóa',   en: 'Goods',    ja: 'グッズ' },
-    service: { vn: 'Dịch Vụ',   en: 'Service',  ja: 'サービス' },
-  };
-  return map[genre]?.[lang] ?? genre;
+/** 言語に応じたジャンル表示名を返す（CMSのジャンル名をそのまま表示。対応フィールドが空なら genre にフォールバック） */
+export function getGenreDisplay(shop: HalongShop, lang: 'en' | 'ja' | 'vn'): string {
+  if (lang === 'ja') return shop.genreLabelJa || shop.genreLabel;
+  if (lang === 'en') return shop.genreLabelEn || shop.genreLabel;
+  return shop.genreLabelVn || shop.genreLabel;
 }
 
 /** BG shoplist.json の1エントリ（Ha Long フォーマット） */
@@ -79,7 +79,9 @@ interface BgShopEntry {
   floorVietnam?: string;
   number: string;
   genre: string;
+  genreJapan?: string;
   genreEnglish?: string;
+  genreVietnam?: string;
   openingHours?: string;
   openingHoursJapan?: string;
   openingHoursEnglish?: string;
@@ -90,41 +92,40 @@ interface BgShopEntry {
 }
 
 // ── ジャンルマッピング ────────────────────────────────────────────────────
-// Ha Long: 飲食 / ファッション＆スポーツ / 日用品＆テクノロジー /
-//          アクセサリー＆シューズ / エンターテインメント＆サービス
+// CMSの11ジャンルを3つのジャンルボタン（food / fashion / goods）にまとめる
+//   グルメ: 食品 / レストラン / カフェ / フードコート
+//   ファッション＆アクセサリー: ファッション / アクセサリー
+//   雑貨＆アミューズメント: 雑貨 / ホビー / サービス / 大型専門店 / アミューズメント / 映画館
 
 const GENRE_MAP: Record<string, string> = {
-  // Ha Long ベトナム語（genre フィールド）
-  'Ẩm Thực':   'gourmet',
-  'Tạp Hóa':   'goods',
-  'Thời Trang': 'fashion',
-  'Dịch Vụ':   'service',
-  // Ha Long 英語・単語形式（genreEnglish フィールド）
-  'Gourmet': 'gourmet',
-  'Goods':   'goods',
-  'Fashion': 'fashion',
-  'Service': 'service',
-  // Ha Long 英語・複合形式（旧フォーマット互換）
-  'Foods & Beverage':         'gourmet',
-  'Fashion & Sports':         'fashion',
-  'Commodities & Technology': 'goods',
-  'Accessories & Shoes':      'goods',
-  'Entertainment & Services': 'service',
-  // 日本語（旧フォーマット互換）
-  '飲食':                       'gourmet',
-  'ファッション＆スポーツ':       'fashion',
-  '日用品＆テクノロジー':         'goods',
-  'アクセサリー＆シューズ':       'goods',
-  'エンターテインメント＆サービス': 'service',
-  'グルメ':     'gourmet',
-  'ファッション': 'fashion',
-  'グッズ':     'goods',
-  'サービス':   'service',
+  // 英語（genreEnglish フィールド）
+  'Food':                'food',
+  'Restaurants / Cafés': 'food',
+  'Food Court':          'food',
+  'Fashion':             'fashion',
+  'Accessories':         'fashion',
+  'Goods':               'goods',
+  'Hobby':               'goods',
+  'Services':            'goods',
+  'Large Store':         'goods',
+  'Entertainment':       'goods',
+  'Cinema':              'goods',
+  // ベトナム語（genre フィールド、genreEnglish 未設定時のフォールバック）
+  'Thực phẩm':           'food',
+  'Nhà hàng / Cà phê':   'food',
+  'Khu ẩm thực':         'food',
+  'Thời trang':          'fashion',
+  'Phụ kiện':            'fashion',
+  'Hàng hóa':            'goods',
+  'Sở thích':            'goods',
+  'Dịch vụ':             'goods',
+  'Cửa hàng quy mô lớn': 'goods',
+  'Vui chơi giải trí':   'goods',
+  'Rạp chiếu phim':      'goods',
   // 英語キー直接渡し
-  'gourmet': 'gourmet',
+  'food':    'food',
   'fashion': 'fashion',
   'goods':   'goods',
-  'service': 'service',
 };
 
 function mapGenre(genre: string, genreEnglish?: string): string {
@@ -176,6 +177,10 @@ async function parseBgShops(raw: unknown, devMode = false): Promise<HalongShop[]
         floorVn: s.floorVietnam?.trim() ?? '',
         section: s.number ?? '',
         genre: mapGenre(s.genre, s.genreEnglish),
+        genreLabel: s.genre?.trim() ?? '',
+        genreLabelJa: s.genreJapan?.trim() ?? '',
+        genreLabelEn: s.genreEnglish?.trim() ?? '',
+        genreLabelVn: s.genreVietnam?.trim() ?? '',
         logoDataUrl,
         openingHours: s.openingHours?.trim() ?? '',
         openingHoursJa: s.openingHoursJapan?.trim() ?? '',
