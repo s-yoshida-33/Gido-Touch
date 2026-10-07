@@ -971,7 +971,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 position: "absolute",
                 left: "50px",
                 bottom: "50px",
-                width: "654px",
+                width: "1000px",
                 height: "96px",
                 display: "block",
                 opacity: showHint ? 1 : 0,
