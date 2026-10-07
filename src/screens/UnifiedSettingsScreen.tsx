@@ -37,6 +37,7 @@ import { DEFAULT_HALONG_BANNER_SETTINGS } from '../types/bannerSettings';
 import { useHalongBanners } from '../hooks/useHalongBanners';
 import { useHalongMaps } from '../hooks/useHalongMaps';
 import { useHalongAssets } from '../hooks/useHalongAssets';
+import { HALONG_PICTO_KEYS, pictoKeyFromTag } from '../config/halongPictos';
 import { PictoPin } from '../components/PictoPin';
 import { AnimatePresence } from 'framer-motion';
 
@@ -155,19 +156,10 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const halongMaps = useHalongMaps();
   const halongAssets = useHalongAssets();
 
-  const pictoIconOptions = useMemo(() => [
-    { fileName: 'atm.svg',              url: halongAssets.pictoMapIcons.atm },
-    { fileName: 'elevator.svg',          url: halongAssets.pictoMapIcons.elevator },
-    { fileName: 'free-coin-lockers.svg', url: halongAssets.pictoMapIcons.lockers },
-    { fileName: 'info.svg',             url: halongAssets.pictoMapIcons.info },
-    { fileName: 'restroom.svg',          url: halongAssets.pictoMapIcons.restroom },
-    { fileName: 'smoking-room.svg',      url: halongAssets.pictoMapIcons.smoking },
-  ], [halongAssets]);
-
-  const PICTO_TAG_TO_ASSETS_KEY: Record<string, keyof typeof halongAssets.pictoMapIcons> = {
-    info: 'info', restroom: 'restroom', smoking_room: 'smoking',
-    free_coin_lockers: 'lockers', atm: 'atm', elevator: 'elevator',
-  };
+  const pictoIconOptions = useMemo(
+    () => HALONG_PICTO_KEYS.map(key => ({ fileName: `${key}.svg`, url: halongAssets.pictoMapIcons[key] })),
+    [halongAssets],
+  );
 
   // 座標未設定ショップ数（全ショップ対象）
   const unsetShopCount = useMemo(() => {
@@ -981,7 +973,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                               .map(inst => {
                                 const x = inst.x <= 1 ? inst.x * 100 : inst.x;
                                 const y = inst.y <= 1 ? inst.y * 100 : inst.y;
-                                const assetsKey = PICTO_TAG_TO_ASSETS_KEY[inst.tag];
+                                const assetsKey = pictoKeyFromTag(inst.tag);
                                 const iconUrl = assetsKey ? halongAssets.pictoMapIcons[assetsKey] : '';
                                 return (
                                   <PictoPin

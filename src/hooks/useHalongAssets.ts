@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { loadGlobalSettings } from '../utils/settings';
 import type { HalongLang } from './useHalongShops';
+import { HALONG_PICTO_KEYS, type HalongPictoKey } from '../config/halongPictos';
 
 // location icons（halong用アセットが無い場合の最終フォールバック）
 import bundledSpeechBubbleSvg from '../assets/location/user.svg';
@@ -63,22 +64,8 @@ export interface HalongAssets {
       kr: string; krHighlight: string;
     };
   };
-  pictos: {
-    atm:      { default: string; highlight: string };
-    elevator: { default: string; highlight: string };
-    lockers:  { default: string; highlight: string };
-    info:     { default: string; highlight: string };
-    restroom: { default: string; highlight: string };
-    smoking:  { default: string; highlight: string };
-  };
-  pictoMapIcons: {
-    atm:      string;
-    elevator: string;
-    lockers:  string;
-    info:     string;
-    restroom: string;
-    smoking:  string;
-  };
+  pictos: Record<HalongPictoKey, { default: string; highlight: string }>;
+  pictoMapIcons: Record<HalongPictoKey, string>;
   speechBubbleIconSrc: string;
   locationIconSrc: string;
   close: string;
@@ -150,23 +137,14 @@ function buildFor(local: Record<string, string> | null, lang: HalongLang): Halon
         krHighlight: r('buttons/languages/select/kr-highlight.svg'),
       },
     },
-    pictos: {
-      atm:      { default: r(`buttons/pictos/${lang}/atm.svg`),               highlight: r(`buttons/pictos/${lang}/atm-highlight.svg`) },
-      elevator: { default: r(`buttons/pictos/${lang}/elevator.svg`),          highlight: r(`buttons/pictos/${lang}/elevator-highlight.svg`) },
-      lockers:  { default: r(`buttons/pictos/${lang}/free-coin-lockers.svg`), highlight: r(`buttons/pictos/${lang}/free-coin-lockers-highlight.svg`) },
-      info:     { default: r(`buttons/pictos/${lang}/info.svg`),              highlight: r(`buttons/pictos/${lang}/info-highlight.svg`) },
-      restroom: { default: r(`buttons/pictos/${lang}/restroom.svg`),          highlight: r(`buttons/pictos/${lang}/restroom-highlight.svg`) },
-      smoking:  { default: r(`buttons/pictos/${lang}/smoking-room.svg`),      highlight: r(`buttons/pictos/${lang}/smoking-room-highlight.svg`) },
-    },
+    pictos: Object.fromEntries(HALONG_PICTO_KEYS.map(key => [key, {
+      default:   r(`buttons/pictos/${lang}/${key}.svg`),
+      highlight: r(`buttons/pictos/${lang}/${key}-highlight.svg`),
+    }])) as HalongAssets['pictos'],
     // マップ上のピクトピン。専用アイコンが無ければ日本語のピクトボタンで代用（従来どおり）
-    pictoMapIcons: {
-      atm:      r('icons/pictos/atm.svg',               'buttons/pictos/ja/atm.svg'),
-      elevator: r('icons/pictos/elevator.svg',          'buttons/pictos/ja/elevator.svg'),
-      lockers:  r('icons/pictos/free-coin-lockers.svg', 'buttons/pictos/ja/free-coin-lockers.svg'),
-      info:     r('icons/pictos/info.svg',              'buttons/pictos/ja/info.svg'),
-      restroom: r('icons/pictos/restroom.svg',          'buttons/pictos/ja/restroom.svg'),
-      smoking:  r('icons/pictos/smoking-room.svg',      'buttons/pictos/ja/smoking-room.svg'),
-    },
+    pictoMapIcons: Object.fromEntries(HALONG_PICTO_KEYS.map(key => [key,
+      r(`icons/pictos/${key}.svg`, `buttons/pictos/ja/${key}.svg`),
+    ])) as HalongAssets['pictoMapIcons'],
     speechBubbleIconSrc: r(`icons/locations/user-${lang}.svg`),
     locationIconSrc:     r('icons/locations/location.svg'),
     close:               r(`buttons/closes/${lang}.svg`),

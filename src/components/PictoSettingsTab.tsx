@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import type { FloorId } from "../types/floorLayout";
 import type { PictoSettings, PictoInstance, PictoTag } from "../types/picto";
 import type { AnimationConfig, AnimationType, ShadowConfig } from "../types/locationIcon";
+import { HALONG_PICTO_KEYS, HALONG_PICTO_LABELS, pictoTagFromKey } from "../config/halongPictos";
 
 function generateUUID() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -14,23 +15,12 @@ function generateUUID() {
 const clampPercent = (v: number) => Math.round(Math.min(100, Math.max(0, isNaN(v) ? 0 : v)) * 100) / 100;
 const clampRotation = (v: number) => { const n = isNaN(v) ? 0 : v; return Math.min(360, Math.max(0, n)); };
 
-const HALONG_PICTO_TAGS: Array<{ id: PictoTag; label: string }> = [
-  { id: "atm",             label: "ATM" },
-  { id: "elevator",        label: "エレベーター" },
-  { id: "free_coin_lockers", label: "無料コインロッカー" },
-  { id: "info",            label: "インフォメーション" },
-  { id: "restroom",        label: "トイレ" },
-  { id: "smoking_room",    label: "喫煙所" },
-];
+const HALONG_PICTO_TAGS: Array<{ id: PictoTag; label: string }> = HALONG_PICTO_KEYS.map((key) => ({
+  id: pictoTagFromKey(key),
+  label: HALONG_PICTO_LABELS[key],
+}));
 
-const HALONG_ICON_FILES = [
-  "atm.svg",
-  "elevator.svg",
-  "free-coin-lockers.svg",
-  "info.svg",
-  "restroom.svg",
-  "smoking-room.svg",
-];
+const HALONG_ICON_FILES = HALONG_PICTO_KEYS.map((key) => `${key}.svg`);
 
 const ConfigGroup: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <fieldset style={{ border: "1px solid rgba(255,255,255,0.1)", padding: 16, borderRadius: 12, marginBottom: 16, backgroundColor: "rgba(255,255,255,0.03)" }}>
@@ -59,7 +49,7 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
   iconOptions,
 }) => {
   const [selectedIconFile, setSelectedIconFile] = useState<string | null>(null);
-  const [selectedTag, setSelectedTag] = useState<PictoTag>("info");
+  const [selectedTag, setSelectedTag] = useState<PictoTag>(HALONG_PICTO_TAGS[0].id);
   const [internalSelectedInstanceId, setInternalSelectedInstanceId] = useState<string | null>(null);
 
   const selectedInstanceId = externalSelectedInstanceId !== undefined ? externalSelectedInstanceId : internalSelectedInstanceId;
