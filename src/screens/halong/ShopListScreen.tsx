@@ -30,6 +30,17 @@ const HALONG_REFERENCE_MAP_WIDTH = 1920;
 // ベトナム語の声調記号（ặ, ở 等）を正しく表示するため Be Vietnam Pro を使用（src/styles/fonts.css で定義）
 const HALONG_FONT_FAMILY = '"Be Vietnam Pro", sans-serif';
 
+// 中国語・韓国語表示時は、Be Vietnam Pro に無い漢字・ハングルだけを Windows 標準フォントで表示する
+// （英数字は全言語共通で Be Vietnam Pro）
+const HALONG_FONT_FAMILY_BY_LANG: Record<HalongLang, string> = {
+  vn: HALONG_FONT_FAMILY,
+  en: HALONG_FONT_FAMILY,
+  ja: HALONG_FONT_FAMILY,
+  cn: '"Be Vietnam Pro", "Microsoft YaHei", sans-serif',     // 簡体: 微软雅黑
+  tw: '"Be Vietnam Pro", "Microsoft JhengHei", sans-serif',  // 繁体: 微軟正黑體
+  kr: '"Be Vietnam Pro", "Malgun Gothic", sans-serif',       // 韓国語: 맑은 고딕
+};
+
 // 言語選択ポップアップの並び順（上から）
 const LANGS = ['vn', 'en', 'ja', 'cn', 'tw', 'kr'] as const satisfies readonly HalongLang[];
 
@@ -84,6 +95,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   }
   const [langPopupOpen, setLangPopupOpen] = useState(false);
   const assets = useHalongAssets(selectedLang);
+  const fontFamily = HALONG_FONT_FAMILY_BY_LANG[selectedLang];
   const maps = useHalongMaps();
   const allShops = useHalongShops();
   const [currentFloor, setCurrentFloor] = useState<string>('1F');
@@ -172,7 +184,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx || allShops.length === 0) return { floorLabelWidth: 56, sectionLabelWidth: 84 };
-    ctx.font = `bold 20px ${HALONG_FONT_FAMILY}`;
+    ctx.font = `bold 20px ${fontFamily}`;
     const PADDING = 32;
     const MIN_WIDTH = 48;
     let maxFloor = 0;
@@ -186,7 +198,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       sectionLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxSection + PADDING)),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- labelFontReady はフォント読込後の再計測トリガー
-  }, [allShops, selectedLang, labelFontReady]);
+  }, [allShops, selectedLang, fontFamily, labelFontReady]);
 
   const filteredShops = useMemo(() => {
     let result = allShops;
@@ -752,7 +764,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         display: "flex",
         flexDirection: "row",
         position: "relative",
-        fontFamily: HALONG_FONT_FAMILY,
+        fontFamily,
       }}
       lang={HTML_LANG[selectedLang]}
     >
@@ -1209,14 +1221,14 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                     {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
                     <div style={{ position: "absolute", left: "10px", top: "310px", width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
                       display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: HALONG_FONT_FAMILY }}>{getFloorDisplay(shop, selectedLang)}</span>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }}>{getFloorDisplay(shop, selectedLang)}</span>
                     </div>
 
                     {/* ナンバーラベル（幅は言語ごとの最大テキスト幅に動的変更） */}
                     {shop.section && (
                       <div style={{ position: "absolute", left: `${10 + floorLabelWidth}px`, top: "310px", width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: getGenreColor(shop.genre),
                         display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: HALONG_FONT_FAMILY }}>{shop.section}</span>
+                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }}>{shop.section}</span>
                       </div>
                     )}
 
@@ -1258,14 +1270,14 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                     {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
                     <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
                       display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: HALONG_FONT_FAMILY }}>{getFloorDisplay(shop, selectedLang)}</span>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }}>{getFloorDisplay(shop, selectedLang)}</span>
                     </div>
 
                     {/* 区画番号ラベル（幅は言語ごとの最大テキスト幅に動的変更） */}
                     {shop.section && (
                       <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: getGenreColor(shop.genre),
                         display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: HALONG_FONT_FAMILY }}>{shop.section}</span>
+                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }}>{shop.section}</span>
                       </div>
                     )}
 
