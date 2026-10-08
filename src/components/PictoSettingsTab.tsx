@@ -121,6 +121,27 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
     setSelectedInstanceId(newId);
   };
 
+  // 選択中のピクトを同じ設定のまま複製する（同じフロア、位置は少しずらして新しいIDで作成し、選択状態にする）
+  const handleDuplicateInstance = () => {
+    if (!selectedInstance) return;
+    const newId = generateUUID();
+    // 座標は 0〜100 (%) が基本。旧形式の 0〜1 の値ならずらし幅も同じ単位にする
+    const shift = (v: number) => (v <= 1 ? Math.min(1, v + 0.02) : Math.min(100, v + 2));
+    const copy: PictoInstance = {
+      ...selectedInstance,
+      id: newId,
+      x: shift(selectedInstance.x),
+      y: shift(selectedInstance.y),
+      shadow: selectedInstance.shadow ? { ...selectedInstance.shadow } : undefined,
+      animation: selectedInstance.animation ? { ...selectedInstance.animation } : undefined,
+    };
+    onSavePictoSettings({
+      ...pictoSettings,
+      instances: { ...pictoSettings.instances, [newId]: copy },
+    });
+    setSelectedInstanceId(newId);
+  };
+
   const handleDeleteInstance = () => {
     if (!selectedInstanceId) return;
     const { [selectedInstanceId]: _, ...rest } = pictoSettings.instances;
@@ -347,8 +368,10 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
                     )}
                   </div>
 
-                  <div style={{ marginTop: 20 }}>
-                    <button onClick={handleDeleteInstance} style={{ width: "100%", padding: "8px", backgroundColor: "rgba(255,59,48,0.2)", color: "#ff3b30", border: "1px solid #ff3b30", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>削除</button>
+                  <div style={{ marginTop: 20, display: "flex", gap: 8 }}>
+                    <button onClick={handleDuplicateInstance} title="同じ設定のピクトを少しずらした位置に追加します"
+                      style={{ flex: 1, padding: "8px", backgroundColor: "rgba(0,122,255,0.2)", color: "#4da3ff", border: "1px solid #007aff", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>複製</button>
+                    <button onClick={handleDeleteInstance} style={{ flex: 1, padding: "8px", backgroundColor: "rgba(255,59,48,0.2)", color: "#ff3b30", border: "1px solid #ff3b30", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>削除</button>
                   </div>
                 </ConfigGroup>
 
