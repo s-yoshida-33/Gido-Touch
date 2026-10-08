@@ -22,6 +22,12 @@ const HALONG_PICTO_TAGS: Array<{ id: PictoTag; label: string }> = HALONG_PICTO_K
 
 const HALONG_ICON_FILES = HALONG_PICTO_KEYS.map((key) => `${key}.svg`);
 
+const smallButtonStyle: React.CSSProperties = {
+  padding: "4px 8px", fontSize: 11, fontWeight: 600, color: "#fff",
+  backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4,
+  cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+};
+
 const ConfigGroup: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <fieldset style={{ border: "1px solid rgba(255,255,255,0.1)", padding: 16, borderRadius: 12, marginBottom: 16, backgroundColor: "rgba(255,255,255,0.03)" }}>
     <legend style={{ fontWeight: 600, color: "rgba(255,255,255,0.9)", padding: "0 8px", fontSize: 14 }}>{title}</legend>
@@ -36,6 +42,9 @@ export interface PictoSettingsTabProps {
   onSavePictoSettings: (settings: PictoSettings) => void;
   selectedInstanceId?: string | null;
   onSelectedInstanceIdChange?: (id: string | null) => void;
+  /** プレビューで非表示にしているピクトのID（設定画面の表示専用。保存しない） */
+  hiddenInstanceIds?: Set<string>;
+  onHiddenInstanceIdsChange?: (ids: Set<string>) => void;
   iconOptions: Array<{ fileName: string; url: string }>;
 }
 
@@ -46,6 +55,8 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
   onSavePictoSettings,
   selectedInstanceId: externalSelectedInstanceId,
   onSelectedInstanceIdChange,
+  hiddenInstanceIds,
+  onHiddenInstanceIdsChange,
   iconOptions,
 }) => {
   const [selectedIconFile, setSelectedIconFile] = useState<string | null>(null);
@@ -64,6 +75,29 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
   );
 
   const selectedInstance = selectedInstanceId ? pictoSettings.instances[selectedInstanceId] : null;
+
+  // ── プレビューの表示/非表示（重なったピクトを一時的に隠して配置しやすくする） ──
+  const canToggleVisibility = !!hiddenInstanceIds && !!onHiddenInstanceIdsChange;
+  const isHidden = (id: string) => !!hiddenInstanceIds?.has(id);
+  const toggleHidden = (id: string) => {
+    if (!hiddenInstanceIds || !onHiddenInstanceIdsChange) return;
+    const next = new Set(hiddenInstanceIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    onHiddenInstanceIdsChange(next);
+  };
+  const hideAllExceptSelected = () => {
+    if (!hiddenInstanceIds || !onHiddenInstanceIdsChange) return;
+    const next = new Set(hiddenInstanceIds);
+    floorInstances.forEach((i) => { if (i.id === selectedInstanceId) next.delete(i.id); else next.add(i.id); });
+    onHiddenInstanceIdsChange(next);
+  };
+  const showAll = () => {
+    if (!hiddenInstanceIds || !onHiddenInstanceIdsChange) return;
+    const next = new Set(hiddenInstanceIds);
+    floorInstances.forEach((i) => next.delete(i.id));
+    onHiddenInstanceIdsChange(next);
+  };
+  const hiddenCountOnFloor = floorInstances.filter((i) => isHidden(i.id)).length;
 
   const handleAddInstance = () => {
     if (!selectedIconFile) return;
@@ -193,7 +227,24 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
 
           {/* Instance List */}
           <div style={{ flex: "0 0 auto", maxHeight: 300, overflowY: "auto" }}>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginBottom: 8 }}>配置済み ({floorInstances.length})</div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginBottom: 8 }}>
+              配置済み ({floorInstances.length}){hiddenCountOnFloor > 0 && ` ・ 非表示 ${hiddenCountOnFloor}`}
+            </div>
+            {canToggleVisibility && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                  <button
+                    onClick={hideAllExceptSelected}
+                    disabled={!selectedInstanceId}
+                    title="選択中のピクト以外をプレビューで非表示にします（保存はされません）"
+                    style={{ ...smallButtonStyle, opacity: selectedInstanceId ? 1 : 0.4, cursor: selectedInstanceId ? "pointer" : "not-allowed" }}
+                  >選択中以外を非表示</button>
+                  <button
+                    onClick={showAll}
+                    disabled={hiddenCountOnFloor === 0}
+                    style={{ ...smallButtonStyle, opacity: hiddenCountOnFloor > 0 ? 1 : 0.4, cursor: hiddenCountOnFloor > 0 ? "pointer" : "not-allowed" }}
+                  >すべて表示</button>
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {floorInstances.map((inst) => {
                 const iconUrl = iconOptions.find((o) => o.fileName === inst.iconName)?.url || "";
@@ -206,6 +257,7 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
                       backgroundColor: selectedInstanceId === inst.id ? "rgba(0,122,255,0.2)" : "rgba(255,255,255,0.05)",
                       border: selectedInstanceId === inst.id ? "1px solid #007aff" : "1px solid rgba(255,255,255,0.1)",
                       borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
+                      opacity: isHidden(inst.id) ? 0.45 : 1,
                     }}
                   >
                     <div style={{ width: 30, height: 30, backgroundColor: "#fff", borderRadius: 4, padding: 2 }}>
@@ -215,6 +267,14 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{HALONG_PICTO_TAGS.find((t) => t.id === inst.tag)?.label ?? inst.tag}</div>
                       <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>{inst.iconName}</div>
                     </div>
+                    {canToggleVisibility && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleHidden(inst.id); }}
+                        title={isHidden(inst.id) ? "プレビューに表示する" : "プレビューで非表示にする（保存はされません）"}
+                        aria-label={isHidden(inst.id) ? "表示する" : "非表示にする"}
+                        style={{ ...smallButtonStyle, width: 32, padding: "4px 0", fontSize: 15, lineHeight: 1 }}
+                      >{isHidden(inst.id) ? "🙈" : "👁"}</button>
+                    )}
                   </div>
                 );
               })}

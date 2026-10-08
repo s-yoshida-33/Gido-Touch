@@ -95,6 +95,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
   const [pictoSettings, setPictoSettings] = useState<PictoSettings>(DEFAULT_PICTO_SETTINGS);
   const [selectedPictoId, setSelectedPictoId] = useState<string | null>(null);
+  // プレビューで非表示にしているピクトのID（設定画面の表示専用。保存しない）
+  const [hiddenPictoIds, setHiddenPictoIds] = useState<Set<string>>(() => new Set());
   const [bannerSettings, setBannerSettings] = useState<HalongBannerSettings>(DEFAULT_HALONG_BANNER_SETTINGS);
   const [shopListLayout, setShopListLayout] = useState<'list' | 'grid'>('grid');
   const { banners: availableBanners, reload: reloadBanners } = useHalongBanners();
@@ -969,7 +971,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                           <img src={mapSrc} alt={floor} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                           <AnimatePresence>
                             {Object.values(pictoSettings.instances)
-                              .filter(inst => inst.floor === floor)
+                              .filter(inst => inst.floor === floor && !hiddenPictoIds.has(inst.id))
                               .map(inst => {
                                 const x = inst.x <= 1 ? inst.x * 100 : inst.x;
                                 const y = inst.y <= 1 ? inst.y * 100 : inst.y;
@@ -1214,6 +1216,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 onSavePictoSettings={setPictoSettings}
                 selectedInstanceId={selectedPictoId}
                 onSelectedInstanceIdChange={setSelectedPictoId}
+                hiddenInstanceIds={hiddenPictoIds}
+                onHiddenInstanceIdsChange={setHiddenPictoIds}
                 iconOptions={pictoIconOptions}
               />
             </div>
