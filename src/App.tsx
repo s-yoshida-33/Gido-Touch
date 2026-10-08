@@ -205,7 +205,7 @@ const App: React.FC = () => {
 
   // Banner settings (halong only)
   const [bannerSettings, setBannerSettings] = useState<HalongBannerSettings>(DEFAULT_HALONG_BANNER_SETTINGS);
-  const [shopListLayout, setShopListLayout] = useState<'list' | 'grid'>('list');
+  const [shopListLayout, setShopListLayout] = useState<'list' | 'grid'>('grid');
 
   // SSE Status Subscription
   useEffect(() => {
@@ -389,7 +389,7 @@ const App: React.FC = () => {
       setBlackScreenSettings(mallData.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
       if (mallData.pictoSettings) setPictoSettings(mallData.pictoSettings);
       if (mallData.bannerSettings) setBannerSettings(mallData.bannerSettings);
-      setShopListLayout(mallData.shopListLayout ?? 'list');
+      setShopListLayout(mallData.shopListLayout ?? 'grid');
 
       // 5. Load shop data
       await loadData(true);
@@ -550,7 +550,7 @@ const App: React.FC = () => {
         setBlackScreenSettings(mallData.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
         if (mallData.pictoSettings) setPictoSettings(mallData.pictoSettings);
         if (mallData.bannerSettings) setBannerSettings(mallData.bannerSettings);
-        setShopListLayout(mallData.shopListLayout ?? 'list');
+        setShopListLayout(mallData.shopListLayout ?? 'grid');
 
         addDebug(`Mall settings loaded for ${currentMallId}`);
         logInfo("APP", "Settings loaded", {

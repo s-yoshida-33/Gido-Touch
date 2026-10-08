@@ -96,7 +96,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [pictoSettings, setPictoSettings] = useState<PictoSettings>(DEFAULT_PICTO_SETTINGS);
   const [selectedPictoId, setSelectedPictoId] = useState<string | null>(null);
   const [bannerSettings, setBannerSettings] = useState<HalongBannerSettings>(DEFAULT_HALONG_BANNER_SETTINGS);
-  const [shopListLayout, setShopListLayout] = useState<'list' | 'grid'>('list');
+  const [shopListLayout, setShopListLayout] = useState<'list' | 'grid'>('grid');
   const { banners: availableBanners, reload: reloadBanners } = useHalongBanners();
 
   // Black screen settings
@@ -257,7 +257,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentCmsSettings(snap.currentCmsSettings);
     setBlackScreenSettings(snap.blackScreenSettings);
     setPictoSettings(snap.pictoSettings);
-    setShopListLayout(snap.shopListLayout ?? 'list');
+    setShopListLayout(snap.shopListLayout ?? 'grid');
     setBannerSettings(snap.bannerSettings);
   }, []);
 
@@ -275,7 +275,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentCmsSettings(mallSettings.cmsSettings);
     setBlackScreenSettings(mallSettings.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
     setPictoSettings(mallSettings.pictoSettings ?? DEFAULT_PICTO_SETTINGS);
-    setShopListLayout(mallSettings.shopListLayout ?? 'list');
+    setShopListLayout(mallSettings.shopListLayout ?? 'grid');
     setBannerSettings(mallSettings.bannerSettings ?? DEFAULT_HALONG_BANNER_SETTINGS);
 
     // Genre settings with fallback
@@ -564,7 +564,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         blackScreenSettings: snap.blackScreenSettings,
         pictoSettings: snap.pictoSettings,
         bannerSettings: snap.bannerSettings,
-        shopListLayout: snap.shopListLayout ?? 'list',
+        shopListLayout: snap.shopListLayout ?? 'grid',
       });
 
       // Save cached malls first (other malls that were edited during this session)
