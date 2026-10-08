@@ -112,7 +112,8 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
     if (dx < 0) goNext(); else goPrev();
   };
 
-  const floorText  = getFloorDisplay(shop, lang);
+  // フロア表記の後ろに区画番号を付ける（例: 3rd Floor [T308-1+T308-2]）
+  const floorText  = shop.section ? `${getFloorDisplay(shop, lang)} [${shop.section}]` : getFloorDisplay(shop, lang);
   const openTime   = getOpeningHoursDisplay(shop, lang);
   const genreText  = getGenreDisplay(shop, lang);
 
