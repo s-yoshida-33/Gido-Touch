@@ -43,6 +43,14 @@ const HALONG_FONT_FAMILY_BY_LANG: Record<HalongLang, string> = {
   kr: '"Be Vietnam Pro", "Malgun Gothic", sans-serif',                       // 韓国語: 맑은 고딕
 };
 
+// グリッド表示のカード幅と、フロアラベルの幅（カード中央に配置）・ラベル内の左右の余白
+const GRID_CARD_WIDTH = 290;
+const GRID_FLOOR_LABEL_WIDTH = 270;
+const GRID_LABEL_PADDING_X = 1;
+
+// リスト表示のフロアラベル内の左右の余白（幅は言語ごとの最長テキスト＋左右の余白）
+const LIST_LABEL_PADDING_X = 16;
+
 // フォント読込の判定用サンプル（漢字・ハングルを含めて、言語ごとのフォールバック先も読み込ませる）
 const FONT_LOAD_SAMPLE = '1F 1楼 1樓 1층';
 
@@ -61,13 +69,14 @@ const FLOOR_ANIM_DURATION = 0.35;
 const GENRES = ['all', 'food', 'fashion', 'goods'] as const;
 type Genre = typeof GENRES[number];
 
-const GENRE_COLOR: Record<string, string> = {
-  food:    '#FAA819',
-  fashion: '#6CB2E2',
-  goods:   '#BCD139',
+// フロアラベルの色（ジャンル別、リスト・グリッド共通）
+const FLOOR_LABEL_COLOR: Record<string, string> = {
+  food:    '#EA9500',
+  fashion: '#138EE3',
+  goods:   '#A6C000',
 };
-function getGenreColor(genre: string): string {
-  return GENRE_COLOR[genre] ?? '#888888';
+function getFloorLabelColor(genre: string): string {
+  return FLOOR_LABEL_COLOR[genre] ?? '#888888';
 }
 
 // ショップリストの切替アニメーション（フロア切替・ジャンル切替共通のクロスフェード）
@@ -178,24 +187,18 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     return () => { cancelled = true; };
   }, [fontFamily]);
 
-  // Canvas measureText でフロア・区画番号ラベルの最大幅を計算（言語切替時に再計算）
-  const { floorLabelWidth, sectionLabelWidth } = useMemo(() => {
+  // Canvas measureText でリスト表示のフロアラベルの幅（言語ごとの最長テキスト＋左右の余白）を計算（言語切替時に再計算）
+  const floorLabelWidth = useMemo(() => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    if (!ctx || allShops.length === 0) return { floorLabelWidth: 56, sectionLabelWidth: 84 };
+    if (!ctx || allShops.length === 0) return 56;
     ctx.font = `bold 20px ${fontFamily}`;
-    const PADDING = 32;
     const MIN_WIDTH = 48;
     let maxFloor = 0;
-    let maxSection = 0;
     for (const shop of allShops) {
       maxFloor = Math.max(maxFloor, ctx.measureText(getFloorDisplay(shop, selectedLang)).width);
-      if (shop.section) maxSection = Math.max(maxSection, ctx.measureText(shop.section).width);
     }
-    return {
-      floorLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxFloor + PADDING)),
-      sectionLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxSection + PADDING)),
-    };
+    return Math.max(MIN_WIDTH, Math.ceil(maxFloor + LIST_LABEL_PADDING_X * 2));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- labelFontLoadCount はフォント読込後の再計測トリガー
   }, [allShops, selectedLang, fontFamily, labelFontLoadCount]);
 
@@ -1209,29 +1212,22 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       )}
                     </div>
 
-                    {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
-                    <div style={{ position: "absolute", left: "10px", top: "310px", width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
+                    {/* フロアラベル（カード中央に固定幅、色はジャンル別。収まらない場合は横方向に縮小） */}
+                    <div style={{ position: "absolute", left: `${(GRID_CARD_WIDTH - GRID_FLOOR_LABEL_WIDTH) / 2}px`, top: "310px", width: `${GRID_FLOOR_LABEL_WIDTH}px`, height: "30px", backgroundColor: getFloorLabelColor(shop.genre),
                       display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }}>{getFloorDisplay(shop, selectedLang)}</span>
+                      <ScalableText text={getFloorDisplay(shop, selectedLang)} align="center"
+                        style={{ width: `${GRID_FLOOR_LABEL_WIDTH - GRID_LABEL_PADDING_X * 2}px`, fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }} />
                     </div>
 
-                    {/* ナンバーラベル（幅は言語ごとの最大テキスト幅に動的変更） */}
-                    {shop.section && (
-                      <div style={{ position: "absolute", left: `${10 + floorLabelWidth}px`, top: "310px", width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: getGenreColor(shop.genre),
-                        display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }}>{shop.section}</span>
-                      </div>
-                    )}
-
-                    {/* ショップ名（1行。はみ出す場合は横方向に縮小） */}
-                    <ScalableText
-                      text={getDisplayName(shop, selectedLang)}
-                      style={{
-                        position: "absolute", left: "10px", top: "356px",
-                        fontSize: "24px", fontWeight: "bold", color: "#000000",
-                        width: "270px",
-                      }}
-                    />
+                    {/* ショップ名（1行。はみ出す場合は省略記号） */}
+                    <div style={{
+                      position: "absolute", left: "10px", top: "356px",
+                      fontSize: "24px", fontWeight: "bold", color: "#000000",
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                      maxWidth: "270px",
+                    }}>
+                      {getDisplayName(shop, selectedLang)}
+                    </div>
                   </div>
                 ) : (
                   /* リストアイテム */
@@ -1258,23 +1254,14 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       )}
                     </div>
 
-                    {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
-                    <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
-                      display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }}>{getFloorDisplay(shop, selectedLang)}</span>
+                    {/* フロアラベル（幅は言語ごとの最大テキスト幅に動的変更、色はジャンル別、左寄せ） */}
+                    <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: getFloorLabelColor(shop.genre),
+                      display: "flex", alignItems: "center", justifyContent: "flex-start", paddingLeft: `${LIST_LABEL_PADDING_X}px`, boxSizing: "border-box" }}>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily, whiteSpace: "nowrap" }}>{getFloorDisplay(shop, selectedLang)}</span>
                     </div>
 
-                    {/* 区画番号ラベル（幅は言語ごとの最大テキスト幅に動的変更） */}
-                    {shop.section && (
-                      <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: getGenreColor(shop.genre),
-                        display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }}>{shop.section}</span>
-                      </div>
-                    )}
-
-                    {/* ショップ名（1行。はみ出す場合は横方向に縮小） */}
-                    <ScalableText
-                      text={getDisplayName(shop, selectedLang)}
+                    {/* ショップ名（1行。はみ出す場合は省略記号） */}
+                    <div
                       style={{
                         position: "absolute",
                         left: "140px",
@@ -1283,9 +1270,14 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                         fontSize: "24px",
                         fontWeight: "bold",
                         color: "#000000",
-                        width: "440px",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: "440px",
                       }}
-                    />
+                    >
+                      {getDisplayName(shop, selectedLang)}
+                    </div>
                   </div>
                 ))}
             </motion.div>

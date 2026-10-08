@@ -5,8 +5,10 @@ import React, { useRef, useCallback, useLayoutEffect, useEffect } from "react";
  * （通常モール向け src/screens/ShopListScreen.tsx の ScalableText と同じ方式）
  *
  * 枠の幅は style の width で指定する。フォント読込後・枠のサイズ変更時にも再計測する。
+ * align="center" の場合は枠の中央に配置し、縮小も中央を基準に行う。
  */
-export const ScalableText: React.FC<{ text: string; style?: React.CSSProperties }> = ({ text, style }) => {
+export const ScalableText: React.FC<{ text: string; style?: React.CSSProperties; align?: "left" | "center" }> = ({ text, style, align = "left" }) => {
+  const origin = align === "center" ? "center center" : "left center";
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +59,7 @@ export const ScalableText: React.FC<{ text: string; style?: React.CSSProperties 
       style={{
         whiteSpace: "nowrap",
         overflow: "hidden",
+        ...(align === "center" ? { display: "flex", justifyContent: "center" } : {}),
         ...style,
       }}
     >
@@ -64,9 +67,10 @@ export const ScalableText: React.FC<{ text: string; style?: React.CSSProperties 
         ref={textRef}
         style={{
           display: "inline-block",
+          flexShrink: 0,
           transform: "scaleX(1)",
           whiteSpace: "nowrap",
-          transformOrigin: "left center",
+          transformOrigin: origin,
         }}
       >
         {text}
