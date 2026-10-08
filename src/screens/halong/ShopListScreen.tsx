@@ -94,7 +94,7 @@ interface HalongShopListScreenProps {
   shopListLayout?: 'list' | 'grid';
 }
 
-export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp, shopListLayout = 'list' }: HalongShopListScreenProps = {}) {
+export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp, shopListLayout = 'grid' }: HalongShopListScreenProps = {}) {
   const [selectedLang, setSelectedLang] = useState<HalongLang>('vn');
   // 現在地アイコンの言語別設定（speechBubbleJa/En/Vn）は vn/en/ja のみのため、
   // cn/tw/kr 選択中は直前の vn/en/ja の設定を使う（アセットも直前の言語にフォールバックするため）
