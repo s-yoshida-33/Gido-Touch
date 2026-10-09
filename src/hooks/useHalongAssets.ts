@@ -19,7 +19,7 @@ const BUNDLED_PREFIX = '../assets/malls/halong/';
 
 const BUNDLED: Record<string, string> = Object.fromEntries(
   Object.entries(
-    import.meta.glob<string>('../assets/malls/halong/**/*.svg', { eager: true, import: 'default' }),
+    import.meta.glob<string>('../assets/malls/halong/**/*.{svg,png}', { eager: true, import: 'default' }),
   ).map(([path, url]) => [path.slice(BUNDLED_PREFIX.length), url]),
 );
 
@@ -71,6 +71,7 @@ export interface HalongAssets {
   close: string;
   closeHighlight: string;
   currentFloorIcon: string;
+  mallLogo: string;
 }
 
 // ── アセットビルダー ──────────────────────────────────────────────
@@ -150,6 +151,7 @@ function buildFor(local: Record<string, string> | null, lang: HalongLang): Halon
     close:               r(`buttons/closes/${lang}.svg`),
     closeHighlight:      r(`buttons/closes/${lang}-highlight.svg`),
     currentFloorIcon:    r(`icons/floors/current-${lang}.svg`),
+    mallLogo:            r('icons/mall-logo.png'),
   };
 }
 

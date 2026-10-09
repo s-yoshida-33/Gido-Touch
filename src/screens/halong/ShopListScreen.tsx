@@ -937,6 +937,27 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               </TransformWrapper>
             </div>
 
+            {/* モールロゴ（右上、フロアラベルと左右対称に x:右50, y:50、ズーム中はフロアラベルと同様に非表示） */}
+            {assets.mallLogo && (
+              <img
+                src={assets.mallLogo}
+                alt="AEON MALL"
+                draggable={false}
+                style={{
+                  position: "absolute",
+                  right: "50px",
+                  top: "50px",
+                  width: "166px",
+                  height: "166px",
+                  display: "block",
+                  opacity: showFloorLabel ? 1 : 0,
+                  transition: "opacity 0.3s ease-in-out",
+                  pointerEvents: "none",
+                  zIndex: 1,
+                }}
+              />
+            )}
+
             {/* フロアラベル (x:50, y:50) */}
             <img
               src={assets.floorLabels[currentFloor as '1F' | '2F' | '3F' | '4F']}
