@@ -28,6 +28,12 @@ export const GenreSettingsTab: React.FC<GenreSettingsTabProps> = ({
   const ignoredDropdownRef = useRef<HTMLDivElement>(null);
   const ignoredInputRef = useRef<HTMLInputElement>(null);
 
+  // 非表示ショップ設定用のステート
+  const [newHiddenShopId, setNewHiddenShopId] = useState("");
+  const [showHiddenShopDropdown, setShowHiddenShopDropdown] = useState(false);
+  const hiddenShopDropdownRef = useRef<HTMLDivElement>(null);
+  const hiddenShopInputRef = useRef<HTMLInputElement>(null);
+
   // カテゴリー設定用のステート
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("sweets");
   const [newCategoryKeyword, setNewCategoryKeyword] = useState("");
@@ -70,6 +76,16 @@ export const GenreSettingsTab: React.FC<GenreSettingsTabProps> = ({
       ) {
         setShowIgnoredDropdown(false);
       }
+
+      // 非表示ショップ設定用
+      if (
+        hiddenShopDropdownRef.current &&
+        !hiddenShopDropdownRef.current.contains(event.target as Node) &&
+        hiddenShopInputRef.current &&
+        !hiddenShopInputRef.current.contains(event.target as Node)
+      ) {
+        setShowHiddenShopDropdown(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -98,7 +114,35 @@ export const GenreSettingsTab: React.FC<GenreSettingsTabProps> = ({
     });
   };
 
-  const handleMaxItemsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 非表示ショップの追加
+  const handleAddHiddenShopId = () => {
+    const trimmed = newHiddenShopId.trim();
+    const currentIds = settings.hiddenShopIds || [];
+    if (trimmed && !currentIds.includes(trimmed)) {
+      onChangeSettings({
+        ...settings,
+        hiddenShopIds: [...currentIds, trimmed],
+      });
+      setNewHiddenShopId("");
+    }
+  };
+
+  // 非表示ショップの削除
+  const handleRemoveHiddenShopId = (idToRemove: string) => {
+    onChangeSettings({
+      ...settings,
+      hiddenShopIds: (settings.hiddenShopIds || []).filter(id => id !== idToRemove),
+    });
+  };
+
+  // ショップIDから表示用ラベルを生成（例: "[408] 店名 (ID: 135)"）
+  const getShopLabel = (shopId: string): string => {
+    const shop = shops.find(s => s.shopId === shopId);
+    if (!shop) return `ID: ${shopId}（現在のショップデータに無し）`;
+    return `${shop.number ? `[${shop.number}] ` : ""}${shop.name} (ID: ${shopId})`;
+  };
+
+  const handleMaxItemsChange =(e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10);
     if (!isNaN(val) && val >= 0) {
       onChangeSettings({
@@ -155,6 +199,23 @@ export const GenreSettingsTab: React.FC<GenreSettingsTabProps> = ({
       memo.toLowerCase().includes(newKeyword.toLowerCase())
     );
   }, [uniqueGenreMemos, newKeyword]);
+
+  // 非表示ショップ用 候補リスト（ショップID・区画番号・店名で絞り込み、区画番号順）
+  const filteredHiddenShopOptions = useMemo(() => {
+    const hiddenIds = settings.hiddenShopIds || [];
+    const query = newHiddenShopId.trim().toLowerCase();
+    return shops
+      .filter(shop => shop.shopId && !hiddenIds.includes(shop.shopId))
+      .filter(shop => {
+        if (!query) return true;
+        return (
+          (shop.shopId || "").toLowerCase().includes(query) ||
+          (shop.number || "").toLowerCase().includes(query) ||
+          (shop.name || "").toLowerCase().includes(query)
+        );
+      })
+      .sort((a, b) => (a.number || "").localeCompare(b.number || "", undefined, { numeric: true }));
+  }, [shops, settings.hiddenShopIds, newHiddenShopId]);
 
   return (
     <div style={{ color: "#ffffff", fontFamily: "'Rounded Mplus 1c', sans-serif" }}>
@@ -301,6 +362,148 @@ export const GenreSettingsTab: React.FC<GenreSettingsTabProps> = ({
                     <span style={{ marginRight: "8px", fontSize: "14px" }}>{keyword}</span>
                     <button
                         onClick={() => handleRemoveKeyword(keyword)}
+                        style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "#aaaaaa",
+                            cursor: "pointer",
+                            fontSize: "18px",
+                            lineHeight: "1",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: 0,
+                            width: "20px",
+                            height: "20px",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = "#ff6b6b"}
+                        onMouseLeave={(e) => e.currentTarget.style.color = "#aaaaaa"}
+                        title="削除"
+                    >
+                        ×
+                    </button>
+                </div>
+            ))}
+        </div>
+      </div>
+
+      <div style={{ borderTop: "1px solid #444444", margin: "32px 0" }} />
+
+      {/* --- 非表示ショップ設定 --- */}
+      <div style={{ marginBottom: "24px" }}>
+        <h3 style={{ fontSize: "16px", marginBottom: "12px", color: "#aaaaaa" }}>
+          非表示ショップ
+        </h3>
+        <p style={{ fontSize: "12px", color: "#888888", marginBottom: "12px" }}>
+          以下のショップIDの店舗は、ショップデータ（API）に存在していても表示されません。<br/>
+          屋号変更などで旧店舗のページがHPに残る場合に使用します。
+        </p>
+
+        <div style={{ display: "flex", gap: "8px", marginBottom: "16px", position: "relative" }}>
+            {/* カスタムドロップダウン入力欄（非表示ショップ） */}
+            <div style={{ flex: 1, position: "relative" }}>
+                <input
+                    ref={hiddenShopInputRef}
+                    type="text"
+                    value={newHiddenShopId}
+                    onChange={(e) => {
+                        setNewHiddenShopId(e.target.value);
+                        setShowHiddenShopDropdown(true);
+                    }}
+                    onFocus={() => setShowHiddenShopDropdown(true)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            handleAddHiddenShopId();
+                            setShowHiddenShopDropdown(false);
+                        }
+                    }}
+                    placeholder="リストから選択またはショップIDを入力"
+                    style={{
+                        width: "100%",
+                        padding: "10px",
+                        backgroundColor: "#333333",
+                        border: "1px solid #555555",
+                        borderRadius: "4px",
+                        color: "#ffffff",
+                        fontSize: "14px",
+                        boxSizing: "border-box"
+                    }}
+                />
+
+                {/* ドロップダウンリスト（非表示ショップ） */}
+                {showHiddenShopDropdown && filteredHiddenShopOptions.length > 0 && (
+                    <div
+                        ref={hiddenShopDropdownRef}
+                        style={{
+                            position: "absolute",
+                            top: "100%",
+                            left: 0,
+                            width: "100%",
+                            maxHeight: "400px",
+                            overflowY: "auto",
+                            backgroundColor: "#333333",
+                            border: "1px solid #555555",
+                            borderTop: "none",
+                            borderRadius: "0 0 4px 4px",
+                            zIndex: 100,
+                            boxShadow: "0 4px 6px rgba(0,0,0,0.3)"
+                        }}
+                    >
+                        {filteredHiddenShopOptions.map((shop) => (
+                            <div
+                                key={shop.shopId}
+                                onClick={() => {
+                                    setNewHiddenShopId(shop.shopId || "");
+                                    setShowHiddenShopDropdown(false);
+                                }}
+                                style={{
+                                    padding: "8px 12px",
+                                    cursor: "pointer",
+                                    fontSize: "14px",
+                                    color: "#ffffff",
+                                    borderBottom: "1px solid #444444"
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#444444"}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                            >
+                                {getShopLabel(shop.shopId || "")}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <button
+                onClick={handleAddHiddenShopId}
+                disabled={!newHiddenShopId.trim()}
+                style={{
+                    padding: "0 20px",
+                    backgroundColor: newHiddenShopId.trim() ? "#007acc" : "#555555",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: newHiddenShopId.trim() ? "pointer" : "not-allowed",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                }}
+            >
+                追加
+            </button>
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            {(settings.hiddenShopIds || []).map((shopId) => (
+                <div key={shopId} style={{
+                    display: "flex",
+                    alignItems: "center",
+                    backgroundColor: "#444444",
+                    borderRadius: "20px",
+                    padding: "6px 12px",
+                    border: "1px solid #555555"
+                }}>
+                    <span style={{ marginRight: "8px", fontSize: "14px" }}>{getShopLabel(shopId)}</span>
+                    <button
+                        onClick={() => handleRemoveHiddenShopId(shopId)}
                         style={{
                             background: "transparent",
                             border: "none",

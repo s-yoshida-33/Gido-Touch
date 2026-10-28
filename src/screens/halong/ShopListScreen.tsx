@@ -92,9 +92,10 @@ interface HalongShopListScreenProps {
   pictoSettings?: PictoSettings;
   bannerSettings?: HalongBannerSettings;
   shopListLayout?: 'list' | 'grid';
+  hiddenShopIds?: string[];
 }
 
-export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp, shopListLayout = 'grid' }: HalongShopListScreenProps = {}) {
+export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp, shopListLayout = 'grid', hiddenShopIds }: HalongShopListScreenProps = {}) {
   const [selectedLang, setSelectedLang] = useState<HalongLang>('vn');
   // 現在地アイコンの言語別設定（speechBubbleJa/En/Vn）は vn/en/ja のみのため、
   // cn/tw/kr 選択中は直前の vn/en/ja の設定を使う（アセットも直前の言語にフォールバックするため）
@@ -106,7 +107,12 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const assets = useHalongAssets(selectedLang);
   const fontFamily = HALONG_FONT_FAMILY_BY_LANG[selectedLang];
   const maps = useHalongMaps();
-  const allShops = useHalongShops();
+  const loadedShops = useHalongShops();
+  // 設定で非表示指定されたショップIDを除外
+  const allShops = useMemo(() => {
+    if (!hiddenShopIds || hiddenShopIds.length === 0) return loadedShops;
+    return loadedShops.filter(s => !hiddenShopIds.includes(s.shopId));
+  }, [loadedShops, hiddenShopIds]);
   const [currentFloor, setCurrentFloor] = useState<string>('1F');
   const [selectedPicto, setSelectedPicto] = useState<string | null>(null);
   const [pressedGenreNav, setPressedGenreNav] = useState<'prev' | 'next' | null>(null);
