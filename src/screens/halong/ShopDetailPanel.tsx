@@ -1,21 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { HalongShop } from '../../hooks/useHalongShops';
+import type { HalongShop, HalongLang } from '../../hooks/useHalongShops';
 import { getDisplayName, getFloorDisplay, getOpeningHoursDisplay, getGenreDisplay } from '../../hooks/useHalongShops';
 import type { useHalongAssets } from '../../hooks/useHalongAssets';
+import { ScalableText } from '../../components/ScalableText';
 
 interface ShopDetailPanelProps {
   shop: HalongShop;
-  lang: 'en' | 'ja' | 'vn';
+  lang: HalongLang;
   onClose: () => void;
   assets: ReturnType<typeof useHalongAssets>;
 }
 
-const LABEL: Record<string, Record<string, string>> = {
-  location: { vn: 'Vị trí',         en: 'Location',      ja: '場所' },
-  hours:    { vn: 'Giờ mở cửa',     en: 'Opening Hours', ja: '営業時間' },
-  phone:    { vn: 'Số điện thoại',  en: 'Tel',           ja: '電話番号' },
+const LABEL: Record<string, Record<HalongLang, string>> = {
+  location: { vn: 'Vị trí',         en: 'Location',      ja: '場所',     cn: '位置',     tw: '位置',     kr: '위치' },
+  hours:    { vn: 'Giờ mở cửa',     en: 'Opening Hours', ja: '営業時間', cn: '营业时间', tw: '營業時間', kr: '영업시간' },
+  phone:    { vn: 'Số điện thoại',  en: 'Tel',           ja: '電話番号', cn: '电话',     tw: '電話',     kr: '전화번호' },
 };
 
 const ICON_LOCATION = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyLjI0NzggMEM3LjY5MDY2IDAuMDAxNDUzMTIgNC4wMDE0NSAzLjY5Mjg2IDQgOC4yNDc4QzQuMDAyOTUgOC45MTc5NyA0LjE0MjA4IDkuNTkwMzQgNC4zNTQ1MiAxMC4zMDA4QzQuNzI4MDYgMTEuNTQwMSA1LjM0MzMgMTIuODk0MyA2LjA1NTE5IDE0LjI2MzlDOC4xOTA5NSAxOC4zNTg5IDExLjIyNjggMjIuNTc5MSAxMS4yNDM3IDIyLjYwMjZMMTIuMjQ3OCAyNEwxMy4yNTA1IDIyLjYwMjVDMTMuMjYyMiAyMi41ODc4IDE1LjAzMDMgMjAuMTI1NSAxNi44MTM3IDE3LjE1MjVDMTcuNzA1MSAxNS42NjM1IDE4LjYwMTYgMTQuMDQ3MSAxOS4yOTAxIDEyLjUxODVDMTkuNjM0MyAxMS43NTM5IDE5LjkyNjUgMTEuMDEwNSAyMC4xNDExIDEwLjMwMDdDMjAuMzUzNSA5LjU5MDMgMjAuNDkxMiA4LjkxNzkyIDIwLjQ5NDEgOC4yNDc3NUMyMC40OTI2IDMuNjkyODYgMTYuODAzNCAwLjAwMTQ1MzEyIDEyLjI0NzggMFpNMTguNDY2NCA5LjY2NDE0QzE4LjEzMTkgMTAuNzc5OCAxNy41MDQgMTIuMTkwNCAxNi43NDc2IDEzLjYzODFDMTUuNjE0NyAxNS44MTQzIDE0LjIwMTUgMTguMDg3NiAxMy4wNzYgMTkuODA1NkMxMi43NzQ0IDIwLjI2NTQgMTIuNDk3NSAyMC42ODE1IDEyLjI0NzkgMjEuMDQ5OEMxMS40NjI2IDE5Ljg4OTYgMTAuMzcwOSAxOC4yMjM2IDkuMzAyOTkgMTYuNDIyNEM4LjM2ODU5IDE0Ljg0NTMgNy40NTM5NiAxMy4xNjYgNi43ODk4OCAxMS42NjMxQzYuNDU3ODEgMTAuOTE0OSA2LjE4OTE4IDEwLjIxMDQgNi4wMTA0MSA5LjYwMTQ5QzUuODI5OTYgOC45OTUwNCA1Ljc0Njc0IDguNDc5MjUgNS43NDkyMiA4LjE1Mzc3QzUuNzUwMDYgNi4zNTUwNSA2LjQ3NDMyIDQuNzQwMDYgNy42NTE3NyAzLjU1NzY1QzguODMyNTUgMi4zODAyIDEwLjQ0NzUgMS42NTU4OSAxMi4yNDc5IDEuNjU0MjZDMTQuMDQ2NiAxLjY1NTg5IDE1LjY2MjQgMi4zODAyIDE2Ljg0MjQgMy41NTc2NUMxOC4wMjE1IDQuNzQwMDYgMTguNzQ0OSA2LjM1NTA1IDE4Ljc0NTggOC4xNTM3N0MxOC43NDgyIDguNDkwOCAxOC42NTkyIDkuMDI5NjkgMTguNDY2NCA5LjY2NDE0WiIgZmlsbD0iI0IzMEY4RSIvPgo8cGF0aCBkPSJNMTIuMjQ3OSA1LjEzNTVDMTAuNTgxOCA1LjEzNTUgOS4yMzA0NyA2LjQ4NzY2IDkuMjMwNDcgOC4xNTM3QzkuMjMwNDcgOS44MjA1OCAxMC41ODE4IDExLjE3MTEgMTIuMjQ3OSAxMS4xNzExQzEzLjkxMzEgMTEuMTcxMSAxNS4yNjUzIDkuODIwNjMgMTUuMjY1MyA4LjE1MzdDMTUuMjY1MiA2LjQ4NzYxIDEzLjkxMzEgNS4xMzU1IDEyLjI0NzkgNS4xMzU1WiIgZmlsbD0iI0IzMEY4RSIvPgo8L3N2Zz4=';
@@ -111,9 +112,10 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
     if (dx < 0) goNext(); else goPrev();
   };
 
-  const floorText  = getFloorDisplay(shop, lang);
+  // フロア表記の後ろに区画番号を付ける（例: 3rd Floor [T308-1+T308-2]）
+  const floorText  = shop.section ? `${getFloorDisplay(shop, lang)} [${shop.section}]` : getFloorDisplay(shop, lang);
   const openTime   = getOpeningHoursDisplay(shop, lang);
-  const genreText  = getGenreDisplay(shop.genre, lang);
+  const genreText  = getGenreDisplay(shop, lang);
 
   // 場所ボディ末尾(Y905) → 営業時間タイトル(Y930) のギャップ = 25px を統一基準に使用
   const SECTION_GAP   = 25;
@@ -206,16 +208,15 @@ export const ShopDetailPanel: React.FC<ShopDetailPanelProps> = ({ shop, lang, on
         )}
       </div>
 
-      {/* ── 店舗名 ── */}
-      <div style={{
-        position: 'absolute', left: '180px', top: '668px',
-        fontSize: '36px', fontWeight: 'bold', color: '#000000',
-        width: '440px', lineHeight: 1.2,
-        overflow: 'hidden', display: '-webkit-box',
-        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-      }}>
-        {getDisplayName(shop, lang)}
-      </div>
+      {/* ── 店舗名（1行。はみ出す場合は横方向に縮小） ── */}
+      <ScalableText
+        text={getDisplayName(shop, lang)}
+        style={{
+          position: 'absolute', left: '180px', top: '668px',
+          fontSize: '36px', fontWeight: 'bold', color: '#000000',
+          width: '440px', lineHeight: 1.2,
+        }}
+      />
 
       {/* ── ジャンル ── */}
       <div style={{

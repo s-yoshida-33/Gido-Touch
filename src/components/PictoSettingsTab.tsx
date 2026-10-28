@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import type { FloorId } from "../types/floorLayout";
 import type { PictoSettings, PictoInstance, PictoTag } from "../types/picto";
 import type { AnimationConfig, AnimationType, ShadowConfig } from "../types/locationIcon";
+import { HALONG_PICTO_KEYS, HALONG_PICTO_LABELS, pictoTagFromKey } from "../config/halongPictos";
 
 function generateUUID() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -14,23 +15,18 @@ function generateUUID() {
 const clampPercent = (v: number) => Math.round(Math.min(100, Math.max(0, isNaN(v) ? 0 : v)) * 100) / 100;
 const clampRotation = (v: number) => { const n = isNaN(v) ? 0 : v; return Math.min(360, Math.max(0, n)); };
 
-const HALONG_PICTO_TAGS: Array<{ id: PictoTag; label: string }> = [
-  { id: "atm",             label: "ATM" },
-  { id: "elevator",        label: "エレベーター" },
-  { id: "free_coin_lockers", label: "無料コインロッカー" },
-  { id: "info",            label: "インフォメーション" },
-  { id: "restroom",        label: "トイレ" },
-  { id: "smoking_room",    label: "喫煙所" },
-];
+const HALONG_PICTO_TAGS: Array<{ id: PictoTag; label: string }> = HALONG_PICTO_KEYS.map((key) => ({
+  id: pictoTagFromKey(key),
+  label: HALONG_PICTO_LABELS[key],
+}));
 
-const HALONG_ICON_FILES = [
-  "atm.svg",
-  "elevator.svg",
-  "free-coin-lockers.svg",
-  "info.svg",
-  "restroom.svg",
-  "smoking-room.svg",
-];
+const HALONG_ICON_FILES = HALONG_PICTO_KEYS.map((key) => `${key}.svg`);
+
+const smallButtonStyle: React.CSSProperties = {
+  padding: "4px 8px", fontSize: 11, fontWeight: 600, color: "#fff",
+  backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4,
+  cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+};
 
 const ConfigGroup: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <fieldset style={{ border: "1px solid rgba(255,255,255,0.1)", padding: 16, borderRadius: 12, marginBottom: 16, backgroundColor: "rgba(255,255,255,0.03)" }}>
@@ -46,6 +42,9 @@ export interface PictoSettingsTabProps {
   onSavePictoSettings: (settings: PictoSettings) => void;
   selectedInstanceId?: string | null;
   onSelectedInstanceIdChange?: (id: string | null) => void;
+  /** プレビューで非表示にしているピクトのID（設定画面の表示専用。保存しない） */
+  hiddenInstanceIds?: Set<string>;
+  onHiddenInstanceIdsChange?: (ids: Set<string>) => void;
   iconOptions: Array<{ fileName: string; url: string }>;
 }
 
@@ -56,10 +55,12 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
   onSavePictoSettings,
   selectedInstanceId: externalSelectedInstanceId,
   onSelectedInstanceIdChange,
+  hiddenInstanceIds,
+  onHiddenInstanceIdsChange,
   iconOptions,
 }) => {
   const [selectedIconFile, setSelectedIconFile] = useState<string | null>(null);
-  const [selectedTag, setSelectedTag] = useState<PictoTag>("info");
+  const [selectedTag, setSelectedTag] = useState<PictoTag>(HALONG_PICTO_TAGS[0].id);
   const [internalSelectedInstanceId, setInternalSelectedInstanceId] = useState<string | null>(null);
 
   const selectedInstanceId = externalSelectedInstanceId !== undefined ? externalSelectedInstanceId : internalSelectedInstanceId;
@@ -74,6 +75,29 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
   );
 
   const selectedInstance = selectedInstanceId ? pictoSettings.instances[selectedInstanceId] : null;
+
+  // ── プレビューの表示/非表示（重なったピクトを一時的に隠して配置しやすくする） ──
+  const canToggleVisibility = !!hiddenInstanceIds && !!onHiddenInstanceIdsChange;
+  const isHidden = (id: string) => !!hiddenInstanceIds?.has(id);
+  const toggleHidden = (id: string) => {
+    if (!hiddenInstanceIds || !onHiddenInstanceIdsChange) return;
+    const next = new Set(hiddenInstanceIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    onHiddenInstanceIdsChange(next);
+  };
+  const hideAllExceptSelected = () => {
+    if (!hiddenInstanceIds || !onHiddenInstanceIdsChange) return;
+    const next = new Set(hiddenInstanceIds);
+    floorInstances.forEach((i) => { if (i.id === selectedInstanceId) next.delete(i.id); else next.add(i.id); });
+    onHiddenInstanceIdsChange(next);
+  };
+  const showAll = () => {
+    if (!hiddenInstanceIds || !onHiddenInstanceIdsChange) return;
+    const next = new Set(hiddenInstanceIds);
+    floorInstances.forEach((i) => next.delete(i.id));
+    onHiddenInstanceIdsChange(next);
+  };
+  const hiddenCountOnFloor = floorInstances.filter((i) => isHidden(i.id)).length;
 
   const handleAddInstance = () => {
     if (!selectedIconFile) return;
@@ -93,6 +117,27 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
     onSavePictoSettings({
       ...pictoSettings,
       instances: { ...pictoSettings.instances, [newId]: newInstance },
+    });
+    setSelectedInstanceId(newId);
+  };
+
+  // 選択中のピクトを同じ設定のまま複製する（同じフロア、位置は少しずらして新しいIDで作成し、選択状態にする）
+  const handleDuplicateInstance = () => {
+    if (!selectedInstance) return;
+    const newId = generateUUID();
+    // 座標は 0〜100 (%) が基本。旧形式の 0〜1 の値ならずらし幅も同じ単位にする
+    const shift = (v: number) => (v <= 1 ? Math.min(1, v + 0.02) : Math.min(100, v + 2));
+    const copy: PictoInstance = {
+      ...selectedInstance,
+      id: newId,
+      x: shift(selectedInstance.x),
+      y: shift(selectedInstance.y),
+      shadow: selectedInstance.shadow ? { ...selectedInstance.shadow } : undefined,
+      animation: selectedInstance.animation ? { ...selectedInstance.animation } : undefined,
+    };
+    onSavePictoSettings({
+      ...pictoSettings,
+      instances: { ...pictoSettings.instances, [newId]: copy },
     });
     setSelectedInstanceId(newId);
   };
@@ -203,7 +248,24 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
 
           {/* Instance List */}
           <div style={{ flex: "0 0 auto", maxHeight: 300, overflowY: "auto" }}>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginBottom: 8 }}>配置済み ({floorInstances.length})</div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginBottom: 8 }}>
+              配置済み ({floorInstances.length}){hiddenCountOnFloor > 0 && ` ・ 非表示 ${hiddenCountOnFloor}`}
+            </div>
+            {canToggleVisibility && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                  <button
+                    onClick={hideAllExceptSelected}
+                    disabled={!selectedInstanceId}
+                    title="選択中のピクト以外をプレビューで非表示にします（保存はされません）"
+                    style={{ ...smallButtonStyle, opacity: selectedInstanceId ? 1 : 0.4, cursor: selectedInstanceId ? "pointer" : "not-allowed" }}
+                  >選択中以外を非表示</button>
+                  <button
+                    onClick={showAll}
+                    disabled={hiddenCountOnFloor === 0}
+                    style={{ ...smallButtonStyle, opacity: hiddenCountOnFloor > 0 ? 1 : 0.4, cursor: hiddenCountOnFloor > 0 ? "pointer" : "not-allowed" }}
+                  >すべて表示</button>
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {floorInstances.map((inst) => {
                 const iconUrl = iconOptions.find((o) => o.fileName === inst.iconName)?.url || "";
@@ -216,6 +278,7 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
                       backgroundColor: selectedInstanceId === inst.id ? "rgba(0,122,255,0.2)" : "rgba(255,255,255,0.05)",
                       border: selectedInstanceId === inst.id ? "1px solid #007aff" : "1px solid rgba(255,255,255,0.1)",
                       borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
+                      opacity: isHidden(inst.id) ? 0.45 : 1,
                     }}
                   >
                     <div style={{ width: 30, height: 30, backgroundColor: "#fff", borderRadius: 4, padding: 2 }}>
@@ -225,6 +288,14 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{HALONG_PICTO_TAGS.find((t) => t.id === inst.tag)?.label ?? inst.tag}</div>
                       <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>{inst.iconName}</div>
                     </div>
+                    {canToggleVisibility && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleHidden(inst.id); }}
+                        title={isHidden(inst.id) ? "プレビューに表示する" : "プレビューで非表示にする（保存はされません）"}
+                        aria-label={isHidden(inst.id) ? "表示する" : "非表示にする"}
+                        style={{ ...smallButtonStyle, width: 32, padding: "4px 0", fontSize: 15, lineHeight: 1 }}
+                      >{isHidden(inst.id) ? "🙈" : "👁"}</button>
+                    )}
                   </div>
                 );
               })}
@@ -297,8 +368,10 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
                     )}
                   </div>
 
-                  <div style={{ marginTop: 20 }}>
-                    <button onClick={handleDeleteInstance} style={{ width: "100%", padding: "8px", backgroundColor: "rgba(255,59,48,0.2)", color: "#ff3b30", border: "1px solid #ff3b30", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>削除</button>
+                  <div style={{ marginTop: 20, display: "flex", gap: 8 }}>
+                    <button onClick={handleDuplicateInstance} title="同じ設定のピクトを少しずらした位置に追加します"
+                      style={{ flex: 1, padding: "8px", backgroundColor: "rgba(0,122,255,0.2)", color: "#4da3ff", border: "1px solid #007aff", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>複製</button>
+                    <button onClick={handleDeleteInstance} style={{ flex: 1, padding: "8px", backgroundColor: "rgba(255,59,48,0.2)", color: "#ff3b30", border: "1px solid #ff3b30", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>削除</button>
                   </div>
                 </ConfigGroup>
 

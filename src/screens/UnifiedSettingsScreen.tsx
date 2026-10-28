@@ -37,6 +37,7 @@ import { DEFAULT_HALONG_BANNER_SETTINGS } from '../types/bannerSettings';
 import { useHalongBanners } from '../hooks/useHalongBanners';
 import { useHalongMaps } from '../hooks/useHalongMaps';
 import { useHalongAssets } from '../hooks/useHalongAssets';
+import { HALONG_PICTO_KEYS, pictoKeyFromTag } from '../config/halongPictos';
 import { PictoPin } from '../components/PictoPin';
 import { AnimatePresence } from 'framer-motion';
 
@@ -94,8 +95,10 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>(initialSubFloorSettings || { "1F-1": [], "1F-2": [] });
   const [pictoSettings, setPictoSettings] = useState<PictoSettings>(DEFAULT_PICTO_SETTINGS);
   const [selectedPictoId, setSelectedPictoId] = useState<string | null>(null);
+  // プレビューで非表示にしているピクトのID（設定画面の表示専用。保存しない）
+  const [hiddenPictoIds, setHiddenPictoIds] = useState<Set<string>>(() => new Set());
   const [bannerSettings, setBannerSettings] = useState<HalongBannerSettings>(DEFAULT_HALONG_BANNER_SETTINGS);
-  const [shopListLayout, setShopListLayout] = useState<'list' | 'grid'>('list');
+  const [shopListLayout, setShopListLayout] = useState<'list' | 'grid'>('grid');
   const { banners: availableBanners, reload: reloadBanners } = useHalongBanners();
 
   // Black screen settings
@@ -155,19 +158,10 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const halongMaps = useHalongMaps();
   const halongAssets = useHalongAssets();
 
-  const pictoIconOptions = useMemo(() => [
-    { fileName: 'atm.svg',              url: halongAssets.pictoMapIcons.atm },
-    { fileName: 'elevator.svg',          url: halongAssets.pictoMapIcons.elevator },
-    { fileName: 'free-coin-lockers.svg', url: halongAssets.pictoMapIcons.lockers },
-    { fileName: 'info.svg',             url: halongAssets.pictoMapIcons.info },
-    { fileName: 'restroom.svg',          url: halongAssets.pictoMapIcons.restroom },
-    { fileName: 'smoking-room.svg',      url: halongAssets.pictoMapIcons.smoking },
-  ], [halongAssets]);
-
-  const PICTO_TAG_TO_ASSETS_KEY: Record<string, keyof typeof halongAssets.pictoMapIcons> = {
-    info: 'info', restroom: 'restroom', smoking_room: 'smoking',
-    free_coin_lockers: 'lockers', atm: 'atm', elevator: 'elevator',
-  };
+  const pictoIconOptions = useMemo(
+    () => HALONG_PICTO_KEYS.map(key => ({ fileName: `${key}.svg`, url: halongAssets.pictoMapIcons[key] })),
+    [halongAssets],
+  );
 
   // 座標未設定ショップ数（全ショップ対象）
   const unsetShopCount = useMemo(() => {
@@ -265,7 +259,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentCmsSettings(snap.currentCmsSettings);
     setBlackScreenSettings(snap.blackScreenSettings);
     setPictoSettings(snap.pictoSettings);
-    setShopListLayout(snap.shopListLayout ?? 'list');
+    setShopListLayout(snap.shopListLayout ?? 'grid');
     setBannerSettings(snap.bannerSettings);
   }, []);
 
@@ -283,7 +277,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
     setCurrentCmsSettings(mallSettings.cmsSettings);
     setBlackScreenSettings(mallSettings.blackScreenSettings || DEFAULT_BLACK_SCREEN_SETTINGS);
     setPictoSettings(mallSettings.pictoSettings ?? DEFAULT_PICTO_SETTINGS);
-    setShopListLayout(mallSettings.shopListLayout ?? 'list');
+    setShopListLayout(mallSettings.shopListLayout ?? 'grid');
     setBannerSettings(mallSettings.bannerSettings ?? DEFAULT_HALONG_BANNER_SETTINGS);
 
     // Genre settings with fallback
@@ -293,6 +287,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       ignoredKeywords: gs?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS,
       maxItems: gs?.maxItems || 3,
       categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
+      hiddenShopIds: gs?.hiddenShopIds || [],
     });
   }, [initialFloorLayout, initialLocationIconSettings, initialImageSettings]);
 
@@ -528,7 +523,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       : { 
           ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS, 
           maxItems: initialGenreSettings?.maxItems || 3, 
-          categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS 
+          categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS,
+          hiddenShopIds: initialGenreSettings?.hiddenShopIds || [],
         });
     setCurrentAudioSettings(audioSettings);
     setCurrentCmsSettings(cmsSettings);
@@ -572,7 +568,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
         blackScreenSettings: snap.blackScreenSettings,
         pictoSettings: snap.pictoSettings,
         bannerSettings: snap.bannerSettings,
-        shopListLayout: snap.shopListLayout ?? 'list',
+        shopListLayout: snap.shopListLayout ?? 'grid',
       });
 
       // Save cached malls first (other malls that were edited during this session)
@@ -977,11 +973,11 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                           <img src={mapSrc} alt={floor} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                           <AnimatePresence>
                             {Object.values(pictoSettings.instances)
-                              .filter(inst => inst.floor === floor)
+                              .filter(inst => inst.floor === floor && !hiddenPictoIds.has(inst.id))
                               .map(inst => {
                                 const x = inst.x <= 1 ? inst.x * 100 : inst.x;
                                 const y = inst.y <= 1 ? inst.y * 100 : inst.y;
-                                const assetsKey = PICTO_TAG_TO_ASSETS_KEY[inst.tag];
+                                const assetsKey = pictoKeyFromTag(inst.tag);
                                 const iconUrl = assetsKey ? halongAssets.pictoMapIcons[assetsKey] : '';
                                 return (
                                   <PictoPin
@@ -1184,7 +1180,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             <GenreSettingsTab
               settings={genreSettings}
               onChangeSettings={setGenreSettings}
-              shops={shops}
+              shops={shopsForSettings}
             />
           )}
           {activeTab === "blackScreen" && (
@@ -1222,6 +1218,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 onSavePictoSettings={setPictoSettings}
                 selectedInstanceId={selectedPictoId}
                 onSelectedInstanceIdChange={setSelectedPictoId}
+                hiddenInstanceIds={hiddenPictoIds}
+                onHiddenInstanceIdsChange={setHiddenPictoIds}
                 iconOptions={pictoIconOptions}
               />
             </div>

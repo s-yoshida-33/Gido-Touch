@@ -221,7 +221,7 @@ export async function loadMallSettings(mallId: string): Promise<MallSettingsFile
       floorLayout: raw.floorLayout ?? defaults.floorLayout,
       blackScreenSettings: raw.blackScreenSettings ?? defaults.blackScreenSettings,
       shopDataMode: raw.shopDataMode as 'api' | 'local' | undefined,
-      shopListLayout: (raw.shopListLayout ?? 'list') as 'list' | 'grid',
+      shopListLayout: (raw.shopListLayout ?? 'grid') as 'list' | 'grid',
       pictoSettings: raw.pictoSettings,
       bannerSettings: raw.bannerSettings,
     };

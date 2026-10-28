@@ -20,55 +20,70 @@ import type { PictoSettings } from '../../types/picto';
 import type { HalongBannerSettings } from '../../types/bannerSettings';
 import { mergeBannerEntries } from '../../types/bannerSettings';
 import { useHalongBanners } from '../../hooks/useHalongBanners';
-import type { HalongShop } from '../../hooks/useHalongShops';
+import type { HalongShop, HalongLang } from '../../hooks/useHalongShops';
 import { ShopDetailPanel } from './ShopDetailPanel';
+import { ScalableText } from '../../components/ScalableText';
+import { HALONG_PICTO_ROWS, pictoTagFromKey, pictoKeyFromTag, type HalongPictoKey } from '../../config/halongPictos';
 
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
+
+// ベトナム語の声調記号（ặ, ở 等）を正しく表示するため Be Vietnam Pro を使用（src/styles/fonts.css で定義）
+const HALONG_FONT_FAMILY = '"Be Vietnam Pro", sans-serif';
+
+// 中国語・韓国語表示時は、Be Vietnam Pro に無い漢字・ハングルだけを専用フォントで表示する
+// （英数字は全言語共通で Be Vietnam Pro）
+// 中国語は簡体・繁体で太さ・字面をそろえるため、同じデザインの Noto Sans SC / TC を同梱して使用
+// （src/styles/fonts.css で定義。読込失敗時は Windows 標準の中国語フォントにフォールバック）
+const HALONG_FONT_FAMILY_BY_LANG: Record<HalongLang, string> = {
+  vn: HALONG_FONT_FAMILY,
+  en: HALONG_FONT_FAMILY,
+  ja: HALONG_FONT_FAMILY,
+  cn: '"Be Vietnam Pro", "Noto Sans SC", "Microsoft YaHei", sans-serif',     // 簡体
+  tw: '"Be Vietnam Pro", "Noto Sans TC", "Microsoft JhengHei", sans-serif',  // 繁体
+  kr: '"Be Vietnam Pro", "Malgun Gothic", sans-serif',                       // 韓国語: 맑은 고딕
+};
+
+// グリッド表示のカード幅と、フロアラベルの幅（カード中央に配置）・ラベル内の左右の余白
+const GRID_CARD_WIDTH = 290;
+const GRID_FLOOR_LABEL_WIDTH = 270;
+const GRID_LABEL_PADDING_X = 1;
+
+// リスト表示のフロアラベル内の左右の余白（幅は言語ごとの最長テキスト＋左右の余白）
+const LIST_LABEL_PADDING_X = 16;
+
+// フォント読込の判定用サンプル（漢字・ハングルを含めて、言語ごとのフォールバック先も読み込ませる）
+const FONT_LOAD_SAMPLE = '1F 1楼 1樓 1층';
+
+// 言語選択ポップアップの並び順（上から）
+const LANGS = ['vn', 'en', 'ja', 'cn', 'tw', 'kr'] as const satisfies readonly HalongLang[];
+
+// HTMLのlang属性。Be Vietnam Pro に無い漢字・ハングルを、言語に合ったシステムフォント
+// （簡体/繁体/日本語/韓国語の字形）でフォールバック表示させるために指定する
+const HTML_LANG: Record<HalongLang, string> = {
+  vn: 'vi', en: 'en', ja: 'ja', cn: 'zh-Hans', tw: 'zh-Hant', kr: 'ko',
+};
 
 const IDLE_TIMEOUT_MS = 30000;
 const FLOOR_ANIM_DURATION = 0.35;
 
-const GENRES = ['all', 'fashion', 'goods', 'gourmet', 'service'] as const;
+const GENRES = ['all', 'food', 'fashion', 'goods'] as const;
 type Genre = typeof GENRES[number];
 
-const GENRE_COLOR: Record<string, string> = {
-  fashion: '#00ADE4',
-  goods:   '#475EB4',
-  gourmet: '#F47216',
-  service: '#EF2F5A',
+// フロアラベルの色（ジャンル別、リスト・グリッド共通）
+const FLOOR_LABEL_COLOR: Record<string, string> = {
+  food:    '#EA9500',
+  fashion: '#138EE3',
+  goods:   '#A6C000',
 };
-function getGenreColor(genre: string): string {
-  return GENRE_COLOR[genre] ?? '#888888';
+function getFloorLabelColor(genre: string): string {
+  return FLOOR_LABEL_COLOR[genre] ?? '#888888';
 }
 
+// ショップリストの切替アニメーション（フロア切替・ジャンル切替共通のクロスフェード）
 const listVariants: Variants = {
-  enter: (direction: number) => {
-    if (direction === 0) return { opacity: 0 };
-    return { x: direction > 0 ? 300 : -300, opacity: 0 };
-  },
-  center: { zIndex: 1, x: 0, opacity: 1 },
-  exit: (direction: number) => {
-    if (direction === 0) return { opacity: 0 };
-    return { zIndex: 0, x: direction > 0 ? -300 : 300, opacity: 0 };
-  },
-};
-
-const PICTO_KEY_TO_TAG: Record<string, string> = {
-  info:     'info',
-  restroom: 'restroom',
-  smoking:  'smoking_room',
-  lockers:  'free_coin_lockers',
-  atm:      'atm',
-  elevator: 'elevator',
-};
-
-const PICTO_TAG_TO_ASSETS_KEY: Record<string, keyof ReturnType<typeof import('../../hooks/useHalongAssets').useHalongAssets>['pictoMapIcons']> = {
-  info:             'info',
-  restroom:         'restroom',
-  smoking_room:     'smoking',
-  free_coin_lockers: 'lockers',
-  atm:              'atm',
-  elevator:         'elevator',
+  enter: { opacity: 0 },
+  center: { zIndex: 1, opacity: 1 },
+  exit: { opacity: 0 },
 };
 
 interface HalongShopListScreenProps {
@@ -77,21 +92,33 @@ interface HalongShopListScreenProps {
   pictoSettings?: PictoSettings;
   bannerSettings?: HalongBannerSettings;
   shopListLayout?: 'list' | 'grid';
+  hiddenShopIds?: string[];
 }
 
-export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp, shopListLayout = 'list' }: HalongShopListScreenProps = {}) {
-  const [selectedLang, setSelectedLang] = useState<'en' | 'ja' | 'vn'>('vn');
+export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp, shopListLayout = 'grid', hiddenShopIds }: HalongShopListScreenProps = {}) {
+  const [selectedLang, setSelectedLang] = useState<HalongLang>('vn');
+  // 現在地アイコンの言語別設定（speechBubbleJa/En/Vn）は vn/en/ja のみのため、
+  // cn/tw/kr 選択中は直前の vn/en/ja の設定を使う（アセットも直前の言語にフォールバックするため）
+  const [lastBaseLang, setLastBaseLang] = useState<'vn' | 'en' | 'ja'>('vn');
+  if ((selectedLang === 'vn' || selectedLang === 'en' || selectedLang === 'ja') && selectedLang !== lastBaseLang) {
+    setLastBaseLang(selectedLang);
+  }
   const [langPopupOpen, setLangPopupOpen] = useState(false);
   const assets = useHalongAssets(selectedLang);
+  const fontFamily = HALONG_FONT_FAMILY_BY_LANG[selectedLang];
   const maps = useHalongMaps();
-  const allShops = useHalongShops();
+  const loadedShops = useHalongShops();
+  // 設定で非表示指定されたショップIDを除外
+  const allShops = useMemo(() => {
+    if (!hiddenShopIds || hiddenShopIds.length === 0) return loadedShops;
+    return loadedShops.filter(s => !hiddenShopIds.includes(s.shopId));
+  }, [loadedShops, hiddenShopIds]);
   const [currentFloor, setCurrentFloor] = useState<string>('1F');
   const [selectedPicto, setSelectedPicto] = useState<string | null>(null);
   const [pressedGenreNav, setPressedGenreNav] = useState<'prev' | 'next' | null>(null);
   const [showHint, setShowHint] = useState(true);
   const [showFloorLabel, setShowFloorLabel] = useState(true);
   const [selectedGenre, setSelectedGenre] = useState<Genre>('all');
-  const [genreDirection, setGenreDirection] = useState(0);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -156,25 +183,30 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const ALL_FLOORS = useMemo(() => ['1F', '2F', '3F', '4F'] as const, []);
   const FLOOR_ORDER = ['1F', '2F', '3F', '4F'];
 
-  // Canvas measureText でフロア・区画番号ラベルの最大幅を計算（言語切替時に再計算）
-  const { floorLabelWidth, sectionLabelWidth } = useMemo(() => {
+  // Webフォントは使用時に遅延ロードされるため、言語（フォント指定）ごとに読込完了後にラベル幅を再計測する
+  const [labelFontLoadCount, setLabelFontLoadCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    document.fonts.load(`bold 20px ${fontFamily}`, FONT_LOAD_SAMPLE)
+      .catch(() => undefined)
+      .then(() => { if (!cancelled) setLabelFontLoadCount(c => c + 1); });
+    return () => { cancelled = true; };
+  }, [fontFamily]);
+
+  // Canvas measureText でリスト表示のフロアラベルの幅（言語ごとの最長テキスト＋左右の余白）を計算（言語切替時に再計算）
+  const floorLabelWidth = useMemo(() => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    if (!ctx || allShops.length === 0) return { floorLabelWidth: 56, sectionLabelWidth: 84 };
-    ctx.font = 'bold 20px "Segoe UI", "Noto Sans", sans-serif';
-    const PADDING = 32;
+    if (!ctx || allShops.length === 0) return 56;
+    ctx.font = `bold 20px ${fontFamily}`;
     const MIN_WIDTH = 48;
     let maxFloor = 0;
-    let maxSection = 0;
     for (const shop of allShops) {
       maxFloor = Math.max(maxFloor, ctx.measureText(getFloorDisplay(shop, selectedLang)).width);
-      if (shop.section) maxSection = Math.max(maxSection, ctx.measureText(shop.section).width);
     }
-    return {
-      floorLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxFloor + PADDING)),
-      sectionLabelWidth: Math.max(MIN_WIDTH, Math.ceil(maxSection + PADDING)),
-    };
-  }, [allShops, selectedLang]);
+    return Math.max(MIN_WIDTH, Math.ceil(maxFloor + LIST_LABEL_PADDING_X * 2));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- labelFontLoadCount はフォント読込後の再計測トリガー
+  }, [allShops, selectedLang, fontFamily, labelFontLoadCount]);
 
   const filteredShops = useMemo(() => {
     let result = allShops;
@@ -563,20 +595,16 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
 
   function handleFloorSelect(floor: string) {
     if (selectedShopDetail !== null) clearShopDetailForNavigation();
-    setGenreDirection(0);
     setCurrentFloor(floor);
   }
 
   function handleGenreSelect(genre: Genre) {
     if (genre === selectedGenre) return;
     if (selectedShopDetail !== null) clearShopDetailForNavigation();
-    const currentIndex = GENRES.indexOf(selectedGenre);
-    const newIndex = GENRES.indexOf(genre);
-    setGenreDirection(newIndex > currentIndex ? 1 : -1);
     setSelectedGenre(genre);
   }
 
-  function handlePictoSelect(pictoKey: string) {
+  function handlePictoSelect(pictoKey: HalongPictoKey) {
     if (selectedShopDetail !== null) clearShopDetailForNavigation();
     const newKey = selectedPicto === pictoKey ? null : pictoKey;
 
@@ -592,7 +620,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
       return;
     }
 
-    const tag = PICTO_KEY_TO_TAG[pictoKey];
+    const tag = pictoTagFromKey(pictoKey);
     const instances = pictoSettings ? Object.values(pictoSettings.instances).filter(i => i.tag === tag) : [];
 
     if (instances.length === 0) {
@@ -740,7 +768,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         display: "flex",
         flexDirection: "row",
         position: "relative",
+        fontFamily,
       }}
+      lang={HTML_LANG[selectedLang]}
     >
       {/* アイドルリフレッシュ フェードオーバーレイ */}
       <div
@@ -842,7 +872,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                               imageMetrics={mapImageMetrics}
                               speechBubbleSrc={assets.speechBubbleIconSrc}
                               locationSrc={assets.locationIconSrc}
-                              language={selectedLang}
+                              language={lastBaseLang}
                             />
                           </div>
                         )}
@@ -881,7 +911,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                         <AnimatePresence>
                           {visiblePictoTag && pictoSettings && mapImageMetrics && (() => {
                             const scaleRatio = mapImageMetrics.displayWidth / HALONG_REFERENCE_MAP_WIDTH;
-                            const assetsKey = PICTO_TAG_TO_ASSETS_KEY[visiblePictoTag];
+                            const assetsKey = pictoKeyFromTag(visiblePictoTag);
                             const iconUrl = assetsKey ? assets.pictoMapIcons[assetsKey] : '';
                             const instances = Object.values(pictoSettings.instances)
                               .filter(inst => inst.tag === visiblePictoTag && inst.floor === floor);
@@ -913,6 +943,27 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               </TransformWrapper>
             </div>
 
+            {/* モールロゴ（右上、フロアラベルと左右対称に x:右50, y:50、ズーム中はフロアラベルと同様に非表示） */}
+            {assets.mallLogo && (
+              <img
+                src={assets.mallLogo}
+                alt="AEON MALL"
+                draggable={false}
+                style={{
+                  position: "absolute",
+                  right: "50px",
+                  top: "50px",
+                  width: "166px",
+                  height: "166px",
+                  display: "block",
+                  opacity: showFloorLabel ? 1 : 0,
+                  transition: "opacity 0.3s ease-in-out",
+                  pointerEvents: "none",
+                  zIndex: 1,
+                }}
+              />
+            )}
+
             {/* フロアラベル (x:50, y:50) */}
             <img
               src={assets.floorLabels[currentFloor as '1F' | '2F' | '3F' | '4F']}
@@ -941,7 +992,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 position: "absolute",
                 left: "50px",
                 bottom: "50px",
-                width: "654px",
+                width: "1000px",
                 height: "96px",
                 display: "block",
                 opacity: showHint ? 1 : 0,
@@ -1037,78 +1088,25 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
             {/* バナーとピクトの間隔 */}
             <div style={{ height: "30px", flexShrink: 0 }} />
 
-            {/* ピクトボタン行（左上） */}
-            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0 }}>
-              {/* info */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('info')}
-              >
-                <img src={assets.pictos.info.default} alt="info" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.info.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'info' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-              {/* restroom */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('restroom')}
-              >
-                <img src={assets.pictos.restroom.default} alt="restroom" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.restroom.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'restroom' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-              {/* smoking */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('smoking')}
-              >
-                <img src={assets.pictos.smoking.default} alt="smoking" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.smoking.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'smoking' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-            </div>
-
-            {/* ピクトボタン行2（コインロッカー・ATM・エレベーター） */}
-            <div style={{ display: "flex", flexDirection: "row", gap: "30px", alignSelf: "flex-start", flexShrink: 0, marginTop: "30px" }}>
-              {/* lockers */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('lockers')}
-              >
-                <img src={assets.pictos.lockers.default} alt="lockers" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.lockers.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'lockers' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-              {/* atm */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('atm')}
-              >
-                <img src={assets.pictos.atm.default} alt="atm" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.atm.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'atm' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
-              {/* elevator */}
-              <div
-                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                onClick={() => handlePictoSelect('elevator')}
-              >
-                <img src={assets.pictos.elevator.default} alt="elevator" draggable={false}
-                  style={{ width: "165px", height: "165px", display: "block" }} />
-                <img src={assets.pictos.elevator.highlight} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                    opacity: selectedPicto === 'elevator' ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-              </div>
+            {/* ピクトボタン（3列×4行、並びは src/config/halongPictos.ts の定義どおり） */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "30px", alignSelf: "flex-start", flexShrink: 0 }}>
+              {HALONG_PICTO_ROWS.map((row, rowIndex) => (
+                <div key={rowIndex} style={{ display: "flex", flexDirection: "row", gap: "30px" }}>
+                  {row.map(key => (
+                    <div
+                      key={key}
+                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
+                      onClick={() => handlePictoSelect(key)}
+                    >
+                      <img src={assets.pictos[key].default} alt={key} draggable={false}
+                        style={{ width: "165px", height: "165px", display: "block" }} />
+                      <img src={assets.pictos[key].highlight} alt="" draggable={false}
+                        style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                          opacity: selectedPicto === key ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
 
             {/* フロアボタン（下・中央）上から 4F→3F→2F→1F */}
@@ -1128,7 +1126,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       opacity: currentFloor === floor ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
                   {currentFloorSetting === floor && assets.currentFloorIcon && (
                     <img src={assets.currentFloorIcon} alt="Current Floor" draggable={false}
-                      style={{ position: "absolute", top: "-45px", left: "0px", zIndex: 5, pointerEvents: "none", width: "320px", height: "auto" }} />
+                      style={{ position: "absolute", top: "-55px", left: "0px", zIndex: 5, pointerEvents: "none", width: "320px", height: "auto" }} />
                   )}
                 </div>
               ))}
@@ -1187,7 +1185,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
           }}
         >
           {/* ショップリスト */}
-          <AnimatePresence initial={false} custom={genreDirection}>
+          <AnimatePresence initial={false}>
             <motion.div
                 key={`list-${selectedGenre}-${currentFloor}`}
                 ref={(node) => {
@@ -1195,16 +1193,12 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   // アンマウント時はnullにしない: AnimatePresenceの新要素が先にrefを
                   // 取得済みのため、ここでnullにすると現在表示中のリストの参照を失う
                 }}
-                custom={genreDirection}
                 variants={listVariants}
                 initial="enter"
                 animate="center"
                 exit="exit"
                 className="halong-shop-list-scroll"
-                transition={{
-                  x: { type: "tween", duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5, ease: "easeInOut" },
-                  opacity: { duration: genreDirection === 0 ? FLOOR_ANIM_DURATION : 0.5 },
-                }}
+                transition={{ opacity: { duration: FLOOR_ANIM_DURATION } }}
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -1245,21 +1239,14 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       )}
                     </div>
 
-                    {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
-                    <div style={{ position: "absolute", left: "10px", top: "310px", width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
+                    {/* フロアラベル（カード中央に固定幅、色はジャンル別。収まらない場合は横方向に縮小） */}
+                    <div style={{ position: "absolute", left: `${(GRID_CARD_WIDTH - GRID_FLOOR_LABEL_WIDTH) / 2}px`, top: "310px", width: `${GRID_FLOOR_LABEL_WIDTH}px`, height: "30px", backgroundColor: getFloorLabelColor(shop.genre),
                       display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
+                      <ScalableText text={getFloorDisplay(shop, selectedLang)} align="center"
+                        style={{ width: `${GRID_FLOOR_LABEL_WIDTH - GRID_LABEL_PADDING_X * 2}px`, fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }} />
                     </div>
 
-                    {/* ナンバーラベル（幅は言語ごとの最大テキスト幅に動的変更） */}
-                    {shop.section && (
-                      <div style={{ position: "absolute", left: `${10 + floorLabelWidth}px`, top: "310px", width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: getGenreColor(shop.genre),
-                        display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
-                      </div>
-                    )}
-
-                    {/* ショップ名 */}
+                    {/* ショップ名（1行。はみ出す場合は省略記号） */}
                     <div style={{
                       position: "absolute", left: "10px", top: "356px",
                       fontSize: "24px", fontWeight: "bold", color: "#000000",
@@ -1294,21 +1281,13 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       )}
                     </div>
 
-                    {/* フロアラベル 黒（幅は言語ごとの最大テキスト幅に動的変更） */}
-                    <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: "#000000",
-                      display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{getFloorDisplay(shop, selectedLang)}</span>
+                    {/* フロアラベル（幅は言語ごとの最大テキスト幅に動的変更、色はジャンル別、左寄せ） */}
+                    <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: getFloorLabelColor(shop.genre),
+                      display: "flex", alignItems: "center", justifyContent: "flex-start", paddingLeft: `${LIST_LABEL_PADDING_X}px`, boxSizing: "border-box" }}>
+                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily, whiteSpace: "nowrap" }}>{getFloorDisplay(shop, selectedLang)}</span>
                     </div>
 
-                    {/* 区画番号ラベル（幅は言語ごとの最大テキスト幅に動的変更） */}
-                    {shop.section && (
-                      <div style={{ position: "absolute", left: `${120 + floorLabelWidth}px`, top: 0, width: `${sectionLabelWidth}px`, height: "30px", backgroundColor: getGenreColor(shop.genre),
-                        display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily: '"Segoe UI", "Noto Sans", sans-serif' }}>{shop.section}</span>
-                      </div>
-                    )}
-
-                    {/* ショップ名 */}
+                    {/* ショップ名（1行。はみ出す場合は省略記号） */}
                     <div
                       style={{
                         position: "absolute",
@@ -1395,7 +1374,8 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               scrollbarWidth: "none",
             }}
           >
-            <div style={{ display: "flex", gap: "15px", padding: "0 15px", flexShrink: 0 }}>
+            {/* 4ボタンはコンテナ幅に収まるため均等配置（はみ出さない限りprev/nextは表示されない） */}
+            <div style={{ display: "flex", justifyContent: "space-evenly", width: "100%", flexShrink: 0 }}>
               {GENRES.map(genre => (
                 <div
                   key={genre}
@@ -1530,7 +1510,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
             >
               {/* 背景 */}
               <img src={assets.langButtons.select.bg} alt="" draggable={false}
-                style={{ width: "600px", height: "321px", display: "block", filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }} />
+                style={{ width: "600px", height: "579px", display: "block", filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }} />
               {/* ボタン群（bg上に絶対配置） */}
               <div
                 style={{
@@ -1546,7 +1526,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   boxSizing: "border-box",
                 }}
               >
-                {((['vn', 'en', 'ja'] as const)).map(lang => (
+                {LANGS.map(lang => (
                   <div
                     key={lang}
                     style={{ position: "relative", cursor: "pointer", touchAction: "none", width: "560px", flexShrink: 0, filter: selectedLang === lang ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
@@ -1554,7 +1534,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   >
                     <img src={assets.langButtons.select[lang]} alt={lang} draggable={false}
                       style={{ width: "560px", height: "66px", display: "block" }} />
-                    <img src={assets.langButtons.select[`${lang}Highlight` as 'enHighlight' | 'jaHighlight' | 'vnHighlight']} alt="" draggable={false}
+                    <img src={assets.langButtons.select[`${lang}Highlight`]} alt="" draggable={false}
                       style={{
                         position: "absolute", top: 0, left: 0, width: "560px", height: "66px", display: "block",
                         opacity: selectedLang === lang ? 1 : 0,
