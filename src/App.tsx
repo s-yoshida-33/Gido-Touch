@@ -187,6 +187,14 @@ const App: React.FC = () => {
   );
   useShopChangeDetection(shopChangeItems, mallId);
 
+  // 設定で非表示指定されたショップIDを除外した表示用リスト
+  // （設定画面には除外前のshopsを渡し、非表示中の店舗も選択・解除できるようにする）
+  const visibleShops = useMemo(() => {
+    const hiddenIds = localGenreSettings.hiddenShopIds || [];
+    if (hiddenIds.length === 0) return shops;
+    return shops.filter(s => !s.shopId || !hiddenIds.includes(s.shopId));
+  }, [shops, localGenreSettings.hiddenShopIds]);
+
   const [localMediaTextSettings, setLocalMediaTextSettings] = useState<LocalMediaTextSettings>({});
   const [subFloorSettings, setSubFloorSettings] = useState<SubFloorSettings>({ "1F-1": [], "1F-2": [] });
 
@@ -744,12 +752,12 @@ const App: React.FC = () => {
         onOpenVersionInfo={() => setIsVersionInfoOpen(true)}
       >
         {mallId === "halong" ? (
-          <HalongShopListScreen locationIconSettings={locationSettings} shopPositions={shopPositions} pictoSettings={pictoSettings} bannerSettings={bannerSettings} shopListLayout={shopListLayout} />
+          <HalongShopListScreen locationIconSettings={locationSettings} shopPositions={shopPositions} pictoSettings={pictoSettings} bannerSettings={bannerSettings} shopListLayout={shopListLayout} hiddenShopIds={localGenreSettings.hiddenShopIds} />
         ) : (
           <ShopListScreen
             currentFloorSetting={currentFloorSetting}
             locationIconSettings={locationSettings}
-            shops={shops}
+            shops={visibleShops}
             shopPositions={shopPositions}
             displayFloors={displayFloors}
             floorLayout={floorLayout}

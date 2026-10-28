@@ -287,6 +287,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       ignoredKeywords: gs?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS,
       maxItems: gs?.maxItems || 3,
       categoryMapping: DEFAULT_CATEGORY_MAPPINGS,
+      hiddenShopIds: gs?.hiddenShopIds || [],
     });
   }, [initialFloorLayout, initialLocationIconSettings, initialImageSettings]);
 
@@ -522,7 +523,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       : { 
           ignoredKeywords: initialGenreSettings?.ignoredKeywords || DEFAULT_IGNORED_GENRE_KEYWORDS, 
           maxItems: initialGenreSettings?.maxItems || 3, 
-          categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS 
+          categoryMapping: initialGenreSettings?.categoryMapping || DEFAULT_CATEGORY_MAPPINGS,
+          hiddenShopIds: initialGenreSettings?.hiddenShopIds || [],
         });
     setCurrentAudioSettings(audioSettings);
     setCurrentCmsSettings(cmsSettings);
@@ -1178,7 +1180,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
             <GenreSettingsTab
               settings={genreSettings}
               onChangeSettings={setGenreSettings}
-              shops={shops}
+              shops={shopsForSettings}
             />
           )}
           {activeTab === "blackScreen" && (
