@@ -269,8 +269,11 @@ const VerticalVideoSlot: React.FC<VerticalVideoSlotProps> = ({ forceReload = 0 }
     }
   }, [forceReload, asset]);
 
-  // CMS area aspect ratio: 1080px x 607.5px (16:9)
-  const containerAspectRatio = 1080 / 607.5;
+  // CMS area aspect ratio: 実寸から算出（suzaka 1080x607.5 の16:9枠 / halong 555x987 の9:16枠）
+  // 計測前は従来の16:9枠を仮定する
+  const containerAspectRatio = containerSize.width > 0 && containerSize.height > 0
+    ? containerSize.width / containerSize.height
+    : 1080 / 607.5;
 
   const calculateObjectFit = (mediaWidth: number, mediaHeight: number) => {
     const mediaAspectRatio = mediaWidth / mediaHeight;

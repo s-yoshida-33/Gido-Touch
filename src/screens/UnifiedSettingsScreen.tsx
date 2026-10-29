@@ -34,7 +34,6 @@ import type { PictoSettings } from '../types/picto';
 import { DEFAULT_PICTO_SETTINGS } from '../types/picto';
 import type { HalongBannerSettings } from '../types/bannerSettings';
 import { DEFAULT_HALONG_BANNER_SETTINGS } from '../types/bannerSettings';
-import { useHalongBanners } from '../hooks/useHalongBanners';
 import { useHalongMaps } from '../hooks/useHalongMaps';
 import { useHalongAssets } from '../hooks/useHalongAssets';
 import { HALONG_PICTO_KEYS, pictoKeyFromTag } from '../config/halongPictos';
@@ -99,7 +98,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
   const [hiddenPictoIds, setHiddenPictoIds] = useState<Set<string>>(() => new Set());
   const [bannerSettings, setBannerSettings] = useState<HalongBannerSettings>(DEFAULT_HALONG_BANNER_SETTINGS);
   const [shopListLayout, setShopListLayout] = useState<'list' | 'grid'>('grid');
-  const { banners: availableBanners, reload: reloadBanners } = useHalongBanners();
 
   // Black screen settings
   const [blackScreenSettings, setBlackScreenSettings] = useState<BlackScreenSettings>(DEFAULT_BLACK_SCREEN_SETTINGS);
@@ -156,6 +154,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // Halong map and asset hooks (used for picto tab preview)
   const halongMaps = useHalongMaps();
+  // ピクトグラム設定プレビュー用: 地図画像の縦横比（contain表示の位置合わせに使用）
+  const [halongPreviewMapAspect, setHalongPreviewMapAspect] = useState<number | null>(null);
   const halongAssets = useHalongAssets();
 
   const pictoIconOptions = useMemo(
@@ -950,16 +950,21 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 const contentW = window.screen.width >= 3840 ? 3840 : 1920;
                 const contentH = window.screen.height >= 2160 ? 2160 : 1080;
                 // Replicate halong screen layout so map dimensions match the actual app
-                // Halong screen: 3840×2160, left area 3140px (padding 50px), map container = 2385×2060,
-                // op panel 655px, info panel 700px.
+                // Halong screen: 3840×2160, left area 3140px (padding 50px), map container = 2385×1795
+                // (+ picto strip 2385×265 below), op panel 655px, info panel 700px.
                 const sc = contentW / 3840;
                 const padding = Math.round(50 * sc);
                 const opW = Math.round(655 * sc);
                 const infoW = Math.round(700 * sc);
                 const mapSrc = halongMaps[floor as keyof typeof halongMaps] ?? halongMaps['1F'];
-                // Map container will be exactly 2385*sc × 2060*sc — same aspect ratio as the SVG (2385:2060),
-                // so objectFit:cover produces zero offset, and percentage positioning is pixel-accurate.
-                const mapDisplayW = Math.round(2385 * sc);
+                // Map container is 2385*sc × 1795*sc. The map is shown with objectFit:contain (same as the
+                // halong screen), so pins are positioned inside a box fitted to the image's aspect ratio.
+                const mapAreaW = 2385 * sc;
+                const mapAreaH = 1795 * sc;
+                const mapAspect = halongPreviewMapAspect ?? mapAreaW / mapAreaH;
+                const mapBoxW = Math.round(mapAspect > mapAreaW / mapAreaH ? mapAreaW : mapAreaH * mapAspect);
+                const mapBoxH = Math.round(mapAspect > mapAreaW / mapAreaH ? mapAreaW / mapAspect : mapAreaH);
+                const mapDisplayW = mapBoxW;
                 const HALONG_REF_W = 1920;
                 const scaleRatio = mapDisplayW / HALONG_REF_W;
                 return (
@@ -968,9 +973,20 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                     <div style={{ width: Math.round(3140 * sc), height: contentH, padding, boxSizing: 'border-box' }}>
                       {/* Main container: flex row, border-radius matches halong */}
                       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'row', borderRadius: Math.round(40 * sc), overflow: 'hidden' }}>
-                        {/* Map container — flex:1 gives exactly 2385*sc wide */}
-                        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                          <img src={mapSrc} alt={floor} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        {/* Map column — flex:1 gives exactly 2385*sc wide */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        {/* Map container (2385*sc × 1795*sc) */}
+                        <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        <div style={{ position: 'relative', width: mapBoxW, height: mapBoxH, flexShrink: 0 }}>
+                          <img
+                            src={mapSrc}
+                            alt={floor}
+                            onLoad={(e) => {
+                              const img = e.currentTarget;
+                              if (img.naturalWidth > 0 && img.naturalHeight > 0) setHalongPreviewMapAspect(img.naturalWidth / img.naturalHeight);
+                            }}
+                            style={{ width: '100%', height: '100%', display: 'block' }}
+                          />
                           <AnimatePresence>
                             {Object.values(pictoSettings.instances)
                               .filter(inst => inst.floor === floor && !hiddenPictoIds.has(inst.id))
@@ -991,6 +1007,10 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                               })
                             }
                           </AnimatePresence>
+                        </div>
+                        </div>
+                        {/* Dummy picto strip */}
+                        <div style={{ height: Math.round(265 * sc), flexShrink: 0 }} />
                         </div>
                         {/* Dummy operation panel */}
                         <div style={{ width: opW, height: '100%', backgroundColor: '#DDDDDD', flexShrink: 0 }} />
@@ -1131,10 +1151,6 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
               onMapsFetchedFromS3={() => setMapsFetchedFromS3(true)}
               hostname={hostname}
               mallId={mallId}
-              bannerSettings={bannerSettings}
-              availableBanners={availableBanners}
-              onChangeBannerSettings={setBannerSettings}
-              onReloadBanners={reloadBanners}
             />
           )}
           {activeTab === "shopPosition" && (

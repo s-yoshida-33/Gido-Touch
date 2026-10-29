@@ -17,15 +17,17 @@ import { PictoPin } from '../../components/PictoPin';
 import halongShopPinSvg from '../../assets/malls/halong/icons/locations/shop.svg';
 import type { ShopPositionSettings } from '../../types/shopPosition';
 import type { PictoSettings } from '../../types/picto';
-import type { HalongBannerSettings } from '../../types/bannerSettings';
-import { mergeBannerEntries } from '../../types/bannerSettings';
-import { useHalongBanners } from '../../hooks/useHalongBanners';
+import type { CmsSettings } from '../../types/cmsSettings';
+import VerticalVideoSlot from '../../components/VerticalVideoSlot';
 import type { HalongShop, HalongLang } from '../../hooks/useHalongShops';
 import { ShopDetailPanel } from './ShopDetailPanel';
 import { ScalableText } from '../../components/ScalableText';
 import { HALONG_PICTO_ROWS, pictoTagFromKey, pictoKeyFromTag, type HalongPictoKey } from '../../config/halongPictos';
 
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
+// マップ下端に重ねるピクト列の高さ。地図はこの分を除いた領域(2385×1795)に表示し、
+// 拡大・移動時は地図がピクト列の下に潜り込む
+const HALONG_PICTO_STRIP_HEIGHT = 265;
 
 // ベトナム語の声調記号（ặ, ở 等）を正しく表示するため Be Vietnam Pro を使用（src/styles/fonts.css で定義）
 const HALONG_FONT_FAMILY = '"Be Vietnam Pro", sans-serif';
@@ -90,12 +92,12 @@ interface HalongShopListScreenProps {
   locationIconSettings?: LocationIconSettingsPerFloor;
   shopPositions?: ShopPositionSettings;
   pictoSettings?: PictoSettings;
-  bannerSettings?: HalongBannerSettings;
+  cmsSettings?: CmsSettings;
   shopListLayout?: 'list' | 'grid';
   hiddenShopIds?: string[];
 }
 
-export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, bannerSettings: bannerSettingsProp, shopListLayout = 'grid', hiddenShopIds }: HalongShopListScreenProps = {}) {
+export default function HalongShopListScreen({ locationIconSettings: locationIconSettingsProp, shopPositions: shopPositionsProp, pictoSettings: pictoSettingsProp, cmsSettings, shopListLayout = 'grid', hiddenShopIds }: HalongShopListScreenProps = {}) {
   const [selectedLang, setSelectedLang] = useState<HalongLang>('vn');
   // 現在地アイコンの言語別設定（speechBubbleJa/En/Vn）は vn/en/ja のみのため、
   // cn/tw/kr 選択中は直前の vn/en/ja の設定を使う（アセットも直前の言語にフォールバックするため）
@@ -132,36 +134,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const [shopPositions, setShopPositions] = useState<ShopPositionSettings | null>(null);
   const [pictoSettings, setPictoSettings] = useState<PictoSettings | null>(pictoSettingsProp ?? null);
   const [visiblePictoTag, setVisiblePictoTag] = useState<string | null>(null);
-  const { banners: availableBanners } = useHalongBanners();
-
-  const displayBanners = useMemo(() => {
-    if (!availableBanners.length) return [];
-    const mergedEntries = mergeBannerEntries(bannerSettingsProp?.entries ?? [], availableBanners);
-    return mergedEntries
-      .filter((e) => e.enabled)
-      .slice(0, 10)
-      .map((e) => availableBanners.find((b) => b.filename === e.filename))
-      .filter((f): f is NonNullable<typeof f> => !!f);
-  }, [bannerSettingsProp?.entries, availableBanners]);
-
-  const [carouselSlide, setCarouselSlide] = useState(0);
-  const carouselTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    setCarouselSlide(0);
-  }, [displayBanners]);
-
-  useEffect(() => {
-    if (carouselTimerRef.current) clearInterval(carouselTimerRef.current);
-    carouselTimerRef.current = null;
-    if ((bannerSettingsProp?.displayMode ?? 'equal') !== 'carousel' || displayBanners.length <= 1) return;
-    const ms = (bannerSettingsProp?.carouselDurationSec ?? 5) * 1000;
-    carouselTimerRef.current = setInterval(
-      () => setCarouselSlide((p) => (p + 1) % displayBanners.length),
-      ms,
-    );
-    return () => { if (carouselTimerRef.current) clearInterval(carouselTimerRef.current); };
-  }, [bannerSettingsProp?.displayMode, bannerSettingsProp?.carouselDurationSec, displayBanners.length]);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const firstFloorImgRef = useRef<HTMLImageElement>(null);
@@ -279,28 +251,29 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // objectFit: cover のマップ画像メトリクスを計算（アイコンの正確な位置スケーリング用）
+  // objectFit: contain のマップ画像メトリクスを計算（アイコンの正確な位置スケーリング用）
+  // マップ領域(2385×1795)と比率の異なる地図(旧2385×2060等)でも切れずに全体を表示する
   const updateMapMetrics = useCallback(() => {
     const container = mapContainerRef.current;
     const img = firstFloorImgRef.current;
     if (!container || !img || !img.complete || img.naturalWidth === 0) return;
 
     const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
+    const containerHeight = container.clientHeight - HALONG_PICTO_STRIP_HEIGHT;
     const imageAspect = img.naturalWidth / img.naturalHeight;
     const containerAspect = containerWidth / containerHeight;
 
     let displayWidth: number, displayHeight: number, offsetX: number, offsetY: number;
     if (containerAspect > imageAspect) {
-      displayWidth = containerWidth;
-      displayHeight = displayWidth / imageAspect;
-      offsetX = 0;
-      offsetY = (containerHeight - displayHeight) / 2;
-    } else {
       displayHeight = containerHeight;
       displayWidth = displayHeight * imageAspect;
       offsetX = (containerWidth - displayWidth) / 2;
       offsetY = 0;
+    } else {
+      displayWidth = containerWidth;
+      displayHeight = displayWidth / imageAspect;
+      offsetX = 0;
+      offsetY = (containerHeight - displayHeight) / 2;
     }
 
     const metrics = {
@@ -742,8 +715,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     const targetY = metrics.offsetY + (y / 100) * metrics.displayHeight;
 
     const scale = 1.6;
+    // 縦はピクト列を除いた見える範囲の中央に寄せる
     let newX = containerW / 2 - targetX * scale;
-    let newY = containerH / 2 - targetY * scale;
+    let newY = (containerH - HALONG_PICTO_STRIP_HEIGHT) / 2 - targetY * scale;
 
     const minX = containerW * (1 - scale);
     const minY = containerH * (1 - scale);
@@ -807,7 +781,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
             flexDirection: "row",
           }}
         >
-          {/* マップコンテナ */}
+          {/* マップコンテナ（地図は上部2385×1795、下部265pxにピクト列を重ねる） */}
           <div
             ref={mapContainerRef}
             style={{
@@ -853,7 +827,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       <div
                         key={floor}
                         ref={el => { floorLayerRefs.current[floor] = el; }}
-                        style={{ position: "absolute", inset: 0 }}
+                        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: `${HALONG_PICTO_STRIP_HEIGHT}px` }}
                       >
                         <img
                           ref={floor === '1F' ? firstFloorImgRef : undefined}
@@ -861,7 +835,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                           src={maps[floor]}
                           alt={`${floor} map`}
                           draggable={false}
-                          style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
+                          style={{ width: "100%", height: "100%", display: "block", objectFit: "contain" }}
                         />
 
                         {/* 現在地アイコン: 設定フロアのレイヤー内に配置してフロアアニメーションと同期 */}
@@ -983,15 +957,15 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               }}
             />
 
-            {/* ヒント (x:50, y:bottom 50) */}
+            {/* ヒント (フロアラベルの右 x:330, フロアラベルと上下中央揃え y:85) */}
             <img
               src={assets.hint}
               alt=""
               draggable={false}
               style={{
                 position: "absolute",
-                left: "50px",
-                bottom: "50px",
+                left: "330px",
+                top: "85px",
                 width: "1000px",
                 height: "96px",
                 display: "block",
@@ -1001,6 +975,39 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 zIndex: 1,
               }}
             />
+
+          {/* ピクトボタン（マップ下端に重ねて横1列12個、並びは src/config/halongPictos.ts の定義順）
+              背景は透明。ボタン以外の隙間はマップ操作を通すため pointerEvents: none */}
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: `${HALONG_PICTO_STRIP_HEIGHT}px`,
+              zIndex: 1,
+              pointerEvents: "none",
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "30px",
+            }}
+          >
+            {HALONG_PICTO_ROWS.flat().map(key => (
+              <div
+                key={key}
+                style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, pointerEvents: "auto", filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
+                onClick={() => handlePictoSelect(key)}
+              >
+                <img src={assets.pictos[key].default} alt={key} draggable={false}
+                  style={{ width: "165px", height: "165px", display: "block" }} />
+                <img src={assets.pictos[key].highlight} alt="" draggable={false}
+                  style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
+                    opacity: selectedPicto === key ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+              </div>
+            ))}
+          </div>
           </div>
 
           {/* オペレーションコンテナ */}
@@ -1016,97 +1023,16 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               boxSizing: "border-box",
             }}
           >
-            {/* バナーエリア（flex:1 で残余スペースを占有） */}
-            {(() => {
-              const mode = bannerSettingsProp?.displayMode ?? 'equal';
-              const bannerHeight = bannerSettingsProp?.bannerHeight ?? 200;
-
-              if (mode === 'carousel') {
-                return (
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", flexShrink: 0, overflow: "hidden" }}>
-                    <div style={{ width: "555px", height: "312px", overflow: "hidden", borderRadius: "26px", flexShrink: 0 }}>
-                      <div style={{
-                        display: "flex",
-                        width: `${555 * displayBanners.length}px`,
-                        height: "100%",
-                        transform: `translateX(${-carouselSlide * 555}px)`,
-                        transition: "transform 0.6s ease-in-out",
-                      }}>
-                        {displayBanners.map((file, idx) => (
-                          <img
-                            key={idx}
-                            src={file.url}
-                            alt={`banner${idx + 1}`}
-                            draggable={false}
-                            style={{ width: "555px", height: "312px", objectFit: "cover", display: "block", flexShrink: 0 }}
-                          />
-                        ))}
-                      </div>
-                    </div>
+            {/* CMS配信枠（縦9:16、555×987）。残余スペース(1124px)の上詰めで配置し、
+                下の余白はフロアボタン上にはみ出す現在階アイコン(-55px)の逃げに使う */}
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+              <div style={{ width: "555px", height: `${555 * 16 / 9}px`, borderRadius: "26px", overflow: "hidden", position: "relative", flexShrink: 0 }}>
+                {cmsSettings?.enabled && (
+                  <div style={{ position: "absolute", inset: 0 }}>
+                    <VerticalVideoSlot />
                   </div>
-                );
-              }
-
-              if (mode === 'custom') {
-                const topMargin = bannerSettingsProp?.topMargin ?? 0;
-                const bannerGap = bannerSettingsProp?.bannerGap ?? 20;
-                return (
-                  <div style={{ flex: 1, overflow: "hidden", flexShrink: 0 }}>
-                    <div style={{ paddingTop: `${topMargin}px`, display: "flex", flexDirection: "column", gap: `${bannerGap}px` }}>
-                      {displayBanners.map((file, idx) => (
-                        <div key={idx} style={{ width: "555px", height: `${bannerHeight}px`, borderRadius: "26px", overflow: "hidden", flexShrink: 0 }}>
-                          <img src={file.url} alt={`banner${idx + 1}`} draggable={false}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              }
-
-              // equal: flex spacers distribute space evenly
-              return (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
-                  {displayBanners.length === 0 ? null : (
-                    <>
-                      {displayBanners.map((file, idx) => (
-                        <div key={idx} style={{ display: "contents" }}>
-                          <div style={{ flex: 1 }} />
-                          <div style={{ width: "555px", height: `${bannerHeight}px`, borderRadius: "26px", overflow: "hidden", flexShrink: 0 }}>
-                            <img src={file.url} alt={`banner${idx + 1}`} draggable={false}
-                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                          </div>
-                        </div>
-                      ))}
-                      <div style={{ flex: 1 }} />
-                    </>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* バナーとピクトの間隔 */}
-            <div style={{ height: "30px", flexShrink: 0 }} />
-
-            {/* ピクトボタン（3列×4行、並びは src/config/halongPictos.ts の定義どおり） */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "30px", alignSelf: "flex-start", flexShrink: 0 }}>
-              {HALONG_PICTO_ROWS.map((row, rowIndex) => (
-                <div key={rowIndex} style={{ display: "flex", flexDirection: "row", gap: "30px" }}>
-                  {row.map(key => (
-                    <div
-                      key={key}
-                      style={{ position: "relative", display: "inline-block", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                      onClick={() => handlePictoSelect(key)}
-                    >
-                      <img src={assets.pictos[key].default} alt={key} draggable={false}
-                        style={{ width: "165px", height: "165px", display: "block" }} />
-                      <img src={assets.pictos[key].highlight} alt="" draggable={false}
-                        style={{ position: "absolute", top: 0, left: 0, width: "165px", height: "165px", display: "block",
-                          opacity: selectedPicto === key ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-                    </div>
-                  ))}
-                </div>
-              ))}
+                )}
+              </div>
             </div>
 
             {/* フロアボタン（下・中央）上から 4F→3F→2F→1F */}
