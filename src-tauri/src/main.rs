@@ -195,6 +195,36 @@ fn send_slack_notification(level: &str, tag: &str, message: &str, is_recovery: b
 // Logging command
 // ---------------------------------------------------------------------------
 
+/// マウスカーソルの表示を即時更新する
+/// WebView はマウスが動くまで CSS の cursor 指定を反映しないため、
+/// カーソルを1px動かして元に戻し、マウス移動を発生させてカーソル形状を再評価させる
+#[tauri::command]
+fn refresh_cursor() {
+    #[cfg(target_os = "windows")]
+    {
+        #[repr(C)]
+        struct POINT {
+            x: i32,
+            y: i32,
+        }
+        #[link(name = "user32")]
+        extern "system" {
+            fn GetCursorPos(point: *mut POINT) -> i32;
+            fn SetCursorPos(x: i32, y: i32) -> i32;
+        }
+        std::thread::spawn(|| unsafe {
+            let mut p = POINT { x: 0, y: 0 };
+            if GetCursorPos(&mut p) == 0 {
+                return;
+            }
+            let nudge_x = if p.x > 0 { p.x - 1 } else { p.x + 1 };
+            SetCursorPos(nudge_x, p.y);
+            std::thread::sleep(std::time::Duration::from_millis(30));
+            SetCursorPos(p.x, p.y);
+        });
+    }
+}
+
 #[tauri::command]
 fn write_log(
     level: String,
@@ -1845,6 +1875,7 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            refresh_cursor,
             write_log,
             get_log_directory,
             fetch_proxy,

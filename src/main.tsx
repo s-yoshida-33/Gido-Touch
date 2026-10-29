@@ -10,6 +10,7 @@ import './styles/location-icons.css'
 import { PatchScreen } from './screens/PatchScreen'
 import { MallProvider } from './contexts/MallContext';
 import { AudioSettingsProvider } from './contexts/AudioSettingsContext';
+import { setupAutoHideCursor } from './utils/autoHideCursor'
 
 // Send initial watchdog ping immediately — before React renders.
 // This ensures the Rust watchdog knows the WebView JS engine is alive
@@ -73,6 +74,9 @@ function Root() {
 
   return <PatchScreen onComplete={() => setShowApp(true)} />;
 }
+
+// 遠隔操作後にマウスカーソルが表示されたまま残らないよう、無操作時は自動で非表示にする
+setupAutoHideCursor();
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
