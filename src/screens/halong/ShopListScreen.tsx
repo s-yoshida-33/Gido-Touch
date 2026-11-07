@@ -138,6 +138,18 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const firstFloorImgRef = useRef<HTMLImageElement>(null);
   const transformComponentRef = useRef<ReactZoomPanPinchContentRef>(null);
+
+  // マップを初期表示（等倍・中央）に戻す
+  // resetTransform(0) / setTransform(..., 0) は実行中のアニメーション（ショップへのフォーカス等）を
+  // 止めないため、ピンが降りる途中で切り替えると戻した後もズームが続いて拡大されたまま残る。
+  // アニメーション経由（1ms 以上）で設定し、実行中のアニメーションを確実に打ち切る
+  function resetMapTransform(animationMs = 1) {
+    transformComponentRef.current?.setTransform(0, 0, 1, animationMs, 'easeOut');
+  }
+  // ショップ選択解除時のズームアウト（詳細パネルを閉じたときと同じ動き）
+  const MAP_RESET_ANIM_MS = 500;
+  // ズームアウト中にフロア切り替えの即時リセットで上書きしないための終了予定時刻
+  const smoothMapResetUntilRef = useRef(0);
   const genreScrollRef = useRef<HTMLDivElement>(null);
   const focusDelayRef = useRef(0);
   const ignoreFloorChangeRef = useRef(false);
@@ -379,8 +391,11 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
 
     prevFloorRef.current = currentFloor;
 
-    if (!isInitial && direction !== 0 && transformComponentRef.current) {
-      transformComponentRef.current.resetTransform(0);
+    if (!isInitial && direction !== 0) {
+      const smoothResetRunning =
+        Date.now() < smoothMapResetUntilRef.current &&
+        transformComponentRef.current?.instance.animation != null;
+      if (!smoothResetRunning) resetMapTransform();
     }
 
     const animating = !isInitial && direction !== 0;
@@ -558,7 +573,10 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     };
   }, [isRefreshing, selectedLang, langPopupOpen, selectedGenre, selectedPicto, selectedShopId, selectedShopDetail, currentFloor, showHint, showFloorLabel]);
 
+  // ショップ選択中にフロア・ジャンル・ピクトを切り替えた際、選択を解除してマップを初期表示に戻す
   function clearShopDetailForNavigation() {
+    resetMapTransform(MAP_RESET_ANIM_MS);
+    smoothMapResetUntilRef.current = Date.now() + MAP_RESET_ANIM_MS;
     setSelectedShopDetail(null);
     setSelectedShopId(null);
     setVisibleShopId(null);
