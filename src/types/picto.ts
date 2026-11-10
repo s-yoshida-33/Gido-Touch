@@ -1,4 +1,9 @@
 import type { AnimationConfig } from "./locationIcon";
+import type { FloorId } from "./floorLayout";
+
+// ピクトを配置できるフロア（halong は地下 B にショップは無いがピクトはあるため B を含む）
+export type PictoFloorId = "B" | FloorId;
+export const PICTO_FLOORS: PictoFloorId[] = ["B", "1F", "2F", "3F", "4F"];
 
 // halong の12ピクトのタグ（src/config/halongPictos.ts のキーのハイフンをアンダースコアにしたもの）。
 // 旧タグ（info / smoking_room / free_coin_lockers）を含む既存設定も読めるよう string も許容する
