@@ -40,8 +40,8 @@ export interface HalongAssets {
     prev:            string;
   };
   hint: string;
-  floorLabels: { '1F': string; '2F': string; '3F': string; '4F': string };
   floorButtons: {
+    'B':  { default: string; highlight: string };
     '1F': { default: string; highlight: string };
     '2F': { default: string; highlight: string };
     '3F': { default: string; highlight: string };
@@ -71,7 +71,6 @@ export interface HalongAssets {
   close: string;
   closeHighlight: string;
   currentFloorIcon: string;
-  mallLogo: string;
 }
 
 // ── アセットビルダー ──────────────────────────────────────────────
@@ -103,13 +102,8 @@ function buildFor(local: Record<string, string> | null, lang: HalongLang): Halon
       prev:            r('buttons/genres/prev.svg'),
     },
     hint: r(`hint/${lang}.svg`),
-    floorLabels: {
-      '1F': r(`floor-labels/${lang}/1F.svg`),
-      '2F': r(`floor-labels/${lang}/2F.svg`),
-      '3F': r(`floor-labels/${lang}/3F.svg`),
-      '4F': r(`floor-labels/${lang}/4F.svg`),
-    },
     floorButtons: {
+      'B':  { default: r(`buttons/floors/${lang}/B-01.svg`), highlight: r(`buttons/floors/${lang}/B-01-highlight.svg`) },
       '1F': { default: r(`buttons/floors/${lang}/1F-01.svg`), highlight: r(`buttons/floors/${lang}/1F-01-highlight.svg`) },
       '2F': { default: r(`buttons/floors/${lang}/2F-01.svg`), highlight: r(`buttons/floors/${lang}/2F-01-highlight.svg`) },
       '3F': { default: r(`buttons/floors/${lang}/3F-01.svg`), highlight: r(`buttons/floors/${lang}/3F-01-highlight.svg`) },
@@ -151,7 +145,6 @@ function buildFor(local: Record<string, string> | null, lang: HalongLang): Halon
     close:               r(`buttons/closes/${lang}.svg`),
     closeHighlight:      r(`buttons/closes/${lang}-highlight.svg`),
     currentFloorIcon:    r(`icons/floors/current-${lang}.svg`),
-    mallLogo:            r('icons/mall-logo.png'),
   };
 }
 
