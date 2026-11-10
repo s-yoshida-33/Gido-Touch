@@ -22,6 +22,7 @@ import VerticalVideoSlot from '../../components/VerticalVideoSlot';
 import type { HalongShop, HalongLang } from '../../hooks/useHalongShops';
 import { ShopDetailPanel } from './ShopDetailPanel';
 import { ScalableText } from '../../components/ScalableText';
+import { TOUCH_SOUND_EVENT } from '../../hooks/useTouchSound';
 import { HALONG_PICTO_ROWS, pictoTagFromKey, pictoKeyFromTag, type HalongPictoKey } from '../../config/halongPictos';
 
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
@@ -65,7 +66,11 @@ const HTML_LANG: Record<HalongLang, string> = {
   vn: 'vi', en: 'en', ja: 'ja', cn: 'zh-Hans', tw: 'zh-Hant', kr: 'ko',
 };
 
-const IDLE_TIMEOUT_MS = 30000;
+const IDLE_TIMEOUT_MS = 180000; // 3分
+
+// マップタップでのショップ選択: ヒット半径（地図に対する％）と、タップとみなす最大移動量(px)
+const MAP_TAP_HIT_RADIUS = 5.0;
+const MAP_TAP_MOVE_THRESHOLD = 10;
 const FLOOR_ANIM_DURATION = 0.35;
 
 const GENRES = ['all', 'food', 'fashion', 'goods'] as const;
@@ -136,6 +141,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const [visiblePictoTag, setVisiblePictoTag] = useState<string | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapTapStartRef = useRef<{ x: number; y: number } | null>(null);
   const firstFloorImgRef = useRef<HTMLImageElement>(null);
   const transformComponentRef = useRef<ReactZoomPanPinchContentRef>(null);
 
@@ -690,6 +696,58 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     }
   }
 
+  // ショップリストのタップと同じ選択処理（ピン表示・フォーカス・詳細パネル）
+  function selectShop(shop: HalongShop) {
+    handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl);
+    setSelectedShopDetail(shop);
+  }
+
+  // マップタップでのショップ選択（Gido-Touch-Mini と同方式）:
+  // タップ位置から半径 MAP_TAP_HIT_RADIUS(%) 以内で、ショップ位置設定の座標が最も近い現在フロアのショップを選択する
+  function handleMapPointerDown(e: React.PointerEvent) {
+    mapTapStartRef.current = { x: e.clientX, y: e.clientY };
+  }
+
+  function handleMapClick(e: React.MouseEvent<HTMLDivElement>) {
+    // パン操作（10px超の移動）はタップとして扱わない
+    const start = mapTapStartRef.current;
+    mapTapStartRef.current = null;
+    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > MAP_TAP_MOVE_THRESHOLD) return;
+
+    const metrics = mapImageMetricsRef.current;
+    const container = mapContainerRef.current;
+    if (!shopPositions || !metrics || !container) return;
+
+    // タップ位置を地図画像上の％座標に変換（ズーム・パン中も getBoundingClientRect が変形後の矩形を返す）
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * container.clientWidth;
+    const py = ((e.clientY - rect.top) / rect.height) * container.clientHeight;
+    const xPercent = ((px - metrics.offsetX) / metrics.displayWidth) * 100;
+    const yPercent = ((py - metrics.offsetY) / metrics.displayHeight) * 100;
+
+    let nearest: HalongShop | null = null;
+    let minDistance = MAP_TAP_HIT_RADIUS;
+    for (const shop of allShops) {
+      // ショップリストに表示されないショップ（区画未設定）は対象外
+      if (!shop.section || shop.section.trim() === '') continue;
+      const pos = shopPositions.positions[String(shop.id)];
+      if (!pos || pos.floor !== currentFloor) continue;
+      const x = pos.x <= 1 ? pos.x * 100 : pos.x;
+      const y = pos.y <= 1 ? pos.y * 100 : pos.y;
+      const distance = Math.hypot(x - xPercent, y - yPercent);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = shop;
+      }
+    }
+
+    if (nearest) {
+      // マップは cursor:pointer ではないためグローバルのタップ音が鳴らない。ヒット時のみ明示的に鳴らす
+      window.dispatchEvent(new Event(TOUCH_SOUND_EVENT));
+      selectShop(nearest);
+    }
+  }
+
   // 詳細パネルを閉じてマップをタップ前の状態に戻す（フロアは現在のまま維持）
   function handleCloseDetail() {
     setSelectedShopDetail(null);
@@ -840,7 +898,11 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   wrapperStyle={{ width: "100%", height: "100%" }}
                   contentStyle={{ width: "100%", height: "100%" }}
                 >
-                  <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                  <div
+                    style={{ position: "relative", width: "100%", height: "100%" }}
+                    onPointerDown={handleMapPointerDown}
+                    onClick={handleMapClick}
+                  >
                     {ALL_FLOORS.map(floor => (
                       <div
                         key={floor}
@@ -1161,7 +1223,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   /* グリッドアイテム */
                   <div
                     key={shop.id}
-                    onClick={() => { handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
+                    onClick={() => selectShop(shop)}
                     style={{
                       width: "290px",
                       height: "405px",
@@ -1204,7 +1266,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   /* リストアイテム */
                   <div
                     key={shop.id}
-                    onClick={() => { handleShopTap(String(shop.id), shop.floorKey, shop.logoDataUrl); setSelectedShopDetail(shop); }}
+                    onClick={() => selectShop(shop)}
                     style={{
                       width: "600px",
                       height: "120px",
