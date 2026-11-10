@@ -6,6 +6,12 @@ const INTERACTIVE_SELECTOR =
   '[role="button"], [role="link"], [role="menuitem"], [role="option"], [role="tab"], ' +
   '[tabindex]:not([tabindex="-1"])';
 
+/**
+ * タップ判定の対象外の要素（マップ等）でタップ音を鳴らしたいときに window へ dispatch するイベント名。
+ * 例: マップタップでショップがヒットした場合（halong ShopListScreen）
+ */
+export const TOUCH_SOUND_EVENT = 'gido-touch:play-touch-sound';
+
 const TAP_DISTANCE_THRESHOLD = 10; // px
 const TAP_DURATION_MAX = 500;       // ms
 
@@ -120,11 +126,13 @@ export function useTouchSound(
       isInteractive = false;
     };
 
+    window.addEventListener(TOUCH_SOUND_EVENT, playSound);
     document.addEventListener('touchstart', onTouchStart, { passive: true });
     document.addEventListener('touchend', onTouchEnd, { passive: true });
     document.addEventListener('touchcancel', onTouchCancel, { passive: true });
 
     return () => {
+      window.removeEventListener(TOUCH_SOUND_EVENT, playSound);
       document.removeEventListener('touchstart', onTouchStart);
       document.removeEventListener('touchend', onTouchEnd);
       document.removeEventListener('touchcancel', onTouchCancel);
