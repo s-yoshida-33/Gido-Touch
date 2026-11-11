@@ -28,14 +28,13 @@ import { HALONG_PICTO_KEYS, pictoTagFromKey, pictoKeyFromTag, type HalongPictoKe
 const HALONG_REFERENCE_MAP_WIDTH = 1920;
 
 // ── レイアウト寸法（画面 3840×2160） ─────────────────────────────
-// 左: 余白50 + メインコンテナ(2164×2060) + 余白50 = 2264
-//   メインコンテナ = マップ(2164×1520) + 操作パネル(2164×540: ピクト列 234×165×8・フロアボタン 396×165×5)
+// 左: 余白50 + マップエリア(2164) + 余白50 = 2264
+//   縦: 余白50 + マップエリア(2164×1530) + 100 + ピクト列(234×165×8) + 100 + フロアボタン列(396×165×5) + 余白50 = 2160
 // 右: グレー背景(1576) = 余白25 + [ショップリスト 650×1935 / ジャンル 650×150] + 余白25
 //                        + [CMS 851×1513 / 営業時間 851×453 / 言語 851×94] + 余白25
 const MAIN_WIDTH = 2164;
-const MAIN_HEIGHT = 2060;
-const MAP_HEIGHT = 1520;
-const PANEL_PADDING_X = 40;
+const MAP_HEIGHT = 1530;
+const BUTTON_ROW_GAP = 100; // マップエリア→ピクト列、ピクト列→フロアボタン列の間隔
 const PICTO_BUTTON_SIZE = { width: 234, height: 165 };
 const FLOOR_BUTTON_SIZE = { width: 396, height: 165 };
 const SIDE_GAP = 25;
@@ -306,7 +305,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   }, []);
 
   // objectFit: contain のマップ画像メトリクスを計算（アイコンの正確な位置スケーリング用）
-  // マップ領域(2164×1520)と比率の異なる地図(旧2385×1795等)でも切れずに全体を表示する
+  // マップエリア(2164×1530)と比率の異なる地図(旧2385×1795等)でも切れずに全体を表示する
   const updateMapMetrics = useCallback(() => {
     const container = mapContainerRef.current;
     const img = firstFloorImgRef.current;
@@ -869,7 +868,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
         }}
       />
 
-      {/* 左エリア: 50px余白 + メインコンテナ2164×2060 + 右余白50px = 2264px */}
+      {/* 左エリア: 余白50px + マップエリア → 100px → ピクト列 → 100px → フロアボタン列 + 余白50px */}
       <div
         style={{
           width: `${MAIN_WIDTH + 100}px`,
@@ -877,23 +876,24 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
           padding: "50px",
           boxSizing: "border-box",
           flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        {/* メインコンテナ（上: マップ、下: 操作パネル） */}
+        {/* マップエリア（2164×1530） */}
         <div
           style={{
             position: "relative",
             width: `${MAIN_WIDTH}px`,
-            height: `${MAIN_HEIGHT}px`,
+            height: `${MAP_HEIGHT}px`,
+            flexShrink: 0,
             borderRadius: "40px",
             overflow: "hidden",
             boxSizing: "border-box",
-            display: "flex",
-            flexDirection: "column",
             backgroundColor: "#ffffff",
           }}
         >
-          {/* マップコンテナ（2164×1520） */}
+          {/* マップコンテナ（2164×1530） */}
           <div
             ref={mapContainerRef}
             style={{
@@ -1034,7 +1034,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               </TransformWrapper>
             </div>
 
-            {/* ヒント（高さ70・横幅は言語ごとの文字数に応じて画像の比率どおり、x:569 / y:182） */}
+            {/* ヒント（高さ70・横幅は言語ごとの文字数に応じて画像の比率どおり、x:569 / y:188） */}
             <img
               src={assets.hint}
               alt=""
@@ -1042,7 +1042,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               style={{
                 position: "absolute",
                 left: "569px",
-                top: "182px",
+                top: "188px",
                 width: "auto",
                 height: "70px",
                 display: "block",
@@ -1052,73 +1052,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 zIndex: 1,
               }}
             />
-          </div>
-
-          {/* 操作パネル（2164×540）: 上60px余白 → ピクト列 → フロアボタン列 → 下50px余白、左右40px余白 */}
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              padding: `60px ${PANEL_PADDING_X}px 50px`,
-              boxSizing: "border-box",
-            }}
-          >
-            {/* ピクトボタン（横1列8個、並びは src/config/halongPictos.ts の定義順） */}
-            <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
-              {HALONG_PICTO_KEYS.map(key => (
-                <div
-                  key={key}
-                  style={{ position: "relative", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))" }}
-                  onClick={() => handlePictoSelect(key)}
-                >
-                  {assets.pictos[key].default ? (
-                    <img src={assets.pictos[key].default} alt={key} draggable={false}
-                      style={{ width: `${PICTO_BUTTON_SIZE.width}px`, height: `${PICTO_BUTTON_SIZE.height}px`, display: "block" }} />
-                  ) : (
-                    <AssetPlaceholder label={key} width={PICTO_BUTTON_SIZE.width} height={PICTO_BUTTON_SIZE.height} fontSize={22} />
-                  )}
-                  {assets.pictos[key].highlight && (
-                    <img src={assets.pictos[key].highlight} alt="" draggable={false}
-                      style={{ position: "absolute", top: 0, left: 0, width: `${PICTO_BUTTON_SIZE.width}px`, height: `${PICTO_BUTTON_SIZE.height}px`, display: "block",
-                        opacity: selectedPicto === key ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* フロアボタン（横1列、左から B→1F→2F→3F→4F） */}
-            <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
-              {FLOOR_BUTTONS.map(floor => {
-                const isCurrent = currentFloor === floor;
-                const button = assets.floorButtons[floor];
-                return (
-                  <div
-                    key={floor}
-                    style={{ position: "relative", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: isCurrent ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
-                    onClick={() => handleFloorSelect(floor)}
-                  >
-                    {button.default ? (
-                      <img src={button.default} alt={floor} draggable={false}
-                        style={{ width: `${FLOOR_BUTTON_SIZE.width}px`, height: `${FLOOR_BUTTON_SIZE.height}px`, display: "block" }} />
-                    ) : (
-                      <AssetPlaceholder label={FLOOR_BUTTON_FALLBACK_LABEL[floor]} width={FLOOR_BUTTON_SIZE.width} height={FLOOR_BUTTON_SIZE.height} fontSize={64} />
-                    )}
-                    {button.highlight && (
-                      <img src={button.highlight} alt="" draggable={false}
-                        style={{ position: "absolute", top: 0, left: 0, width: `${FLOOR_BUTTON_SIZE.width}px`, height: `${FLOOR_BUTTON_SIZE.height}px`, display: "block",
-                          opacity: isCurrent ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
-                    )}
-                    {currentFloorSetting === floor && assets.currentFloorIcon && (
-                      <img src={assets.currentFloorIcon} alt="Current Floor" draggable={false}
-                        style={{ position: "absolute", top: "-55px", left: "50%", transform: "translateX(-50%)", zIndex: 5, pointerEvents: "none", width: "320px", height: "auto" }} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
           </div>
 
           {/* インナーシャドウオーバーレイ */}
@@ -1132,6 +1065,60 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
             }}
           />
         </div>
+
+          {/* ピクトボタン（マップエリアの100px下、横1列8個を両端揃え、並びは src/config/halongPictos.ts の定義順） */}
+          <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", width: `${MAIN_WIDTH}px`, marginTop: `${BUTTON_ROW_GAP}px`, flexShrink: 0 }}>
+            {HALONG_PICTO_KEYS.map(key => (
+              <div
+                key={key}
+                style={{ position: "relative", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: selectedPicto === key ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
+                onClick={() => handlePictoSelect(key)}
+              >
+                {assets.pictos[key].default ? (
+                  <img src={assets.pictos[key].default} alt={key} draggable={false}
+                    style={{ width: `${PICTO_BUTTON_SIZE.width}px`, height: `${PICTO_BUTTON_SIZE.height}px`, display: "block" }} />
+                ) : (
+                  <AssetPlaceholder label={key} width={PICTO_BUTTON_SIZE.width} height={PICTO_BUTTON_SIZE.height} fontSize={22} />
+                )}
+                {assets.pictos[key].highlight && (
+                  <img src={assets.pictos[key].highlight} alt="" draggable={false}
+                    style={{ position: "absolute", top: 0, left: 0, width: `${PICTO_BUTTON_SIZE.width}px`, height: `${PICTO_BUTTON_SIZE.height}px`, display: "block",
+                      opacity: selectedPicto === key ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* フロアボタン（ピクト列の100px下、横1列を両端揃え、左から B→1F→2F→3F→4F） */}
+          <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", width: `${MAIN_WIDTH}px`, marginTop: `${BUTTON_ROW_GAP}px`, flexShrink: 0 }}>
+            {FLOOR_BUTTONS.map(floor => {
+              const isCurrent = currentFloor === floor;
+              const button = assets.floorButtons[floor];
+              return (
+                <div
+                  key={floor}
+                  style={{ position: "relative", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: isCurrent ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
+                  onClick={() => handleFloorSelect(floor)}
+                >
+                  {button.default ? (
+                    <img src={button.default} alt={floor} draggable={false}
+                      style={{ width: `${FLOOR_BUTTON_SIZE.width}px`, height: `${FLOOR_BUTTON_SIZE.height}px`, display: "block" }} />
+                  ) : (
+                    <AssetPlaceholder label={FLOOR_BUTTON_FALLBACK_LABEL[floor]} width={FLOOR_BUTTON_SIZE.width} height={FLOOR_BUTTON_SIZE.height} fontSize={64} />
+                  )}
+                  {button.highlight && (
+                    <img src={button.highlight} alt="" draggable={false}
+                      style={{ position: "absolute", top: 0, left: 0, width: `${FLOOR_BUTTON_SIZE.width}px`, height: `${FLOOR_BUTTON_SIZE.height}px`, display: "block",
+                        opacity: isCurrent ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+                  )}
+                  {currentFloorSetting === floor && assets.currentFloorIcon && (
+                    <img src={assets.currentFloorIcon} alt="Current Floor" draggable={false}
+                      style={{ position: "absolute", top: "-55px", left: "50%", transform: "translateX(-50%)", zIndex: 5, pointerEvents: "none", width: "320px", height: "auto" }} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
       </div>
 
       {/* インフォコンテナ（グレー背景 1576×2160）: 左列=ショップリスト＋ジャンル、右列=CMS＋営業時間＋言語 */}
