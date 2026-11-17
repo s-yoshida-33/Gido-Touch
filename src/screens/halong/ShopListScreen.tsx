@@ -1,7 +1,7 @@
 // src/screens/halong/ShopListScreen.tsx
 // Screen size: 3840×2160 (16:9 landscape)
 
-import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { TransformWrapper, TransformComponent, type ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch';
 import { useHalongAssets } from '../../hooks/useHalongAssets';
@@ -131,6 +131,112 @@ const listVariants: Variants = {
   center: { zIndex: 1, opacity: 1 },
   exit: { opacity: 0 },
 };
+
+// ショップカード（グリッド・リスト）。リストに関係ない操作（ピクト選択・詳細パネル開閉・マップ操作等）で
+// 全カードを再描画しないよう memo 化する。影は filter: drop-shadow より軽い box-shadow を使う（矩形のため見た目は同等）
+interface HalongShopCardProps {
+  shop: HalongShop;
+  layout: 'list' | 'grid';
+  lang: HalongLang;
+  fontFamily: string;
+  floorLabelWidth: number;
+  onSelect: (shop: HalongShop) => void;
+}
+
+const HalongShopCard = memo(function HalongShopCard({ shop, layout, lang, fontFamily, floorLabelWidth, onSelect }: HalongShopCardProps) {
+  return layout === 'grid' ? (
+    /* グリッドアイテム */
+    <div
+      onClick={() => onSelect(shop)}
+      style={{
+        width: "290px",
+        height: "405px",
+        borderRadius: "10px",
+        backgroundColor: "#ffffff",
+        flexShrink: 0,
+        boxShadow: "0px 3px 6px rgba(0, 0, 0, 0.4)",
+        position: "relative",
+        cursor: "pointer",
+        touchAction: "pan-y",
+        overflow: "hidden",
+      }}
+    >
+      {/* ロゴ 290×290 */}
+      <div style={{ position: "absolute", left: 0, top: 0, width: "290px", height: "290px", overflow: "hidden", borderRadius: "10px 10px 0 0" }}>
+        {shop.logoDataUrl && (
+          <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
+            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+        )}
+      </div>
+
+      {/* フロアラベル（カード中央に固定幅、色はジャンル別。収まらない場合は横方向に縮小） */}
+      <div style={{ position: "absolute", left: `${(GRID_CARD_WIDTH - GRID_FLOOR_LABEL_WIDTH) / 2}px`, top: "310px", width: `${GRID_FLOOR_LABEL_WIDTH}px`, height: "30px", backgroundColor: getFloorLabelColor(shop.genre),
+        display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <ScalableText text={getFloorDisplay(shop, lang)} align="center"
+          style={{ width: `${GRID_FLOOR_LABEL_WIDTH - GRID_LABEL_PADDING_X * 2}px`, fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }} />
+      </div>
+
+      {/* ショップ名（1行。はみ出す場合は省略記号） */}
+      <div style={{
+        position: "absolute", left: "10px", top: "356px",
+        fontSize: "24px", fontWeight: "bold", color: "#000000",
+        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        maxWidth: "270px",
+      }}>
+        {getDisplayName(shop, lang)}
+      </div>
+    </div>
+  ) : (
+    /* リストアイテム */
+    <div
+      onClick={() => onSelect(shop)}
+      style={{
+        width: "600px",
+        height: "120px",
+        borderRadius: "10px",
+        backgroundColor: "#ffffff",
+        flexShrink: 0,
+        boxShadow: "0px 3px 6px rgba(0, 0, 0, 0.4)",
+        position: "relative",
+        cursor: "pointer",
+        touchAction: "pan-y",
+      }}
+    >
+      {/* ロゴエリア 120×120 */}
+      <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden", borderRadius: "10px 0 0 10px" }}>
+        {shop.logoDataUrl && (
+          <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
+            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+        )}
+      </div>
+
+      {/* フロアラベル（幅は言語ごとの最大テキスト幅に動的変更、色はジャンル別、左寄せ） */}
+      <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: getFloorLabelColor(shop.genre),
+        display: "flex", alignItems: "center", justifyContent: "flex-start", paddingLeft: `${LIST_LABEL_PADDING_X}px`, boxSizing: "border-box" }}>
+        <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily, whiteSpace: "nowrap" }}>{getFloorDisplay(shop, lang)}</span>
+      </div>
+
+      {/* ショップ名（1行。はみ出す場合は省略記号） */}
+      <div
+        style={{
+          position: "absolute",
+          left: "140px",
+          top: "50%",
+          transform: "translateY(-50%)",
+          fontSize: "24px",
+          fontWeight: "bold",
+          color: "#000000",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          maxWidth: "440px",
+        }}
+      >
+        {getDisplayName(shop, lang)}
+      </div>
+    </div>
+  );
+});
 
 interface HalongShopListScreenProps {
   locationIconSettings?: LocationIconSettingsPerFloor;
@@ -728,6 +834,12 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     setSelectedShopDetail(shop);
   }
 
+  // selectShop は state を参照するため毎回作り直される。ショップカードの memo を効かせるため、
+  // 常に最新の selectShop を呼ぶ固定の関数をカードに渡す
+  const selectShopRef = useRef(selectShop);
+  useLayoutEffect(() => { selectShopRef.current = selectShop; });
+  const handleSelectShop = useCallback((shop: HalongShop) => selectShopRef.current(shop), []);
+
   // マップタップでのショップ選択（Gido-Touch-Mini と同方式）:
   // タップ位置から半径 MAP_TAP_HIT_RADIUS(%) 以内で、ショップ位置設定の座標が最も近い現在フロアのショップを選択する
   function handleMapPointerDown(e: React.PointerEvent) {
@@ -1156,99 +1268,9 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   alignContent: "flex-start",
                 }}
               >
-                {filteredShops.map(shop => shopListLayout === 'grid' ? (
-                  /* グリッドアイテム */
-                  <div
-                    key={shop.id}
-                    onClick={() => selectShop(shop)}
-                    style={{
-                      width: "290px",
-                      height: "405px",
-                      borderRadius: "10px",
-                      backgroundColor: "#ffffff",
-                      flexShrink: 0,
-                      filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
-                      position: "relative",
-                      cursor: "pointer",
-                      touchAction: "pan-y",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {/* ロゴ 290×290 */}
-                    <div style={{ position: "absolute", left: 0, top: 0, width: "290px", height: "290px", overflow: "hidden", borderRadius: "10px 10px 0 0" }}>
-                      {shop.logoDataUrl && (
-                        <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
-                          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-                      )}
-                    </div>
-
-                    {/* フロアラベル（カード中央に固定幅、色はジャンル別。収まらない場合は横方向に縮小） */}
-                    <div style={{ position: "absolute", left: `${(GRID_CARD_WIDTH - GRID_FLOOR_LABEL_WIDTH) / 2}px`, top: "310px", width: `${GRID_FLOOR_LABEL_WIDTH}px`, height: "30px", backgroundColor: getFloorLabelColor(shop.genre),
-                      display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <ScalableText text={getFloorDisplay(shop, selectedLang)} align="center"
-                        style={{ width: `${GRID_FLOOR_LABEL_WIDTH - GRID_LABEL_PADDING_X * 2}px`, fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily }} />
-                    </div>
-
-                    {/* ショップ名（1行。はみ出す場合は省略記号） */}
-                    <div style={{
-                      position: "absolute", left: "10px", top: "356px",
-                      fontSize: "24px", fontWeight: "bold", color: "#000000",
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                      maxWidth: "270px",
-                    }}>
-                      {getDisplayName(shop, selectedLang)}
-                    </div>
-                  </div>
-                ) : (
-                  /* リストアイテム */
-                  <div
-                    key={shop.id}
-                    onClick={() => selectShop(shop)}
-                    style={{
-                      width: "600px",
-                      height: "120px",
-                      borderRadius: "10px",
-                      backgroundColor: "#ffffff",
-                      flexShrink: 0,
-                      filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.4))",
-                      position: "relative",
-                      cursor: "pointer",
-                      touchAction: "pan-y",
-                    }}
-                  >
-                    {/* ロゴエリア 120×120 */}
-                    <div style={{ position: "absolute", left: 0, top: 0, width: "120px", height: "120px", overflow: "hidden", borderRadius: "10px 0 0 10px" }}>
-                      {shop.logoDataUrl && (
-                        <img src={shop.logoDataUrl} alt={shop.name} draggable={false}
-                          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-                      )}
-                    </div>
-
-                    {/* フロアラベル（幅は言語ごとの最大テキスト幅に動的変更、色はジャンル別、左寄せ） */}
-                    <div style={{ position: "absolute", left: "120px", top: 0, width: `${floorLabelWidth}px`, height: "30px", backgroundColor: getFloorLabelColor(shop.genre),
-                      display: "flex", alignItems: "center", justifyContent: "flex-start", paddingLeft: `${LIST_LABEL_PADDING_X}px`, boxSizing: "border-box" }}>
-                      <span style={{ fontSize: "20px", fontWeight: "bold", color: "#ffffff", fontFamily, whiteSpace: "nowrap" }}>{getFloorDisplay(shop, selectedLang)}</span>
-                    </div>
-
-                    {/* ショップ名（1行。はみ出す場合は省略記号） */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: "140px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        fontSize: "24px",
-                        fontWeight: "bold",
-                        color: "#000000",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        maxWidth: "440px",
-                      }}
-                    >
-                      {getDisplayName(shop, selectedLang)}
-                    </div>
-                  </div>
+                {filteredShops.map(shop => (
+                  <HalongShopCard key={shop.id} shop={shop} layout={shopListLayout} lang={selectedLang}
+                    fontFamily={fontFamily} floorLabelWidth={floorLabelWidth} onSelect={handleSelectShop} />
                 ))}
             </motion.div>
           </AnimatePresence>
