@@ -1034,15 +1034,15 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               </TransformWrapper>
             </div>
 
-            {/* ヒント（高さ70・横幅は言語ごとの文字数に応じて画像の比率どおり、x:569 / y:188） */}
+            {/* ヒント（高さ70・横幅は言語ごとの文字数に応じて画像の比率どおり、マップエリアの左から90px・下から50px） */}
             <img
               src={assets.hint}
               alt=""
               draggable={false}
               style={{
                 position: "absolute",
-                left: "569px",
-                top: "188px",
+                left: "90px",
+                bottom: "50px",
                 width: "auto",
                 height: "70px",
                 display: "block",
