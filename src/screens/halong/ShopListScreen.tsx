@@ -122,6 +122,9 @@ function getFloorLabelColor(genre: string): string {
   return FLOOR_LABEL_COLOR[genre] ?? '#888888';
 }
 
+// 選択中ハイライトの切替時間（押した反応を早く見せるため短めにする）
+const HIGHLIGHT_TRANSITION_S = 0.1;
+
 // ショップリストの切替アニメーション（フロア切替・ジャンル切替共通のクロスフェード）
 const listVariants: Variants = {
   enter: { opacity: 0 },
@@ -1047,7 +1050,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
             {HALONG_PICTO_KEYS.map(key => (
               <div
                 key={key}
-                style={{ position: "relative", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: selectedPicto === key ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
+                style={{ position: "relative", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: selectedPicto === key ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: `filter ${HIGHLIGHT_TRANSITION_S}s ease-in-out` }}
                 onClick={() => handlePictoSelect(key)}
               >
                 {assets.pictos[key].default ? (
@@ -1059,7 +1062,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 {assets.pictos[key].highlight && (
                   <img src={assets.pictos[key].highlight} alt="" draggable={false}
                     style={{ position: "absolute", top: 0, left: 0, width: `${PICTO_BUTTON_SIZE.width}px`, height: `${PICTO_BUTTON_SIZE.height}px`, display: "block",
-                      opacity: selectedPicto === key ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+                      opacity: selectedPicto === key ? 1 : 0, transition: `opacity ${HIGHLIGHT_TRANSITION_S}s ease-in-out`, pointerEvents: "none" }} />
                 )}
               </div>
             ))}
@@ -1073,7 +1076,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
               return (
                 <div
                   key={floor}
-                  style={{ position: "relative", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: isCurrent ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
+                  style={{ position: "relative", cursor: "pointer", touchAction: "none", flexShrink: 0, filter: isCurrent ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: `filter ${HIGHLIGHT_TRANSITION_S}s ease-in-out` }}
                   onClick={() => handleFloorSelect(floor)}
                 >
                   {button.default ? (
@@ -1085,7 +1088,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                   {button.highlight && (
                     <img src={button.highlight} alt="" draggable={false}
                       style={{ position: "absolute", top: 0, left: 0, width: `${FLOOR_BUTTON_SIZE.width}px`, height: `${FLOOR_BUTTON_SIZE.height}px`, display: "block",
-                        opacity: isCurrent ? 1 : 0, transition: "opacity 0.3s ease-in-out", pointerEvents: "none" }} />
+                        opacity: isCurrent ? 1 : 0, transition: `opacity ${HIGHLIGHT_TRANSITION_S}s ease-in-out`, pointerEvents: "none" }} />
                   )}
                   {currentFloorSetting === floor && assets.currentFloorIcon && (
                     <img src={assets.currentFloorIcon} alt="Current Floor" draggable={false}
@@ -1258,7 +1261,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.15 }}
                 style={{ position: "absolute", inset: 0, zIndex: 2 }}
               >
                 <ShopDetailPanel
@@ -1339,7 +1342,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       height: "120px",
                       display: "block",
                       opacity: selectedGenre === genre ? 1 : 0,
-                      transition: "opacity 0.3s ease-in-out",
+                      transition: `opacity ${HIGHLIGHT_TRANSITION_S}s ease-in-out`,
                       pointerEvents: "none",
                       filter: "drop-shadow(0px 0px 6px rgba(0, 0, 0, 0.4))",
                     }}
@@ -1494,7 +1497,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                 {LANGS.map(lang => (
                   <div
                     key={lang}
-                    style={{ position: "relative", cursor: "pointer", touchAction: "none", width: "560px", flexShrink: 0, filter: selectedLang === lang ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: "filter 0.3s ease-in-out" }}
+                    style={{ position: "relative", cursor: "pointer", touchAction: "none", width: "560px", flexShrink: 0, filter: selectedLang === lang ? "none" : "drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.4))", transition: `filter ${HIGHLIGHT_TRANSITION_S}s ease-in-out` }}
                     onClick={() => { setSelectedLang(lang); setLangPopupOpen(false); }}
                   >
                     <img src={assets.langButtons.select[lang]} alt={lang} draggable={false}
@@ -1503,7 +1506,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
                       style={{
                         position: "absolute", top: 0, left: 0, width: "560px", height: "66px", display: "block",
                         opacity: selectedLang === lang ? 1 : 0,
-                        transition: "opacity 0.3s ease-in-out",
+                        transition: `opacity ${HIGHLIGHT_TRANSITION_S}s ease-in-out`,
                         pointerEvents: "none",
                       }} />
                   </div>
