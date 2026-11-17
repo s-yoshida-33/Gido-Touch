@@ -204,7 +204,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   const floorLayerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const isInitialFloorRenderRef = useRef(true);
   const prevFloorRef = useRef<string | null>(null);
-  const prevMapStateRef = useRef<{ floor: string; positionX: number; positionY: number; scale: number } | null>(null);
 
   const ALL_FLOORS = FLOOR_BUTTONS;
 
@@ -614,7 +613,7 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     };
   }, [isRefreshing, selectedLang, langPopupOpen, selectedGenre, selectedPicto, selectedShopId, selectedShopDetail, currentFloor, showHint, showFloorLabel]);
 
-  // ショップ選択中にフロア・ジャンル・ピクトを切り替えた際、選択を解除してマップを初期表示に戻す
+  // ショップ選択中にフロア・ジャンル・ピクトを切り替えた際・詳細パネルを閉じた際に、選択を解除してマップを初期表示に戻す
   function clearShopDetailForNavigation() {
     resetMapTransform(MAP_RESET_ANIM_MS);
     smoothMapResetUntilRef.current = Date.now() + MAP_RESET_ANIM_MS;
@@ -622,7 +621,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     setSelectedShopId(null);
     setVisibleShopId(null);
     setSelectedShopLogoUrl(null);
-    prevMapStateRef.current = null;
   }
 
   function handleFloorSelect(floor: string) {
@@ -685,15 +683,6 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
   }
 
   function handleShopTap(shopId: string, floorKey: string, logoDataUrl: string | null) {
-    // タップ前のマップ状態を保存（詳細パネルを閉じる際に復元）
-    const ts = transformComponentRef.current?.instance?.transformState;
-    prevMapStateRef.current = {
-      floor: currentFloor,
-      positionX: ts?.positionX ?? 0,
-      positionY: ts?.positionY ?? 0,
-      scale: ts?.scale ?? 1,
-    };
-
     // Cancel any pending pin visibility timer
     if (pinVisibilityTimerRef.current !== null) {
       clearTimeout(pinVisibilityTimerRef.current);
@@ -782,24 +771,11 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
     }
   }
 
-  // 詳細パネルを閉じてマップをタップ前の状態に戻す（フロアは現在のまま維持）
+  // 詳細パネルを閉じてマップを初期表示（等倍・中央）に戻す（フロアは現在のまま維持）
+  // タップ前の状態に戻す方式だと、詳細を開いたまま別のショップを選んだ際に拡大状態が保存され、
+  // 閉じても縮小されないため、常に初期表示に戻す
   function handleCloseDetail() {
-    setSelectedShopDetail(null);
-    setSelectedShopId(null);
-    setVisibleShopId(null);
-    setSelectedShopLogoUrl(null);
-
-    const prev = prevMapStateRef.current;
-    prevMapStateRef.current = null;
-    if (!prev) return;
-
-    if (prev.floor === currentFloor) {
-      // フロアが変わっていない → タップ前の zoom/pan に戻す
-      transformComponentRef.current?.setTransform(prev.positionX, prev.positionY, prev.scale, 500, 'easeOut');
-    } else {
-      // フロアが変わっている → 現在のフロアのままデフォルト位置にリセット
-      transformComponentRef.current?.setTransform(0, 0, 1, 500, 'easeOut');
-    }
+    clearShopDetailForNavigation();
   }
 
   // Map focus: fires when selectedShopId/currentFloor changes
