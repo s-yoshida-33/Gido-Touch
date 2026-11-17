@@ -20,8 +20,11 @@ function isTouchOnInteractiveElement(target: EventTarget | null): boolean {
 
   if (target.closest(INTERACTIVE_SELECTOR)) return true;
 
+  // タッチ時はカーソル自動非表示（autoHideCursor）が全要素の cursor を none !important にするため、
+  // 計算済みスタイルでは判定できない。インラインスタイルの指定も見る
   let el: Element | null = target;
   while (el && el.tagName !== 'BODY') {
+    if ((el as HTMLElement).style?.cursor === 'pointer') return true;
     if (window.getComputedStyle(el).cursor === 'pointer') return true;
     el = el.parentElement;
   }
