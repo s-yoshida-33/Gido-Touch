@@ -1483,6 +1483,14 @@ export default function HalongShopListScreen({ locationIconSettings: locationIco
             width: `${INFO_COLUMN_WIDTH}px`,
           }}
         >
+          {/* 吹き出しの外側のタッチで閉じるための透明な背景（開いている間のみ）。下の要素の操作は行わない */}
+          {langPopupOpen && (
+            <div
+              style={{ position: "fixed", inset: 0, zIndex: 99, touchAction: "none" }}
+              onClick={() => setLangPopupOpen(false)}
+            />
+          )}
+
           {/* ポップアップ（言語選択、ボタン中央の上に表示） */}
           {langPopupOpen && (
             <motion.div
