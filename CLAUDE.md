@@ -39,6 +39,7 @@ npm run tauri:build:signed     # 署名付きビルド（build/runner.js経由�
 npm run tauri:release          # 署名付きビルド + GitHub Release管理
 npm run bump:version
 npm run optimize:media / npm run media:compress / npm run data:compress
+npm run optimize:maps          # medias/{MallId}/maps のSVGの埋め込み画像を縮小（media:compress の前に実行。元データは maps-backup/ に退避）
 ```
 
 ## Known gotchas

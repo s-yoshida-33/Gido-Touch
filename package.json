@@ -1,12 +1,12 @@
 {
   "name": "gido-touch",
   "private": true,
-  "version": "1.1.43",
+  "version": "1.1.44",
   "type": "module",
   "description": "Floor guide display system",
   "author": "Toei Techno International Inc.",
   "license": "UNLICENSED",
-  "copyright": "\u00a9 2026 Toei Techno International Inc.",
+  "copyright": "00a9 2026 Toei Techno International Inc.",
   "repository": {
     "type": "git",
     "url": "https://github.com/s-yoshida-33/Gido-Touch.git"
@@ -27,6 +27,7 @@
     "tauri:build:signed": "node ./build/runner.js sign-and-build.ps1",
     "tauri:release": "npm run tauri:build:signed && node ./build/runner.js manage-release.ps1",
     "optimize:media": "node ./build/runner.js optimize-media.ps1",
+    "optimize:maps": "node ./build/runner.js optimize-maps.ps1",
     "media:compress": "node ./build/runner.js compress-media.ps1",
     "data:compress": "node ./build/runner.js compress-data.ps1",
     "icon:gen": "magick -background none -density 1024 src/assets/icon.svg -define icon:auto-resize=256,128,64,48,32,16 -write src/assets/icon.ico build/icon.ico",
@@ -38,7 +39,7 @@
     "@tauri-apps/plugin-http": "^2.6.0",
     "@tauri-apps/plugin-process": "^2.0.0",
     "@tauri-apps/plugin-updater": "^2.11.0",
-    "framer-motion": "^12.23.24",
+    "framer-motion": "^12.43.0",
     "html2canvas": "^1.4.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

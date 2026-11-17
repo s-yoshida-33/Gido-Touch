@@ -30,7 +30,7 @@ import { loadGlobalSettings, saveGlobalSettings, cleanupOldHostnameMaps, loadMal
 import type { MallSettingsFile, GlobalSettings } from '../utils/settings';
 import { invoke } from '@tauri-apps/api/core';
 import { PictoSettingsTab } from '../components/PictoSettingsTab';
-import type { PictoSettings } from '../types/picto';
+import type { PictoSettings, PictoFloorId } from '../types/picto';
 import { DEFAULT_PICTO_SETTINGS } from '../types/picto';
 import type { HalongBannerSettings } from '../types/bannerSettings';
 import { DEFAULT_HALONG_BANNER_SETTINGS } from '../types/bannerSettings';
@@ -81,6 +81,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
   // Local state for editing (preserved when switching tabs)
   const [floor, setFloor] = useState<FloorId>(initialFloor);
+  // ピクト設定タブ専用のフロア（B を含むため他タブの floor とは分ける）
+  const [pictoFloor, setPictoFloor] = useState<PictoFloorId>(initialFloor);
   const [floorLayout, setFloorLayout] = useState<FloorLayout>(initialFloorLayout);
   const [locationIconSettings, setLocationIconSettings] =
     useState<LocationIconSettingsPerFloor>(initialLocationIconSettings || DEFAULT_LOCATION_ICON_SETTINGS_PER_FLOOR);
@@ -459,6 +461,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
       } catch {}
 
       setFloor(initialFloor);
+      setPictoFloor(initialFloor);
       setActiveTab("image");
       setErrors({});
       mallEditingCache.current.clear();
@@ -512,6 +515,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
 
     // Revert to initial values (from props = saved state of initial mall)
     setFloor(initialFloor);
+    setPictoFloor(initialFloor);
     setFloorLayout(initialFloorLayout);
     setLocationIconSettings(initialLocationIconSettings);
     setImageSettings(initialImageSettings);
@@ -956,7 +960,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 const padding = Math.round(50 * sc);
                 const opW = Math.round(655 * sc);
                 const infoW = Math.round(700 * sc);
-                const mapSrc = halongMaps[floor as keyof typeof halongMaps] ?? halongMaps['1F'];
+                const mapSrc = halongMaps[pictoFloor] ?? halongMaps['1F'];
                 // Map container is 2385*sc × 1795*sc. The map is shown with objectFit:contain (same as the
                 // halong screen), so pins are positioned inside a box fitted to the image's aspect ratio.
                 const mapAreaW = 2385 * sc;
@@ -980,7 +984,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                         <div style={{ position: 'relative', width: mapBoxW, height: mapBoxH, flexShrink: 0 }}>
                           <img
                             src={mapSrc}
-                            alt={floor}
+                            alt={pictoFloor}
                             onLoad={(e) => {
                               const img = e.currentTarget;
                               if (img.naturalWidth > 0 && img.naturalHeight > 0) setHalongPreviewMapAspect(img.naturalWidth / img.naturalHeight);
@@ -989,7 +993,7 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                           />
                           <AnimatePresence>
                             {Object.values(pictoSettings.instances)
-                              .filter(inst => inst.floor === floor && !hiddenPictoIds.has(inst.id))
+                              .filter(inst => inst.floor === pictoFloor && !hiddenPictoIds.has(inst.id))
                               .map(inst => {
                                 const x = inst.x <= 1 ? inst.x * 100 : inst.x;
                                 const y = inst.y <= 1 ? inst.y * 100 : inst.y;
@@ -1228,8 +1232,8 @@ const UnifiedSettingsScreen: React.FC<UnifiedSettingsScreenProps> = ({
                 </div>
               </div>
               <PictoSettingsTab
-                floor={floor as import('../types/floorLayout').FloorId}
-                onChangeFloor={(f) => setFloor(f as import('../types/floorLayout').FloorId)}
+                floor={pictoFloor}
+                onChangeFloor={setPictoFloor}
                 pictoSettings={pictoSettings}
                 onSavePictoSettings={setPictoSettings}
                 selectedInstanceId={selectedPictoId}

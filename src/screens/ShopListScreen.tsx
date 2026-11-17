@@ -469,8 +469,8 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
   // Force reload trigger state
   const [refreshTrigger] = useState(0);
 
-  // Idle timeout state (30 seconds for testing)
-  const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds
+  // Idle timeout state (3 minutes)
+  const IDLE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
   const lastActivityTimeRef = useRef<number>(Date.now());
 
   // Language select modal state
@@ -568,7 +568,7 @@ const ShopListScreen: React.FC<ShopListScreenProps> = ({
     setSelectedLanguage("ja");
   }, [setSelectedLanguage]); // Run only on mount - setSelectedLanguage is stable
 
-  // Idle timeout: Refresh to default shop list after 30 seconds of inactivity
+  // Idle timeout: Refresh to default shop list after 3 minutes of inactivity
   // Always active - any touch/activity resets the timer
   useEffect(() => {
     // Always reset activity time on mount

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
-import type { FloorId } from "../types/floorLayout";
-import type { PictoSettings, PictoInstance, PictoTag } from "../types/picto";
+import { PICTO_FLOORS } from "../types/picto";
+import type { PictoSettings, PictoInstance, PictoTag, PictoFloorId } from "../types/picto";
 import type { AnimationConfig, AnimationType, ShadowConfig } from "../types/locationIcon";
 import { HALONG_PICTO_KEYS, HALONG_PICTO_LABELS, pictoTagFromKey } from "../config/halongPictos";
 
@@ -36,8 +36,8 @@ const ConfigGroup: React.FC<{ title: string; children: React.ReactNode }> = ({ t
 );
 
 export interface PictoSettingsTabProps {
-  floor: FloorId;
-  onChangeFloor: (floor: FloorId) => void;
+  floor: PictoFloorId;
+  onChangeFloor: (floor: PictoFloorId) => void;
   pictoSettings: PictoSettings;
   onSavePictoSettings: (settings: PictoSettings) => void;
   selectedInstanceId?: string | null;
@@ -190,10 +190,10 @@ export const PictoSettingsTab: React.FC<PictoSettingsTabProps> = ({
             <label style={{ display: "block", color: "rgba(255,255,255,0.8)", fontSize: 13, marginBottom: 8, fontWeight: 500 }}>フロア選択</label>
             <select
               value={floor}
-              onChange={(e) => { onChangeFloor(e.target.value as FloorId); setSelectedInstanceId(null); }}
+              onChange={(e) => { onChangeFloor(e.target.value as PictoFloorId); setSelectedInstanceId(null); }}
               style={{ width: "100%", padding: "8px 12px", ...inputStyle }}
             >
-              {["1F", "2F", "3F", "4F"].map((f) => (
+              {PICTO_FLOORS.map((f) => (
                 <option key={f} value={f} style={{ backgroundColor: "#2C2C2C" }}>{f}</option>
               ))}
             </select>
